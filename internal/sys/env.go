@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
+	"time"
 )
 
 // Runner runs a command in dir and returns its stdout, stderr and exit code.
@@ -15,16 +17,21 @@ import (
 // exit code is not an error.
 type Runner func(ctx context.Context, dir, name string, args ...string) (stdout, stderr string, exitCode int, err error)
 
+// Streamer runs name in dir writing stdout and stderr, interleaved, to out.
+// Same exit-code contract as Runner. A cancelled ctx kills the process.
+type Streamer func(ctx context.Context, dir string, out io.Writer, name string, args ...string) (exitCode int, err error)
+
 // Env bundles the system capabilities Tija depends on.
 type Env struct {
 	Run      Runner
+	Stream   Streamer
 	LookPath func(string) (string, error)
 	Getenv   func(string) string
 }
 
 // Default returns an Env backed by os/exec and the os package.
 func Default() Env {
-	return Env{Run: execRun, LookPath: exec.LookPath, Getenv: os.Getenv}
+	return Env{Run: execRun, Stream: execStream, LookPath: exec.LookPath, Getenv: os.Getenv}
 }
 
 func execRun(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
@@ -42,4 +49,21 @@ func execRun(ctx context.Context, dir, name string, args ...string) (string, str
 		return out.String(), errOut.String(), exitErr.ExitCode(), nil
 	}
 	return out.String(), errOut.String(), -1, err
+}
+
+func execStream(ctx context.Context, dir string, out io.Writer, name string, args ...string) (int, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
+	cmd.Stdout = out
+	cmd.Stderr = out
+	cmd.WaitDelay = 2 * time.Second
+	err := cmd.Run()
+	if err == nil {
+		return 0, nil
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode(), nil
+	}
+	return -1, err
 }
