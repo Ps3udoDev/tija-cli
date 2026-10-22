@@ -10,6 +10,7 @@ import (
 
 var (
 	slnProjectRe    = regexp.MustCompile(`Project\("\{[^}]+\}"\)\s*=\s*"[^"]*",\s*"([^"]+\.csproj)"`)
+	slnxProjectRe   = regexp.MustCompile(`<Project\s+[^>]*Path\s*=\s*"([^"]+\.csproj)"`)
 	packageRefRe    = regexp.MustCompile(`(?i)<PackageReference\s+[^>]*Include\s*=\s*"([^"]+)"`)
 	targetFrameRe   = regexp.MustCompile(`<TargetFrameworks?>\s*([^<]+?)\s*</TargetFrameworks?>`)
 	netVersionRe    = regexp.MustCompile(`(?i)\bnet(\d+)\.\d+`)
@@ -19,6 +20,8 @@ var (
 // testFrameworks maps a lowercase PackageReference to a framework name.
 var testFrameworks = map[string]string{
 	"xunit":                "xunit",
+	"xunit.v3":             "xunit",
+	"mstest":               "mstest",
 	"nunit":                "nunit",
 	"mstest.testframework": "mstest",
 }
@@ -33,12 +36,18 @@ func (d *Detection) detectDotnet() {
 	d.applySolution()
 }
 
-// applySolution recomputes Projects, Framework, Tools and tests for d.Solution.
+// applySolution recomputes Projects, Framework, Tools and tests for
+// d.Solution, or for the root-level projects when the root has no solution.
 func (d *Detection) applySolution() {
 	d.Projects, d.Framework, d.TestFramework, d.TestCount = nil, "", "", 0
 	tools := []string{"dotnet-format"}
-	if d.Solution != "" {
+	switch {
+	case d.Solution != "":
 		d.Projects = parseSolution(filepath.Join(d.Root, d.Solution))
+	case len(d.Solutions) == 0:
+		d.Projects = globRel(d.Root, "*.csproj")
+	}
+	if len(d.Projects) > 0 {
 		var testDirs []string
 		var found []string
 		for _, p := range d.Projects {
@@ -79,15 +88,19 @@ func (d *Detection) applySolution() {
 	d.Tools = sortedUnique(tools)
 }
 
-// parseSolution returns the csproj paths referenced by a .sln, sorted, with '/'.
-// It accepts both CRLF and LF line endings.
+// parseSolution returns the csproj paths referenced by a .sln or an XML
+// .slnx, sorted, with '/'. It accepts both CRLF and LF line endings.
 func parseSolution(path string) []string {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
 	var out []string
-	for _, m := range slnProjectRe.FindAllStringSubmatch(string(b), -1) {
+	re := slnProjectRe
+	if strings.EqualFold(filepath.Ext(path), ".slnx") {
+		re = slnxProjectRe
+	}
+	for _, m := range re.FindAllStringSubmatch(string(b), -1) {
 		out = append(out, strings.ReplaceAll(m[1], `\`, "/"))
 	}
 	slices.Sort(out)

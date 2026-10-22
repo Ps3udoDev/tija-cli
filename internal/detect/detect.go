@@ -68,17 +68,19 @@ func Detect(root, remoteURL string) (Detection, error) {
 		d.GitHost = "github"
 	}
 
-	slns, err := filepath.Glob(filepath.Join(abs, "*.sln"))
-	if err != nil {
-		return Detection{}, err
+	for _, pattern := range []string{"*.sln", "*.slnx"} {
+		slns, err := filepath.Glob(filepath.Join(abs, pattern))
+		if err != nil {
+			return Detection{}, err
+		}
+		for _, s := range slns {
+			d.Solutions = append(d.Solutions, filepath.Base(s))
+		}
 	}
-	for _, s := range slns {
-		d.Solutions = append(d.Solutions, filepath.Base(s))
-	}
-	slices.Sort(d.Solutions)
+	d.Solutions = sortedUnique(d.Solutions)
 
 	switch {
-	case len(d.Solutions) > 0:
+	case len(d.Solutions) > 0 || len(globRel(abs, "*.csproj")) > 0:
 		d.detectDotnet()
 	case fileExists(filepath.Join(abs, "package.json")):
 		d.detectNode()

@@ -144,3 +144,51 @@ func TestDetectTypeScriptAndCI(t *testing.T) {
 		t.Errorf("Tools = %v", d.Tools)
 	}
 }
+
+func TestDetectDotnetSlnx(t *testing.T) {
+	d, err := Detect(fixture("dotnet-slnx"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Stack != StackDotnetAPI || d.Solution != "App.slnx" || d.Framework != ".NET 10" {
+		t.Errorf("stack/solution/framework = %q %q %q", d.Stack, d.Solution, d.Framework)
+	}
+	want := []string{"src/App.Api/App.Api.csproj", "tests/App.Tests/App.Tests.csproj"}
+	if !slices.Equal(d.Projects, want) {
+		t.Errorf("Projects = %v", d.Projects)
+	}
+	if d.TestFramework != "xunit" || d.TestCount != 1 {
+		t.Errorf("TestFramework/Count = %q %d", d.TestFramework, d.TestCount)
+	}
+}
+
+func TestDetectDotnetRootCsproj(t *testing.T) {
+	d, err := Detect(fixture("dotnet-csproj"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Stack != StackDotnetAPI || d.Language != "C#" || d.PackageManager != "dotnet" || d.Framework != ".NET 9" {
+		t.Errorf("stack/lang/pm/framework = %q %q %q %q", d.Stack, d.Language, d.PackageManager, d.Framework)
+	}
+	if d.Solution != "" || len(d.Solutions) != 0 {
+		t.Errorf("Solution = %q, Solutions = %v", d.Solution, d.Solutions)
+	}
+	if !slices.Equal(d.Projects, []string{"Api.csproj"}) {
+		t.Errorf("Projects = %v", d.Projects)
+	}
+	if !slices.Contains(d.Tools, "dotnet-format") {
+		t.Errorf("Tools = %v", d.Tools)
+	}
+}
+
+func TestDotnetTestPackages(t *testing.T) {
+	for pkg, want := range map[string]string{
+		"xunit": "xunit", "xunit.v3": "xunit", "NUnit": "nunit",
+		"MSTest.TestFramework": "mstest", "MSTest": "mstest", "Moq": "",
+	} {
+		csproj := `<ItemGroup><PackageReference Include="` + pkg + `" Version="1.0.0" /></ItemGroup>`
+		if got := testFramework(csproj); got != want {
+			t.Errorf("testFramework(%s) = %q, want %q", pkg, got, want)
+		}
+	}
+}

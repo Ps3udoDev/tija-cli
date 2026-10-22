@@ -566,3 +566,18 @@ func TestInitDetachedWritesValidManifest(t *testing.T) {
 		t.Errorf("re-run notes = %v", p2.notes)
 	}
 }
+
+func TestInitDotnetWithoutSolution(t *testing.T) {
+	for _, name := range []string{"dotnet-csproj", "dotnet-slnx"} {
+		repo := testutil.NewRepo(t, fixture(name))
+		p := plan(t, repo)
+		apply(t, p, nil, approveAll(p))
+		m, err := manifest.Load(repo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Project.Type != "dotnet-api" || m.Quality["build"].Provider != "dotnet" {
+			t.Errorf("%s: type = %q, quality = %+v", name, m.Project.Type, m.Quality)
+		}
+	}
+}
