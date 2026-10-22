@@ -134,8 +134,8 @@ func TestDetectTypeScriptAndCI(t *testing.T) {
 	if d.Language != "TypeScript" || d.Framework != "React 18 + Vite 5" || d.PackageManager != "pnpm" {
 		t.Errorf("got %q %q %q", d.Language, d.Framework, d.PackageManager)
 	}
-	if d.TestCount != 1 {
-		t.Errorf("TestCount = %d", d.TestCount)
+	if d.TestFiles != 1 || d.TestCount != 0 {
+		t.Errorf("TestFiles/TestCount = %d %d", d.TestFiles, d.TestCount)
 	}
 	if !slices.Equal(d.CI, []string{".github/workflows/ci.yml", ".github/workflows/deploy.yaml"}) {
 		t.Errorf("CI = %v", d.CI)
@@ -224,8 +224,8 @@ func TestDetectNodeVersionRangesBOMAndSkipDirs(t *testing.T) {
 	if d.Stack != StackReactVite || d.Framework != "React + Vite" {
 		t.Errorf("stack/framework = %q %q", d.Stack, d.Framework)
 	}
-	if d.TestCount != 1 {
-		t.Errorf("TestCount = %d, want 1 (skip .next, coverage, build, out)", d.TestCount)
+	if d.TestFiles != 1 {
+		t.Errorf("TestFiles = %d, want 1 (skip .next, coverage, build, out)", d.TestFiles)
 	}
 }
 

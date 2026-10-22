@@ -162,7 +162,7 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 			rep.Checks = append(rep.Checks, Check{ID: "lockfiles.multiple", Status: StatusWarn,
 				Title: "multiple lockfiles: " + strings.Join(d.Lockfiles, ", "), Hint: "keep a single lockfile"})
 		}
-		if d.TestCount == 0 {
+		if !d.HasTests() {
 			rep.Checks = append(rep.Checks, Check{ID: "tests.none", Status: StatusWarn, Title: "no tests detected"})
 		}
 	}

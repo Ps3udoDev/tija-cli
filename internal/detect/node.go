@@ -90,7 +90,7 @@ func (d *Detection) detectNode() {
 	walkFiles(d.Root, func(p string) {
 		base := filepath.Base(p)
 		if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
-			d.TestCount++
+			d.TestFiles++
 		}
 	})
 }

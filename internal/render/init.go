@@ -81,6 +81,8 @@ func detection(p Printer, d detect.Detection) {
 
 func tests(d detect.Detection) string {
 	switch {
+	case d.TestCount == 0 && d.TestFiles > 0:
+		return fmt.Sprintf("%d %s", d.TestFiles, plural(d.TestFiles, "test file"))
 	case d.TestCount == 0 && d.TestFramework == "":
 		return "none detected"
 	case d.TestCount == 0:

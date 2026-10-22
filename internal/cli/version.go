@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"runtime/debug"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -11,16 +12,16 @@ import (
 var Version = "dev"
 
 // currentVersion is Version, or the module version recorded by
-// `go install ...@vX` when no ldflags were set.
+// `go install ...@vX` when no ldflags were set, without a leading "v".
 func currentVersion() string { return resolveVersion(Version, debug.ReadBuildInfo) }
 
 func resolveVersion(version string, readBuildInfo func() (*debug.BuildInfo, bool)) string {
 	if version != "dev" {
-		return version
+		return strings.TrimPrefix(version, "v")
 	}
 	if info, ok := readBuildInfo(); ok && info != nil {
 		if v := info.Main.Version; v != "" && v != "(devel)" {
-			return v
+			return strings.TrimPrefix(v, "v")
 		}
 	}
 	return version
