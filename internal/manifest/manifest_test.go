@@ -72,7 +72,7 @@ func TestFromDetectionDefaults(t *testing.T) {
 	if len(m.Git.BranchPrefixes) == 0 || m.Agents.Default != "" {
 		t.Errorf("prefixes/default = %v %q", m.Git.BranchPrefixes, m.Agents.Default)
 	}
-	want := map[string]QualityEntry{"format": {"dotnet-format"}, "build": {"dotnet"}, "tests": {"dotnet-test"}}
+	want := map[string]QualityEntry{"format": {Provider: "dotnet-format"}, "build": {Provider: "dotnet"}, "tests": {Provider: "dotnet-test"}}
 	if !reflect.DeepEqual(m.Quality, want) {
 		t.Errorf("Quality = %v", m.Quality)
 	}
@@ -258,5 +258,66 @@ func TestSetString(t *testing.T) {
 	want := "# keep\npullRequest:\n    target: dev\n    template: .github/PULL_REQUEST_TEMPLATE.md\n"
 	if string(out) != want {
 		t.Errorf("got:\n%s\nwant:\n%s", out, want)
+	}
+}
+
+func TestDetectedQualityMatchesFromDetection(t *testing.T) {
+	d := frontendDetection(t)
+	got := DetectedQuality(d)
+	m := FromDetection(d, nil, "main")
+	if !reflect.DeepEqual(got, m.Quality) {
+		t.Fatalf("DetectedQuality = %v, want %v", got, m.Quality)
+	}
+}
+
+func TestValidateQuality(t *testing.T) {
+	valid := Manifest{
+		Version:     1,
+		Project:     Project{Type: "react-vite"},
+		PullRequest: PullRequest{Target: "main"},
+		Quality: map[string]QualityEntry{
+			"lint": {Provider: "biome"},
+		},
+	}
+	if errs := valid.Validate(); len(errs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", errs)
+	}
+
+	// Unknown kind
+	mUnknown := valid
+	mUnknown.Quality = map[string]QualityEntry{"lnt": {Provider: "biome"}}
+	errs := mUnknown.Validate()
+	if len(errs) == 0 || !strings.Contains(errs[0].Error(), `quality.lnt: unknown kind "lnt"`) {
+		t.Fatalf("expected unknown kind error, got %v", errs)
+	}
+
+	// Invalid provider
+	mInvalid := valid
+	mInvalid.Quality = map[string]QualityEntry{"lint": {Provider: "rome"}}
+	errs = mInvalid.Validate()
+	if len(errs) == 0 || !strings.Contains(errs[0].Error(), `quality.lint.provider: invalid value "rome"`) {
+		t.Fatalf("expected invalid provider error, got %v", errs)
+	}
+
+	// Provider "script" requires script
+	mScript := valid
+	mScript.Quality = map[string]QualityEntry{"tests": {Provider: "script"}}
+	errs = mScript.Validate()
+	if len(errs) == 0 || !strings.Contains(errs[0].Error(), `quality.tests.script: required for provider "script"`) {
+		t.Fatalf("expected script required error, got %v", errs)
+	}
+
+	// Provider "script" with script is valid
+	mScriptValid := valid
+	mScriptValid.Quality = map[string]QualityEntry{"tests": {Provider: "script", Script: "test"}}
+	if errs := mScriptValid.Validate(); len(errs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", errs)
+	}
+
+	// Provider "none" is valid
+	mNone := valid
+	mNone.Quality = map[string]QualityEntry{"tests": {Provider: "none"}}
+	if errs := mNone.Validate(); len(errs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", errs)
 	}
 }

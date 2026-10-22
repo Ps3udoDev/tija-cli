@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -17,6 +18,7 @@ type packageJSON struct {
 	PackageManager  string            `json:"packageManager"`
 	Dependencies    map[string]string `json:"dependencies"`
 	DevDependencies map[string]string `json:"devDependencies"`
+	Scripts         map[string]string `json:"scripts"`
 }
 
 // lockfiles maps lockfile names to the package manager they imply.
@@ -40,6 +42,31 @@ func (d *Detection) detectNode() {
 	if json.Unmarshal(b, &pkg) != nil {
 		return
 	}
+	if len(pkg.Scripts) > 0 {
+		var scripts []string
+		for s := range pkg.Scripts {
+			scripts = append(scripts, s)
+		}
+		slices.Sort(scripts)
+		d.Scripts = scripts
+	}
+
+	for _, l := range lockfiles {
+		if fileExists(filepath.Join(d.Root, l.file)) {
+			d.Lockfiles = append(d.Lockfiles, l.file)
+			if d.PackageManager == "" {
+				d.PackageManager = l.manager
+			}
+		}
+	}
+	d.Lockfiles = sortedUnique(d.Lockfiles)
+	// packageManager in package.json wins over lockfiles.
+	name, _, _ := strings.Cut(pkg.PackageManager, "@")
+	switch name {
+	case "bun", "pnpm", "yarn", "npm":
+		d.PackageManager = name
+	}
+
 	deps := map[string]string{}
 	for k, v := range pkg.DevDependencies {
 		deps[k] = v
@@ -58,22 +85,6 @@ func (d *Detection) detectNode() {
 	d.Language = "JavaScript"
 	if fileExists(filepath.Join(d.Root, "tsconfig.json")) || hasTSSources(filepath.Join(d.Root, "src")) {
 		d.Language = "TypeScript"
-	}
-
-	for _, l := range lockfiles {
-		if fileExists(filepath.Join(d.Root, l.file)) {
-			d.Lockfiles = append(d.Lockfiles, l.file)
-			if d.PackageManager == "" {
-				d.PackageManager = l.manager
-			}
-		}
-	}
-	d.Lockfiles = sortedUnique(d.Lockfiles)
-	// packageManager in package.json wins over lockfiles.
-	name, _, _ := strings.Cut(pkg.PackageManager, "@")
-	switch name {
-	case "bun", "pnpm", "yarn", "npm":
-		d.PackageManager = name
 	}
 
 	var tools []string
