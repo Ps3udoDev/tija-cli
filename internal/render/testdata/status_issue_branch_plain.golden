@@ -1,0 +1,11 @@
+Repository:     /work/frontend
+Branch:         101-fixclaims-fix-integration-issues
+Issue:          #101
+Target:         main (2 ahead, 1 behind)
+Working tree:   1 staged, 3 untracked
+Remote:         origin, branch not published
+
+! branch "101-fixclaims-fix-integration-issues" — does not follow <prefix>/<short-description>
+  suggested: fix/101-claims-integration-issues
+  rename: git branch -m 101-fixclaims-fix-integration-issues fix/101-claims-integration-issues
+! this repo's pre-push hook will reject this branch

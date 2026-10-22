@@ -1,0 +1,2 @@
+#!/bin/sh
+VALID_BRANCH_REGEX="^(main|dev|feature|feat|bugfix|fix|hotfix|docs|refactor|chore|release)(\/[a-zA-Z0-9._-]+)?$"

@@ -1,0 +1,164 @@
+name: PR Governance
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
+      - synchronize
+      - ready_for_review
+      - unassigned
+
+concurrency:
+  group: pr-governance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  title:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        id: lint_pr_title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          requireScope: true
+          ignoreLabels: |
+            release
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        if: always() && (steps.lint_pr_title.outputs.error_message != null)
+        with:
+          header: pr-title-lint-error
+          message: |
+            El título del PR debe seguir Conventional Commits.
+
+            Formato esperado:
+            ```
+            feat(scope): descripción
+            fix(scope): descripción
+            chore(scope): descripción
+            ```
+
+            Ejemplo:
+            ```
+            feat(claims): crear formulario de coaseguro
+            ```
+
+            Detalle:
+            ```
+            ${{ steps.lint_pr_title.outputs.error_message }}
+            ```
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ steps.lint_pr_title.outputs.error_message == null }}
+        with:
+          header: pr-title-lint-error
+          delete: true
+
+  metadata:
+    name: Validate PR metadata
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate description and assignee
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const errors = [];
+
+            const requiredSections = [
+              "Resumen",
+              "Objetivo",
+              "Cambios realizados",
+              "Pruebas"
+            ];
+
+            const body = pr.body || "";
+
+            function escapeRegex(value) {
+              return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            }
+
+            function sectionContent(title) {
+              const rx = new RegExp(
+                `(?:^|\\n)##\\s+${escapeRegex(title)}\\s*\\n([\\s\\S]*?)(?=\\n##\\s+|$)`,
+                "i"
+              );
+
+              const match = body.match(rx);
+
+              if (!match) {
+                return null;
+              }
+
+              return match[1]
+                .replace(/<!--[\s\S]*?-->/g, "")
+                .replace(/^\s*[-*]\s+\[[ xX]\]\s*/gm, "")
+                .replace(/^\s*[-*]\s*/gm, "")
+                .trim();
+            }
+
+            const cleanBody = body.replace(/<!--[\s\S]*?-->/g, "").trim();
+
+            if (!cleanBody) {
+              errors.push("La descripción del PR está vacía.");
+            }
+
+            const invalidValue = /^(n\/a|na|no aplica|pendiente|todo|por definir|\.{3}|-)$/i;
+
+            for (const section of requiredSections) {
+              const content = sectionContent(section);
+
+              if (content === null) {
+                errors.push(`Falta la sección obligatoria: ## ${section}`);
+                continue;
+              }
+
+              if (content.length < 10 || invalidValue.test(content)) {
+                errors.push(`La sección ## ${section} debe tener información útil.`);
+              }
+            }
+
+            if ((pr.assignees || []).length === 0) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  assignees: [pr.user.login]
+                });
+
+                core.info(`PR autoasignado a ${pr.user.login}.`);
+              } catch (error) {
+                errors.push(
+                  `No se pudo autoasignar el PR a ${pr.user.login}. Error: ${error.message}`
+                );
+              }
+            }
+
+            const refreshedIssue = await github.rest.issues.get({
+              owner,
+              repo,
+              issue_number: pr.number
+            });
+
+            if ((refreshedIssue.data.assignees || []).length === 0) {
+              errors.push("El PR debe tener al menos una persona asignada.");
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(`PR metadata inválida:\n- ${errors.join("\n- ")}`);
+            } else {
+              core.info("PR metadata válida.");
+            }

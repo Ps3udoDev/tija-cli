@@ -146,7 +146,7 @@ Verificaciones, cada una con `✓` / `✗` / `!` y una pista de cómo resolverla
 - `.tija/manifest.yaml` existe y es válido contra su schema;
 - herramientas declaradas en el manifest disponibles en PATH (dotnet, node/npm, biome, …);
 - GitHub CLI (`gh`) instalado y autenticado (`gh auth status`);
-- CLIs de agentes disponibles: `claude`, `codex`, `gemini`. Se reporta cuáles hay y cuál es el default; que no haya ninguno es `!` (warning), no error;
+- CLIs de agentes disponibles: `claude`, `codex` y `gemini` (este último vía Antigravity, binario `agy`, o `gemini`). Se reporta cuáles hay y cuál es el default; que no haya ninguno es `!` (warning), no error;
 - template de PR resoluble.
 
 Exit `0` si no hay `✗`, `1` si hay alguno.
@@ -221,7 +221,7 @@ Los valores por defecto de `pullRequest.*` replican exactamente lo que valida `p
 ### Fase 3 — Pull Requests (primer hito de valor)
 **Comandos:** `tija pr prepare`, `tija pr create`.
 **Flujo:** status → validar rama → commits y diff contra `target` → cargar reglas y template → usar resultados de Quality (o correr `check` si no hay resultados del commit actual) → pedir al agente (tier `fast`) título y descripción en `content.language` → **validar localmente** con las reglas del manifest (Conventional Commits con scope, secciones obligatorias, longitud mínima, valores inválidos) → si falla, reintentar o reportar → preview editable → aprobación → push → `gh pr create` → autoasignación.
-**AgentProvider:** adaptadores por CLI (`claude -p`, `codex exec`, `gemini`), invocados como subproceso con el prompt por stdin, timeout y captura de salida. Fallback sin agente: borrador determinista (tipo y scope inferidos de la rama, cambios desde los commits agrupados, pruebas desde la sesión) o `--print-prompt`.
+**AgentProvider:** adaptadores por CLI (`claude -p`, `codex exec`, `agy --dangerously-skip-permissions` para Gemini vía Antigravity, con `gemini` como alternativa), invocados como subproceso con el prompt por stdin, timeout y captura de salida. Fallback sin agente: borrador determinista (tipo y scope inferidos de la rama, cambios desde los commits agrupados, pruebas desde la sesión) o `--print-prompt`.
 **Reglas de contenido (de la guía):** no inventar pruebas, endpoints ni funcionalidades; mantener los nombres técnicos tal como están en el código; resumir commits por funcionalidad en lugar de copiarlos; `Evidencias: N/A` si no hay.
 **TUI:** opción `Pull Request`, estado `thinking` de la mascota y preview con el título y el cuerpo.
 **Salida:** en 5 PRs reales consecutivos, `pr-governance.yml` pasa a la primera y el autor no necesitó ChatGPT.

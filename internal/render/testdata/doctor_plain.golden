@@ -1,0 +1,19 @@
+Detected project
+
+Repository:     /work/frontend
+Language:       JavaScript
+Framework:      React 19 + Vite 7
+Packages:       bun
+Tests:          none detected
+Tools:          biome
+Git:            GitHub
+CI:             -
+
+✓ Git installed
+✓ repository detected
+✗ manifest present — run: tija init
+✓ GitHub CLI installed
+✗ GitHub CLI authenticated — run: gh auth login
+✓ agents: claude, codex (default: claude)
+! multiple lockfiles: bun.lock, package-lock.json — keep a single lockfile
+! no tests detected
