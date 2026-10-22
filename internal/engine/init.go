@@ -83,6 +83,7 @@ type InitPlan struct {
 	existing     *manifest.Manifest // manifest on disk, nil if absent or invalid
 	existingData []byte             // its raw bytes
 	refresh      map[string]string  // stale tija.installed entries of files equal to the default
+	adoptOffer   bool               // an earlier run copied the .github template; point the manifest to it
 	notes        []string
 }
 
@@ -209,6 +210,22 @@ func (p *InitPlan) planActions() error {
 		}
 	}
 
+	// The offer is planned before the manifest so that its bookkeeping
+	// (tija.installed and pullRequest.template) is part of the manifest diff.
+	if p.Detection.PRTemplate == "" && !slices.Contains(extra, githubTemplate) {
+		if _, err := os.Stat(abs(p.Root, githubTemplate)); errors.Is(err, fs.ErrNotExist) {
+			a := newAction(KindCreate, githubTemplate, true)
+			a.Reason = offerReason
+			a.data = files[assets.TemplatePath]
+			a.Diff = textdiff.Lines(nil, a.data)
+			a.installed = true
+			p.Actions = append(p.Actions, a)
+		}
+	}
+	if err := p.planAdoptedOffer(files[assets.TemplatePath], installed); err != nil {
+		return err
+	}
+
 	switch {
 	case !p.AlreadyInitialized:
 		p.Actions = append(p.Actions, newAction(KindCreate, manifest.Path, false))
@@ -216,7 +233,7 @@ func (p *InitPlan) planActions() error {
 		// Planned as if every file action ran and the choices keep their
 		// defaults; ApplyInit recomputes the bytes from what actually ran.
 		recorded := p.installedBy(p.Actions)
-		out, fields, err := p.updatedManifest(p.Manifest, recorded)
+		out, fields, err := p.updatedManifest(p.Manifest, recorded, p.templateBy(p.Actions))
 		if err != nil {
 			return err
 		}
@@ -228,6 +245,9 @@ func (p *InitPlan) planActions() error {
 			}
 			if len(recorded) > 0 {
 				why = append(why, "record installed defaults")
+			}
+			if t := p.templateBy(p.Actions); t != "" && t != p.existing.PullRequest.Template {
+				why = append(why, "point pullRequest.template to "+t)
 			}
 			a.Reason = strings.Join(why, "; ")
 			a.Diff = textdiff.Lines(p.existingData, out)
@@ -249,18 +269,42 @@ func (p *InitPlan) planActions() error {
 		a.Diff = textdiff.Lines(cur, out)
 		p.Actions = append(p.Actions, a)
 	}
+	return nil
+}
 
-	if p.Detection.PRTemplate == "" && !slices.Contains(extra, githubTemplate) {
-		if _, err := os.Stat(abs(p.Root, githubTemplate)); errors.Is(err, fs.ErrNotExist) {
-			a := newAction(KindCreate, githubTemplate, true)
-			a.Reason = offerReason
-			a.data = files[assets.TemplatePath]
-			a.Diff = textdiff.Lines(nil, a.data)
-			a.installed = true
-			p.Actions = append(p.Actions, a)
-		}
+// planAdoptedOffer handles a .github template copied by an earlier run
+// whose manifest update was declined: when the manifest still points to the
+// .tija default and the .github file is the unedited default, the manifest
+// is pointed to it and its hash recorded.
+func (p *InitPlan) planAdoptedOffer(def []byte, installed map[string]string) error {
+	if p.existing == nil || p.Detection.PRTemplate != githubTemplate ||
+		p.existing.PullRequest.Template != manifest.DefaultTemplate {
+		return nil
+	}
+	cur, err := readOptional(abs(p.Root, githubTemplate))
+	if err != nil || cur == nil || hash(cur) != hash(def) {
+		return err
+	}
+	p.adoptOffer = true
+	if installed[githubTemplate] != hash(def) {
+		p.refresh[githubTemplate] = hash(def)
 	}
 	return nil
+}
+
+// templateBy returns the pullRequest.template the manifest must point to
+// after running actions: the .github template when the offer runs (or was
+// adopted), else "" (keep the current value).
+func (p InitPlan) templateBy(actions []Action) string {
+	if p.adoptOffer {
+		return githubTemplate
+	}
+	for _, a := range actions {
+		if a.Path == githubTemplate && a.Reason == offerReason {
+			return githubTemplate
+		}
+	}
+	return ""
 }
 
 // installedBy returns the tija.installed entries produced by running actions,
@@ -279,8 +323,9 @@ func (p InitPlan) installedBy(actions []Action) map[string]string {
 }
 
 // updatedManifest returns the existing manifest bytes with the fields missing
-// from fresh filled in and the installed entries recorded.
-func (p InitPlan) updatedManifest(fresh manifest.Manifest, installed map[string]string) ([]byte, []string, error) {
+// from fresh filled in and the installed entries recorded. A non-empty
+// template replaces pullRequest.template when it still is the .tija default.
+func (p InitPlan) updatedManifest(fresh manifest.Manifest, installed map[string]string, template string) ([]byte, []string, error) {
 	out := p.existingData
 	fields := manifest.MissingFields(*p.existing, fresh)
 	var err error
@@ -291,6 +336,11 @@ func (p InitPlan) updatedManifest(fresh manifest.Manifest, installed map[string]
 	}
 	if len(installed) > 0 {
 		if out, err = manifest.RecordInstalled(out, assets.DefaultsVersion, installed); err != nil {
+			return nil, nil, err
+		}
+	}
+	if cur := p.existing.PullRequest.Template; template != "" && (cur == "" || cur == manifest.DefaultTemplate) {
+		if out, err = manifest.SetString(out, "pullRequest.template", template); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -403,16 +453,19 @@ func ApplyInit(ctx context.Context, plan InitPlan, answers map[string]string, ap
 		res.record(a)
 	}
 
-	installed := plan.installedBy(ran)
+	installed, template := plan.installedBy(ran), plan.templateBy(ran)
 	switch {
 	case !plan.AlreadyInitialized:
 		m.Tija = manifest.Meta{DefaultsVersion: assets.DefaultsVersion, Installed: installed}
+		if template != "" {
+			m.PullRequest.Template = template
+		}
 		if err := manifest.Save(plan.Root, m); err != nil {
 			return res, err
 		}
 		res.Created = append(res.Created, manifest.Path)
 	case plan.existing != nil && writeManifest:
-		out, _, err := plan.updatedManifest(m, installed)
+		out, _, err := plan.updatedManifest(m, installed, template)
 		if err != nil {
 			return res, err
 		}

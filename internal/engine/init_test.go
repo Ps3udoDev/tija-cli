@@ -185,7 +185,7 @@ func TestInitBackendWithYes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.PullRequest.Rules != "templates/PULL_REQUEST_TEMPLATE_GUIDE.md" || m.PullRequest.Template != ".tija/templates/pull-request.md" {
+	if m.PullRequest.Rules != "templates/PULL_REQUEST_TEMPLATE_GUIDE.md" || m.PullRequest.Template != ".github/PULL_REQUEST_TEMPLATE.md" {
 		t.Errorf("pullRequest = %+v", m.PullRequest)
 	}
 	wantInstalled := map[string]string{
@@ -579,5 +579,78 @@ func TestInitDotnetWithoutSolution(t *testing.T) {
 		if m.Project.Type != "dotnet-api" || m.Quality["build"].Provider != "dotnet" {
 			t.Errorf("%s: type = %q, quality = %+v", name, m.Project.Type, m.Quality)
 		}
+	}
+}
+
+const offerID = "create:.github/PULL_REQUEST_TEMPLATE.md"
+
+// wantGithubTemplate checks the manifest points to the .github template and
+// records its hash.
+func wantGithubTemplate(t *testing.T, repo string) {
+	t.Helper()
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tpl := assets.Files()[assets.TemplatePath]
+	if m.PullRequest.Template != ".github/PULL_REQUEST_TEMPLATE.md" || m.Tija.Installed[".github/PULL_REQUEST_TEMPLATE.md"] != sum(tpl) {
+		t.Errorf("template = %q, installed = %v", m.PullRequest.Template, m.Tija.Installed)
+	}
+}
+
+func TestInitPRTemplateOfferLaterRun(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("dotnet-api"))
+	p := plan(t, repo)
+	approved := approveAll(p)
+	delete(approved, offerID)
+	apply(t, p, nil, approved)
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.PullRequest.Template != ".tija/templates/pull-request.md" || m.Tija.Installed[".github/PULL_REQUEST_TEMPLATE.md"] != "" {
+		t.Fatalf("declined offer: template = %q, installed = %v", m.PullRequest.Template, m.Tija.Installed)
+	}
+
+	p2 := plan(t, repo)
+	if _, ok := findAction(p2, offerID); !ok {
+		t.Fatalf("offer not planned again: %+v", p2.Actions)
+	}
+	a, ok := findAction(p2, "update:.tija/manifest.yaml")
+	if !ok || !strings.Contains(a.Diff, "template: .github/PULL_REQUEST_TEMPLATE.md") || !strings.Contains(a.Diff, ".github/PULL_REQUEST_TEMPLATE.md: ") {
+		t.Fatalf("manifest update = %+v, %v", a, ok)
+	}
+	before := readFile(t, repo, manifest.Path)
+	apply(t, p2, nil, approveAll(p2))
+	if got := textdiff.Lines(before, readFile(t, repo, manifest.Path)); got != a.Diff {
+		t.Errorf("written changes differ from the approved diff:\n got %s\nwant %s", got, a.Diff)
+	}
+	wantGithubTemplate(t, repo)
+
+	if p3 := plan(t, repo); len(p3.Actions) != 0 {
+		t.Errorf("third run actions = %+v, want none", p3.Actions)
+	}
+}
+
+func TestInitPRTemplateOfferWithoutManifestUpdate(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("dotnet-api"))
+	p := plan(t, repo)
+	approved := approveAll(p)
+	delete(approved, offerID)
+	apply(t, p, nil, approved)
+
+	// Copy the template now but decline the manifest update.
+	p2 := plan(t, repo)
+	apply(t, p2, nil, map[string]bool{offerID: true})
+	if !exists(repo, ".github/PULL_REQUEST_TEMPLATE.md") {
+		t.Fatal("offer not applied")
+	}
+
+	// The next run proposes the missing bookkeeping.
+	p3 := plan(t, repo)
+	apply(t, p3, nil, approveAll(p3))
+	wantGithubTemplate(t, repo)
+	if p4 := plan(t, repo); len(p4.Actions) != 0 {
+		t.Errorf("fourth run actions = %+v, want none", p4.Actions)
 	}
 }

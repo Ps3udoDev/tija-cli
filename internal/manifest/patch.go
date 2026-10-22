@@ -217,3 +217,11 @@ func set(m *yaml.Node, path []string, v *yaml.Node) {
 		m = val
 	}
 }
+
+// SetString sets the dotted field to value inside the YAML document data,
+// keeping everything else.
+func SetString(data []byte, field, value string) ([]byte, error) {
+	return patch(data, func(root *yaml.Node) {
+		set(root, strings.Split(field, "."), str(value))
+	})
+}

@@ -248,3 +248,15 @@ func TestRecordInstalled(t *testing.T) {
 		t.Errorf("comment lost:\n%s", out)
 	}
 }
+
+func TestSetString(t *testing.T) {
+	data := []byte("# keep\npullRequest:\n    target: dev\n    template: .tija/templates/pull-request.md\n")
+	out, err := SetString(data, "pullRequest.template", ".github/PULL_REQUEST_TEMPLATE.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "# keep\npullRequest:\n    target: dev\n    template: .github/PULL_REQUEST_TEMPLATE.md\n"
+	if string(out) != want {
+		t.Errorf("got:\n%s\nwant:\n%s", out, want)
+	}
+}
