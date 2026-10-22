@@ -69,3 +69,18 @@ func (p Printer) line(plain, styled, msg string) {
 	}
 	fmt.Fprintf(p.W, "%s %s\n", sym, msg)
 }
+
+// fieldWidth aligns Field values in a column.
+const fieldWidth = 16
+
+// Field writes "key:" padded to a fixed column, then value.
+func (p Printer) Field(key, value string) {
+	label := fmt.Sprintf("%-*s", fieldWidth, key+":")
+	if p.Mode == Styled {
+		label = keyStyle.Render(label)
+	}
+	fmt.Fprintf(p.W, "%s%s\n", label, value)
+}
+
+// Line writes msg as-is followed by a newline.
+func (p Printer) Line(msg string) { fmt.Fprintln(p.W, msg) }

@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
 )
 
@@ -54,6 +56,11 @@ func ExecuteWith(deps Deps, args []string, in io.Reader, out, errOut io.Writer) 
 	var ee *ExitError
 	if errors.As(err, &ee) {
 		code = ee.Code
+		// Without a cause the command already reported the problem; the
+		// error only carries the exit code.
+		if ee.Err == nil {
+			return code
+		}
 	}
 	if msg := err.Error(); msg != "" {
 		fmt.Fprintf(errOut, "✗ %s\n", msg)
@@ -91,6 +98,35 @@ func newRootCmd(deps Deps, in io.Reader) *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return &ExitError{Code: 2, Err: err}
 	})
-	root.AddCommand(newVersionCmd())
+	root.AddCommand(newVersionCmd(), newInitCmd(deps, in), newDoctorCmd(deps), newStatusCmd(deps))
 	return root
 }
+
+// output resolves the persistent output flags of cmd.
+type output struct {
+	json, yes bool
+	printer   render.Printer
+}
+
+// newOutput builds the Printer for cmd. Styled output goes through a
+// color-profile writer so ANSI is downsampled or stripped per terminal.
+func newOutput(cmd *cobra.Command, deps Deps) output {
+	jsonOut, _ := cmd.Flags().GetBool("json")
+	yes, _ := cmd.Flags().GetBool("yes")
+	noColor, _ := cmd.Flags().GetBool("no-color")
+	getenv := deps.Env.Getenv
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	w := cmd.OutOrStdout()
+	mode := render.ModeFor(isTTY(deps, w), jsonOut, noColor, getenv)
+	if mode == render.Styled {
+		w = colorprofile.NewWriter(w, os.Environ())
+	}
+	return output{json: jsonOut, yes: yes, printer: render.Printer{W: w, Mode: mode}}
+}
+
+func isTTY(deps Deps, v any) bool { return deps.IsTTY != nil && deps.IsTTY(v) }
+
+// workDir is the directory commands operate on.
+func workDir() (string, error) { return os.Getwd() }

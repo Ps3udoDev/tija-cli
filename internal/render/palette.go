@@ -15,4 +15,5 @@ var (
 	failStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(Orange)).Bold(true)
 	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(Sand))
 	headingStyle = lipgloss.NewStyle().Bold(true)
+	keyStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(Sand))
 )

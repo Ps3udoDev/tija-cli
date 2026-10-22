@@ -1,0 +1,22 @@
+Detected project
+
+Language:       JavaScript
+Framework:      React 19 + Vite 7
+Packages:       bun
+Tests:          none detected
+Tools:          biome, commitlint
+Git:            GitHub
+CI:             GitHub Actions (1 workflow)
+
+Created:
+✓ .tija/rules/pull-request.md
+✓ .tija/workflows/.gitkeep
+✓ .tija/manifest.yaml
+
+Updated:
+✓ .tija/templates/pull-request.md
+
+Pending (run with --yes or interactively):
+! update .gitignore — ignore local .tija/ paths
+
+! multiple PR templates found; using .github/PULL_REQUEST_TEMPLATE.md
