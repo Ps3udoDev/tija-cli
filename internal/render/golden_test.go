@@ -3,11 +3,11 @@ package render
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"os"
 	"path/filepath"
 	"strings"
-	"errors"
 	"testing"
 	"time"
 
@@ -230,11 +230,15 @@ func TestRenderStatusRenameHintQuotesAndPush(t *testing.T) {
 	got := renderPlain(func(p Printer) { Status(p, r) })
 	for _, want := range []string{
 		`  rename: git branch -m 'it'\''s (wip)' feat/wip` + "\n",
-		`  then: git push origin -u feat/wip && git push origin --delete 'it'\''s (wip)'` + "\n",
+		"  then: git push origin -u feat/wip\n",
+		"  delete the old remote branch only if nobody else uses it\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output lacks %q:\n%s", want, got)
 		}
+	}
+	if strings.Contains(got, "--delete") {
+		t.Errorf("rename hint deletes the remote branch:\n%s", got)
 	}
 
 	r.Published = false
@@ -274,7 +278,6 @@ func TestTestsLabel(t *testing.T) {
 		}
 	}
 }
-
 
 func sampleQualityCheck() engine.QualityReport {
 	return engine.QualityReport{
@@ -386,7 +389,6 @@ func TestJSONError(t *testing.T) {
 		t.Errorf("JSONError = %q, want %q", got, want)
 	}
 }
-
 
 func TestRenderQualityFixNoFilesChanged(t *testing.T) {
 	r := engine.QualityReport{

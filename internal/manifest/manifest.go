@@ -169,7 +169,7 @@ func FromDetection(d detect.Detection, agents []string, target string) Manifest 
 		Version: version,
 		Project: Project{Name: d.ProjectName, Type: string(d.Stack), Solution: d.Solution},
 		Content: Content{Language: "es"},
-		Git:     Git{Host: d.GitHost, BranchConvention: "conventional", BranchPrefixes: prefixes},
+		Git:     Git{Host: d.GitHost, BranchConvention: "conventional", BranchPrefixes: prefixes, BaseBranches: slices.Clone(branch.DefaultBases)},
 		PullRequest: PullRequest{
 			Target:           target,
 			Template:         tpl,

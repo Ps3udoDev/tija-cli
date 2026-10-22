@@ -414,6 +414,28 @@ func TestInitProposesMissingFields(t *testing.T) {
 	}
 }
 
+func TestInitOffersBaseBranches(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	p := plan(t, repo)
+	apply(t, p, nil, approveAll(p))
+
+	data := string(readFile(t, repo, manifest.Path))
+	i := strings.Index(data, "  baseBranches:")
+	if i < 0 {
+		t.Fatalf("new manifest lacks git.baseBranches:\n%s", data)
+	}
+	// A Phase 1 manifest: the baseBranches list is absent.
+	end := strings.Index(data[i:], "pullRequest:")
+	phase1 := data[:i] + data[i+end:]
+	putFile(t, repo, manifest.Path, []byte(phase1))
+
+	p2 := plan(t, repo)
+	a, ok := findAction(p2, "update:.tija/manifest.yaml")
+	if !ok || !strings.Contains(a.Reason, "git.baseBranches") || !strings.Contains(a.Diff, "desarrollo") {
+		t.Fatalf("manifest update = %+v, %v", a, ok)
+	}
+}
+
 func TestInitFromSubdirectory(t *testing.T) {
 	repo := testutil.NewRepo(t, fixture("dotnet-api"))
 	p := plan(t, filepath.Join(repo, "src"))
