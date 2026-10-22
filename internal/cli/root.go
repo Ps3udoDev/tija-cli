@@ -33,7 +33,7 @@ func (e *ExitError) Unwrap() error { return e.Err }
 type Deps struct {
 	Env   sys.Env
 	IsTTY func(any) bool
-	// RunTUI starts the interactive UI; nil means tui.Run with Version and Env.
+	// RunTUI starts the interactive UI; nil means tui.Run with the current version and Env.
 	RunTUI func(dir string) error
 }
 
@@ -47,7 +47,7 @@ func Execute(args []string, in io.Reader, out, errOut io.Writer) int {
 func ExecuteWith(deps Deps, args []string, in io.Reader, out, errOut io.Writer) int {
 	if deps.RunTUI == nil {
 		env := deps.Env
-		deps.RunTUI = func(dir string) error { return tui.Run(dir, Version, env) }
+		deps.RunTUI = func(dir string) error { return tui.Run(dir, currentVersion(), env) }
 	}
 	root := newRootCmd(deps, in)
 	root.SetArgs(args)
