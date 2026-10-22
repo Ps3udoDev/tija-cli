@@ -22,7 +22,7 @@
 - Versionado en `.tija/`: `manifest.yaml`, `rules/`, `templates/`, `workflows/`. Entradas de `.gitignore`: `.tija/cache/`, `.tija/index/`, `.tija/session/`, `.tija/tmp/`.
 - Windows es plataforma de primera clase. Los tests deben pasar en Windows, Linux y macOS.
 - El menú de la TUI muestra **solo** `Init`, `Doctor` y `Status`.
-- Ningún comando de la Fase 1 invoca a un agente de IA. Solo se detecta qué CLIs (`claude`, `codex`, `gemini`) existen en PATH.
+- Ningún comando de la Fase 1 invoca a un agente de IA. Solo se detecta qué CLIs existen en PATH: provider `claude` → binario `claude`; `codex` → `codex`; `gemini` → binario `agy` (Antigravity) o, si no, `gemini`.
 
 ## Review Focus
 
@@ -328,7 +328,8 @@ const DefaultsVersion = "1"
 func Files() map[string][]byte // ".tija/rules/pull-request.md", ".tija/templates/pull-request.md", ".tija/workflows/.gitkeep"
 
 // agents
-func Available(lookPath func(string) (string, error)) []string // orden: claude, codex, gemini
+func Available(lookPath func(string) (string, error)) []string // orden: claude, codex, gemini. Binarios: claude→"claude", codex→"codex", gemini→"agy" (Antigravity) o "gemini"
+func Binary(provider string, lookPath func(string) (string, error)) string // ruta del binario resuelto o ""
 
 // engine
 type ActionKind string // "create" | "update" | "replace"
