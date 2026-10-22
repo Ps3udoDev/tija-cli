@@ -253,3 +253,20 @@ func TestShellQuote(t *testing.T) {
 		}
 	}
 }
+
+func TestTestsLabel(t *testing.T) {
+	cases := []struct {
+		d    detect.Detection
+		want string
+	}{
+		{detect.Detection{}, "none detected"},
+		{detect.Detection{TestFiles: 5}, "5 test files"},
+		{detect.Detection{TestFiles: 1}, "1 test file"},
+		{detect.Detection{TestFramework: "xunit", TestCount: 74}, "xunit (74 tests)"},
+	}
+	for _, c := range cases {
+		if got := tests(c.d); got != c.want {
+			t.Errorf("tests(%+v) = %q, want %q", c.d, got, c.want)
+		}
+	}
+}

@@ -385,3 +385,21 @@ func hasSprite(view string, s MascotState) bool {
 	}
 	return true
 }
+
+func TestDisplayVersion(t *testing.T) {
+	for in, want := range map[string]string{"0.1.0": "v0.1.0", "dev": "dev", "": ""} {
+		if got := displayVersion(in); got != want {
+			t.Errorf("displayVersion(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestStartupViewTestFiles(t *testing.T) {
+	m := newModel("/x", "dev", sys.Env{})
+	info := fakeInfo()
+	info.Detection.TestCount, info.Detection.TestFiles = 0, 5
+	m = step(t, m, startupMsg{info: info})
+	if v := plainView(m); !strings.Contains(v, "5 test files") || strings.Contains(v, "no tests detected") {
+		t.Errorf("view should list 5 test files:\n%s", v)
+	}
+}

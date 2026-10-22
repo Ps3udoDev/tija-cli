@@ -15,8 +15,10 @@ func TestResolveVersion(t *testing.T) {
 		read    func() (*debug.BuildInfo, bool)
 		want    string
 	}{
-		{"v1.2.3", info("v9.9.9"), "v1.2.3"},
-		{"dev", info("v0.1.0"), "v0.1.0"},
+		{"1.2.3", info("v9.9.9"), "1.2.3"},
+		{"v1.2.3", info("v9.9.9"), "1.2.3"},
+		{"dev", info("v0.1.0"), "0.1.0"},
+		{"dev", info("v0.0.0-20261022143209-1d702680d9e0"), "0.0.0-20261022143209-1d702680d9e0"},
 		{"dev", info("(devel)"), "dev"},
 		{"dev", info(""), "dev"},
 		{"dev", none, "dev"},

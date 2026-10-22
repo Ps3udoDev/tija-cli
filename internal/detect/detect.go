@@ -35,6 +35,7 @@ type Detection struct {
 	Tools          []string `json:"tools"`
 	TestFramework  string   `json:"testFramework"`
 	TestCount      int      `json:"testCount"`
+	TestFiles      int      `json:"testFiles"` // *.test.* / *.spec.* files, where tests are not counted individually
 	CI             []string `json:"ci"`
 	GitHost        string   `json:"gitHost"`
 
@@ -90,6 +91,9 @@ func Detect(root, remoteURL string) (Detection, error) {
 	d.detectPR()
 	return d, nil
 }
+
+// HasTests reports whether any tests or test files were found.
+func (d Detection) HasTests() bool { return d.TestCount > 0 || d.TestFiles > 0 }
 
 // WithSolution returns a copy of d recomputed for the chosen solution.
 func (d Detection) WithSolution(sln string) (Detection, error) {

@@ -59,10 +59,18 @@ const tagline = "Repository engineering for humans & agents"
 // wideLayout is the minimum width for side-by-side columns.
 const wideLayout = 80
 
+// displayVersion prefixes release versions with "v" and leaves others, such as "dev", as is.
+func displayVersion(version string) string {
+	if version != "" && version[0] >= '0' && version[0] <= '9' {
+		return "v" + version
+	}
+	return version
+}
+
 // topBar shows the app name and path on the left and the version on the right.
 func topBar(path, version string, width int) string {
 	left := logoStyle.Render("tija") + "  " + mutedStyle.Render(path)
-	right := mutedStyle.Render("v" + version)
+	right := mutedStyle.Render(displayVersion(version))
 	gap := width - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 2 {
 		return left + "  " + right
@@ -89,9 +97,12 @@ func checklist(info startupInfo) []string {
 	if d.GitHost == "github" {
 		lines = append(lines, ok("GitHub"))
 	}
-	if d.TestCount > 0 {
+	switch {
+	case d.TestCount > 0:
 		lines = append(lines, ok(fmt.Sprintf("%d %s", d.TestCount, plural(d.TestCount, "test"))))
-	} else {
+	case d.TestFiles > 0:
+		lines = append(lines, ok(fmt.Sprintf("%d %s", d.TestFiles, plural(d.TestFiles, "test file"))))
+	default:
 		lines = append(lines, warn("no tests detected"))
 	}
 	return lines
