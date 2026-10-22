@@ -74,6 +74,9 @@ func TestDoctorFrontendNoGhNoAgents(t *testing.T) {
 	wantStatus(t, r, "agents.available", StatusWarn)
 	wantStatus(t, r, "lockfiles.multiple", StatusWarn)
 	wantStatus(t, r, "tests.none", StatusWarn)
+	if r.Detection == nil || r.Detection.Framework != "React 19 + Vite 7" || r.Detection.PackageManager != "bun" {
+		t.Errorf("Detection = %+v", r.Detection)
+	}
 	if r.ExitCode() != 1 {
 		t.Errorf("ExitCode = %d, want 1", r.ExitCode())
 	}
@@ -157,6 +160,9 @@ func TestDoctorOutsideRepo(t *testing.T) {
 		if strings.HasPrefix(c.ID, "manifest.") {
 			t.Errorf("unexpected %s", c.ID)
 		}
+	}
+	if r.Detection != nil {
+		t.Errorf("Detection = %+v, want nil outside a repo", r.Detection)
 	}
 	wantStatus(t, r, "gh.installed", StatusFail)
 	wantStatus(t, r, "agents.available", StatusWarn)

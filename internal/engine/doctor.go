@@ -38,6 +38,8 @@ type DoctorReport struct {
 	Checks       []Check  `json:"checks"`
 	Agents       []string `json:"agents"`
 	DefaultAgent string   `json:"defaultAgent"`
+	// Detection is what doctor detected in the repository; nil outside one.
+	Detection *detect.Detection `json:"detection,omitempty"`
 }
 
 // ExitCode is 1 when any check failed, else 0.
@@ -91,6 +93,7 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 			return rep, err
 		}
 		haveDet = true
+		rep.Detection = &d
 
 		data, rerr := os.ReadFile(abs(root, manifest.Path))
 		present := rerr == nil

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -93,8 +94,24 @@ func TestInitCommandYes(t *testing.T) {
 
 func TestInitCommandInteractive(t *testing.T) {
 	repo := testutil.NewRepo(t, fixture("react-vite"))
-	// Answer yes to every consent question.
-	code, out, errOut := runIn(t, repo, cmdDeps(true), strings.Repeat("y\n", 10), "init", "--no-color")
+	plan, err := engine.PlanInit(context.Background(), repo, cmdDeps(true).Env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Choices) != 0 {
+		t.Fatalf("plan has choices %+v; answers below assume none", plan.Choices)
+	}
+	consent := 0
+	for _, a := range plan.Actions {
+		if a.NeedsConsent {
+			consent++
+		}
+	}
+	if consent == 0 {
+		t.Fatal("plan has no consent actions")
+	}
+	// Answer yes to exactly the consent questions.
+	code, out, errOut := runIn(t, repo, cmdDeps(true), strings.Repeat("y\n", consent), "init", "--no-color")
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %q", code, errOut)
 	}
@@ -150,6 +167,19 @@ func TestDoctorJSON(t *testing.T) {
 	}
 	if _, ok := v["checks"].([]any); !ok {
 		t.Errorf("no checks array: %s", out)
+	}
+	if d, _ := v["detection"].(map[string]any); d["framework"] != "React 19 + Vite 7" {
+		t.Errorf("detection = %v", v["detection"])
+	}
+}
+
+func TestDoctorPlainShowsDetection(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	_, out, _ := runIn(t, repo, cmdDeps(false), "", "doctor")
+	for _, want := range []string{"Detected project\n", "Framework:      React 19 + Vite 7\n"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("out lacks %q:\n%s", want, out)
+		}
 	}
 }
 

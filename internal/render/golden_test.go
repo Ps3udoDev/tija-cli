@@ -65,6 +65,10 @@ func sampleInit() engine.InitResult {
 func sampleDoctor() engine.DoctorReport {
 	return engine.DoctorReport{
 		Root: "/work/frontend",
+		Detection: &detect.Detection{
+			Language: "JavaScript", Framework: "React 19 + Vite 7", PackageManager: "bun",
+			Tools: []string{"biome"}, GitHost: "github",
+		},
 		Checks: []engine.Check{
 			{ID: "git.installed", Title: "Git installed", Status: engine.StatusOK},
 			{ID: "repo.detected", Title: "repository detected", Status: engine.StatusOK},
@@ -117,7 +121,21 @@ func TestRenderInitPlain(t *testing.T) {
 }
 
 func TestRenderDoctorPlain(t *testing.T) {
-	golden(t, "doctor_plain", renderPlain(func(p Printer) { Doctor(p, sampleDoctor()) }))
+	got := renderPlain(func(p Printer) { Doctor(p, sampleDoctor()) })
+	for _, want := range []string{"Detected project\n", "Framework:      React 19 + Vite 7\n", "Packages:       bun\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("output lacks %q", want)
+		}
+	}
+	golden(t, "doctor_plain", got)
+}
+
+func TestRenderDoctorOutsideRepoPlain(t *testing.T) {
+	r := engine.DoctorReport{Checks: []engine.Check{{ID: "repo.detected", Title: "repository detected", Status: engine.StatusFail, Hint: "run inside a git repository"}}}
+	got := renderPlain(func(p Printer) { Doctor(p, r) })
+	if want := "✗ repository detected — run inside a git repository\n"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
 }
 
 func TestRenderStatusIssueBranchPlain(t *testing.T) {
@@ -151,9 +169,10 @@ func TestRenderStatusConformingPlain(t *testing.T) {
 
 func TestRenderJSONIsSingleDocument(t *testing.T) {
 	cases := map[string]func(Printer){
-		"init":   func(p Printer) { InitResult(p, engine.InitResult{}) },
-		"doctor": func(p Printer) { Doctor(p, sampleDoctor()) },
-		"status": func(p Printer) { Status(p, sampleStatusIssueBranch()) },
+		"init":         func(p Printer) { InitResult(p, engine.InitResult{}) },
+		"doctor":       func(p Printer) { Doctor(p, sampleDoctor()) },
+		"doctor-empty": func(p Printer) { Doctor(p, engine.DoctorReport{}) },
+		"status":       func(p Printer) { Status(p, sampleStatusIssueBranch()) },
 	}
 	for name, f := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -166,6 +185,19 @@ func TestRenderJSONIsSingleDocument(t *testing.T) {
 			}
 			if dec.More() {
 				t.Fatal("more than one JSON document")
+			}
+			if name == "doctor" {
+				if _, ok := v["detection"].(map[string]any); !ok {
+					t.Errorf("detection = %v, want an object", v["detection"])
+				}
+			}
+			if name == "doctor-empty" {
+				if _, ok := v["agents"].([]any); !ok {
+					t.Errorf("agents = %v, want an array", v["agents"])
+				}
+				if _, ok := v["detection"]; ok {
+					t.Error("detection present without a repo")
+				}
 			}
 			if name == "init" {
 				for _, k := range []string{"created", "updated", "pending", "notes"} {
