@@ -9,6 +9,7 @@ import (
 
 	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
+	"github.com/Ps3udoDev/tija-cli/internal/tui"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
 )
@@ -30,18 +31,24 @@ func (e *ExitError) Unwrap() error { return e.Err }
 
 // Deps are the injectable dependencies of the CLI.
 type Deps struct {
-	Env    sys.Env
-	IsTTY  func(any) bool
+	Env   sys.Env
+	IsTTY func(any) bool
+	// RunTUI starts the interactive UI; nil means tui.Run with Version and Env.
 	RunTUI func(dir string) error
 }
 
-// Execute runs the CLI with default system dependencies and no TUI.
+// Execute runs the CLI with default system dependencies. Without a
+// terminal check it never starts the TUI.
 func Execute(args []string, in io.Reader, out, errOut io.Writer) int {
 	return ExecuteWith(Deps{Env: sys.Default()}, args, in, out, errOut)
 }
 
 // ExecuteWith runs the CLI with the given dependencies and returns the exit code.
 func ExecuteWith(deps Deps, args []string, in io.Reader, out, errOut io.Writer) int {
+	if deps.RunTUI == nil {
+		env := deps.Env
+		deps.RunTUI = func(dir string) error { return tui.Run(dir, Version, env) }
+	}
 	root := newRootCmd(deps, in)
 	root.SetArgs(args)
 	root.SetIn(in)
