@@ -8,6 +8,8 @@ builds:
     binary: tija
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
     goos: [windows, linux, darwin]
     goarch: [amd64, arm64]
     ldflags:
