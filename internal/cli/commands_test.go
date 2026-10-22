@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -242,5 +244,131 @@ func TestGitFailureExits2WithMessage(t *testing.T) {
 		if code != 2 || !strings.Contains(errOut, "detected dubious ownership") {
 			t.Errorf("%s: code = %d, stderr = %q", cmd, code, errOut)
 		}
+	}
+}
+
+
+func TestCheckCommandJSON(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	// Initialize manifest
+	data := []byte("version: 1\nproject:\n  name: gmx\n  type: react-vite\nquality:\n  - kind: lint\n    provider: biome\n")
+	if err := os.MkdirAll(filepath.Join(repo, ".tija"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".tija", "manifest.yaml"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps := cmdDeps(false)
+	deps.Env.LookPath = func(name string) (string, error) {
+		if name == "git" {
+			return exec.LookPath("git")
+		}
+		if name == "biome" || name == "bun" {
+			return "/bin/" + name, nil
+		}
+		return "", errors.New("not found: " + name)
+	}
+	deps.Env.Stream = func(ctx context.Context, dir string, out io.Writer, name string, args ...string) (int, error) {
+		return 0, nil
+	}
+
+	code, out, errOut := runIn(t, repo, deps, "", "check", "--json")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errOut)
+	}
+	var rep engine.QualityReport
+	if err := json.Unmarshal([]byte(out), &rep); err != nil {
+		t.Fatalf("unmarshal error: %v\nout:\n%s", err, out)
+	}
+	if rep.Mode != "check" {
+		t.Errorf("rep.Mode = %q, want 'check'", rep.Mode)
+	}
+	if code != rep.ExitCode() {
+		t.Errorf("exit code = %d, want rep.ExitCode() = %d", code, rep.ExitCode())
+	}
+}
+
+func TestLintFixRunsFixMode(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	data := []byte("version: 1\nproject:\n  name: gmx\n  type: react-vite\nquality:\n  - kind: lint\n    provider: biome\n")
+	_ = os.MkdirAll(filepath.Join(repo, ".tija"), 0o755)
+	_ = os.WriteFile(filepath.Join(repo, ".tija", "manifest.yaml"), data, 0o644)
+
+	var streamCalls [][]string
+	deps := cmdDeps(false)
+	deps.Env.LookPath = func(name string) (string, error) {
+		if name == "git" {
+			return exec.LookPath("git")
+		}
+		if name == "biome" || name == "bun" {
+			return "/bin/" + name, nil
+		}
+		return "", errors.New("not found: " + name)
+	}
+	deps.Env.Stream = func(ctx context.Context, dir string, out io.Writer, name string, args ...string) (int, error) {
+		streamCalls = append(streamCalls, append([]string{name}, args...))
+		return 0, nil
+	}
+
+	code, out, errOut := runIn(t, repo, deps, "", "lint", "--fix")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q, out = %q", code, errOut, out)
+	}
+	foundFix := false
+	for _, call := range streamCalls {
+		if slices.Contains(call, "check") && slices.Contains(call, "--write") {
+			foundFix = true
+			break
+		}
+	}
+	if !foundFix {
+		t.Errorf("stream calls did not include biome check --write: %v", streamCalls)
+	}
+}
+
+func TestTestCommandOnlyTests(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("dotnet-api"))
+	data := []byte("version: 1\nproject:\n  name: Claims\n  type: dotnet-api\nquality:\n  - kind: build\n    provider: dotnet\n  - kind: tests\n    provider: dotnet-test\n")
+	_ = os.MkdirAll(filepath.Join(repo, ".tija"), 0o755)
+	_ = os.WriteFile(filepath.Join(repo, ".tija", "manifest.yaml"), data, 0o644)
+
+	var streamCalls [][]string
+	deps := cmdDeps(false)
+	deps.Env.LookPath = func(name string) (string, error) {
+		if name == "git" {
+			return exec.LookPath("git")
+		}
+		if name == "dotnet" {
+			return "/bin/dotnet", nil
+		}
+		return "", errors.New("not found: " + name)
+	}
+	deps.Env.Stream = func(ctx context.Context, dir string, out io.Writer, name string, args ...string) (int, error) {
+		streamCalls = append(streamCalls, append([]string{name}, args...))
+		return 0, nil
+	}
+
+	code, _, errOut := runIn(t, repo, deps, "", "test")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errOut)
+	}
+	for _, call := range streamCalls {
+		if slices.Contains(call, "build") {
+			t.Errorf("unexpected build call: %v", call)
+		}
+		if !slices.Contains(call, "test") {
+			t.Errorf("call does not contain test: %v", call)
+		}
+	}
+	if len(streamCalls) == 0 {
+		t.Errorf("expected test call, got none")
+	}
+}
+
+func TestCheckTimeoutFlag(t *testing.T) {
+	code, _, _ := runIn(t, t.TempDir(), cmdDeps(false), "", "check", "--timeout", "x")
+	if code != 2 {
+		t.Errorf("code = %d, want 2", code)
 	}
 }
