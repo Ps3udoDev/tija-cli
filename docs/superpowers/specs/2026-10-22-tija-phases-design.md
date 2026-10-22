@@ -2,7 +2,7 @@
 
 > Fecha: 2026-10-22
 > Estado: borrador para aprobación
-> Fuentes: `TIJA_TECHNICAL_PRODUCT_DRAFT.md`, `Exploración de marca Tija para terminal.png`, `templates/PULL_REQUEST_TEMPLATE_GUIDE.md`, `docs/PULL_REQUEST_TEMPLATE.md`, `docs/pr-governance.yml`
+> Fuentes (en `docs/reference/`): `product/technical-product-draft.md`, `brand/brand-exploration-terminal.png`, `pull-requests/PULL_REQUEST_TEMPLATE_GUIDE.md`, `pull-requests/PULL_REQUEST_TEMPLATE.md`, `pull-requests/pr-governance.yml`
 > Repo: https://github.com/Ps3udoDev/tija-cli
 
 ---
