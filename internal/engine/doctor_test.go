@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/Ps3udoDev/tija-cli/internal/testutil"
@@ -181,5 +182,63 @@ func TestDoctorGitFailureShowsMessage(t *testing.T) {
 	c, _ := checkByID(r, "repo.detected")
 	if c.Status != StatusFail || !strings.Contains(c.Hint, "detected dubious ownership") {
 		t.Errorf("repo.detected = %+v, want fail with git's message", c)
+	}
+}
+
+func TestDoctorToolChecksDeduplicatedByBinary(t *testing.T) {
+	repo := initRepo(t, "dotnet-api")
+	r, err := Doctor(context.Background(), repo, doctorEnv(0, "gh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tools []string
+	for _, c := range r.Checks {
+		if strings.HasPrefix(c.ID, "tool.") {
+			tools = append(tools, c.ID+"="+c.Title)
+		}
+	}
+	if want := []string{"tool.dotnet=dotnet available"}; !slices.Equal(tools, want) {
+		t.Errorf("tool checks = %v, want %v", tools, want)
+	}
+	c, _ := checkByID(r, "tool.dotnet")
+	if c.Status != StatusFail || c.Hint != "install dotnet" {
+		t.Errorf("tool.dotnet = %+v", c)
+	}
+}
+
+func TestDoctorEmptyPRTemplate(t *testing.T) {
+	repo := initRepo(t, "dotnet-api")
+	data := readFile(t, repo, ".tija/manifest.yaml")
+	data = []byte(strings.Replace(string(data), "template: .github/PULL_REQUEST_TEMPLATE.md", `template: ""`, 1))
+	putFile(t, repo, ".tija/manifest.yaml", data)
+	r, err := Doctor(context.Background(), repo, doctorEnv(0, "gh", "dotnet"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := checkByID(r, "pr.template")
+	if c.Status != StatusFail || c.Title != "PR template not configured" {
+		t.Errorf("pr.template = %+v", c)
+	}
+}
+
+func TestDoctorGhAuthTimeout(t *testing.T) {
+	repo := initRepo(t, "dotnet-api")
+	env := doctorEnv(0, "gh", "dotnet")
+	real := env.Run
+	var deadline time.Duration
+	env.Run = func(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
+		if name == "gh" {
+			if d, ok := ctx.Deadline(); ok {
+				deadline = time.Until(d)
+			}
+			return "", "", 0, nil
+		}
+		return real(ctx, dir, name, args...)
+	}
+	if _, err := Doctor(context.Background(), repo, env); err != nil {
+		t.Fatal(err)
+	}
+	if deadline <= 0 || deadline > 10*time.Second {
+		t.Errorf("gh auth status deadline = %v, want <= 10s", deadline)
 	}
 }

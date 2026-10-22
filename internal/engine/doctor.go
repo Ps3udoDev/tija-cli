@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Ps3udoDev/tija-cli/internal/agents"
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
@@ -54,6 +55,9 @@ func (r DoctorReport) ExitCode() int {
 
 // nodeTools are looked up in node_modules/.bin before PATH.
 var nodeTools = []string{"biome", "eslint", "prettier", "vitest", "jest", "playwright"}
+
+// ghAuthTimeout bounds `gh auth status`, which may hit the network.
+const ghAuthTimeout = 10 * time.Second
 
 // Doctor inspects the environment and the repository containing dir. It
 // never writes anything.
@@ -113,15 +117,17 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 	}
 
 	if mOK {
-		for _, tool := range toolChecks(m, d) {
-			add("tool."+tool.id, tool.id+" available", toolFound(root, tool.bin, has), StatusFail, "install "+tool.bin)
+		for _, bin := range toolBins(m, d) {
+			add("tool."+bin, bin+" available", toolFound(root, bin, has), StatusFail, "install "+bin)
 		}
 	}
 
 	ghOK := has("gh")
 	add("gh.installed", "GitHub CLI installed", ghOK, StatusFail, "install GitHub CLI: https://cli.github.com")
 	if ghOK {
-		_, _, code, rerr := env.Run(ctx, dir, "gh", "auth", "status")
+		ghCtx, cancel := context.WithTimeout(ctx, ghAuthTimeout)
+		_, _, code, rerr := env.Run(ghCtx, dir, "gh", "auth", "status")
+		cancel()
 		add("gh.auth", "GitHub CLI authenticated", rerr == nil && code == 0, StatusFail, "run: gh auth login")
 	}
 
@@ -139,8 +145,13 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 	}
 
 	if mOK {
-		_, serr := os.Stat(abs(root, m.PullRequest.Template))
-		add("pr.template", "PR template found", serr == nil, StatusFail, "run: tija init")
+		if m.PullRequest.Template == "" {
+			rep.Checks = append(rep.Checks, Check{ID: "pr.template", Status: StatusFail,
+				Title: "PR template not configured", Hint: "set pullRequest.template in " + manifest.Path})
+		} else {
+			_, serr := os.Stat(abs(root, m.PullRequest.Template))
+			add("pr.template", "PR template found", serr == nil, StatusFail, "run: tija init")
+		}
 	}
 	if haveDet {
 		if d.PRGovernanceWorkflow != "" {
@@ -158,31 +169,27 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 	return rep, nil
 }
 
-type toolCheck struct{ id, bin string }
-
-// toolChecks lists the distinct quality providers of m plus the package
-// manager binary, in a stable order.
-func toolChecks(m manifest.Manifest, d detect.Detection) []toolCheck {
-	var ids []string
+// toolBins lists the distinct binaries behind the quality providers of m
+// plus the package manager, in a stable order. dotnet-format, dotnet-test
+// and dotnet all resolve to the dotnet binary.
+func toolBins(m manifest.Manifest, d detect.Detection) []string {
+	var bins []string
 	for _, q := range m.Quality {
-		if q.Provider != "" {
-			ids = append(ids, q.Provider)
+		if q.Provider == "" {
+			continue
 		}
-	}
-	slices.Sort(ids)
-	ids = slices.Compact(ids)
-	if pm := d.PackageManager; pm != "" && !slices.Contains(ids, pm) {
-		ids = append(ids, pm)
-	}
-	out := make([]toolCheck, len(ids))
-	for i, id := range ids {
-		bin := id
-		if strings.HasPrefix(id, "dotnet-") {
+		bin := q.Provider
+		if strings.HasPrefix(bin, "dotnet-") {
 			bin = "dotnet"
 		}
-		out[i] = toolCheck{id, bin}
+		bins = append(bins, bin)
 	}
-	return out
+	slices.Sort(bins)
+	bins = slices.Compact(bins)
+	if pm := d.PackageManager; pm != "" && !slices.Contains(bins, pm) {
+		bins = append(bins, pm)
+	}
+	return bins
 }
 
 func toolFound(root, bin string, has func(string) bool) bool {
