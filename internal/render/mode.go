@@ -7,12 +7,13 @@ import (
 	"io"
 )
 
-// Mode selects how output is rendered.
+// Mode selects how output is rendered. The zero value is Plain, so a
+// Printer without a Mode never emits ANSI.
 type Mode int
 
 const (
-	Styled Mode = iota
-	Plain
+	Plain Mode = iota
+	Styled
 	JSON
 )
 

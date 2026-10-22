@@ -52,3 +52,15 @@ func TestWarnFailSymbols(t *testing.T) {
 		t.Fatalf("got %q", b.String())
 	}
 }
+
+func TestZeroPrinterIsPlain(t *testing.T) {
+	var b bytes.Buffer
+	var m Mode
+	if m != Plain {
+		t.Fatalf("zero Mode = %v, want Plain", m)
+	}
+	Printer{W: &b}.Heading("Doctor")
+	if strings.Contains(b.String(), "\x1b[") {
+		t.Fatal("ANSI from a zero-value Printer")
+	}
+}
