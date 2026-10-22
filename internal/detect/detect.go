@@ -84,6 +84,7 @@ func Detect(root, remoteURL string) (Detection, error) {
 		d.detectNode()
 	}
 	d.CI = globRel(abs, ".github/workflows/*.yml", ".github/workflows/*.yaml")
+	d.detectPR()
 	return d, nil
 }
 
@@ -95,6 +96,7 @@ func (d Detection) WithSolution(sln string) (Detection, error) {
 	out := d
 	out.Solution = sln
 	out.applySolution()
+	out.addPRTools()
 	return out, nil
 }
 
