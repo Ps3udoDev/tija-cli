@@ -46,7 +46,11 @@ func Status(p Printer, r engine.StatusReport) {
 		p.Warn(msg)
 		if v.Suggested != "" {
 			p.Line("  suggested: " + v.Suggested)
-			p.Line("  rename: git branch -m " + v.Name + " " + v.Suggested)
+			oldName, newName := shellQuote(v.Name), shellQuote(v.Suggested)
+			p.Line("  rename: git branch -m " + oldName + " " + newName)
+			if r.Published {
+				p.Line("  then: git push origin -u " + newName + " && git push origin --delete " + oldName)
+			}
 		}
 		if r.HuskyWarning {
 			p.Warn("this repo's pre-push hook will reject this branch")
@@ -92,4 +96,20 @@ func remote(r engine.StatusReport) string {
 		return "origin, branch published"
 	}
 	return "origin, branch not published"
+}
+
+// shellQuote returns s unchanged when it only has [A-Za-z0-9._/-] chars,
+// else single-quoted for a POSIX shell.
+func shellQuote(s string) string {
+	safe := s != ""
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("._/-", c)) {
+			safe = false
+			break
+		}
+	}
+	if safe {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

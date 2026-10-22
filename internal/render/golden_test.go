@@ -217,3 +217,39 @@ func TestRenderStyledUsesANSI(t *testing.T) {
 		t.Fatalf("styled output has no ANSI: %q", b.String())
 	}
 }
+
+func TestRenderStatusRenameHintQuotesAndPush(t *testing.T) {
+	r := engine.StatusReport{
+		Branch: branch.Verdict{State: branch.Nonconforming, Name: "it's (wip)", Suggested: "feat/wip"},
+		Target: "main", TargetFound: true, HasCommits: true, HasRemote: true, Published: true,
+	}
+	got := renderPlain(func(p Printer) { Status(p, r) })
+	for _, want := range []string{
+		`  rename: git branch -m 'it'\''s (wip)' feat/wip` + "\n",
+		`  then: git push origin -u feat/wip && git push origin --delete 'it'\''s (wip)'` + "\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("output lacks %q:\n%s", want, got)
+		}
+	}
+
+	r.Published = false
+	r.Branch.Name = "wip"
+	got = renderPlain(func(p Printer) { Status(p, r) })
+	if !strings.Contains(got, "  rename: git branch -m wip feat/wip\n") || strings.Contains(got, "then:") {
+		t.Errorf("unpublished branch:\n%s", got)
+	}
+}
+
+func TestShellQuote(t *testing.T) {
+	for in, want := range map[string]string{
+		"feat/x-1.2_a": "feat/x-1.2_a",
+		"a b":          "'a b'",
+		"it's":         `'it'\''s'`,
+		"":             "''",
+	} {
+		if got := shellQuote(in); got != want {
+			t.Errorf("shellQuote(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
