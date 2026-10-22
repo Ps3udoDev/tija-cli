@@ -83,6 +83,7 @@ func Status(ctx context.Context, dir string, env sys.Env) (StatusReport, error) 
 	rep.HasRemote = repo.RemoteURL(ctx) != ""
 
 	if rep.Branch.State == branch.Nonconforming {
+		// Detect errors are intentionally ignored: the husky warning is best-effort.
 		if d, err := detect.Detect(root, ""); err == nil && d.HuskyBranchHook {
 			rep.HuskyWarning = true
 		}

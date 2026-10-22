@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"errors"
+	"github.com/Ps3udoDev/tija-cli/internal/gitx"
+	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"testing"
 
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
@@ -88,3 +90,81 @@ func TestStatusOutsideRepo(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+// manifestRepo returns an initialized react-vite repo whose manifest was
+// edited by edit.
+func manifestRepo(t *testing.T, edit func(m *manifest.Manifest)) string {
+	t.Helper()
+	repo := initRepo(t, "react-vite")
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edit(&m)
+	if err := manifest.Save(repo, m); err != nil {
+		t.Fatal(err)
+	}
+	return repo
+}
+
+func TestStatusUsesManifest(t *testing.T) {
+	repo := manifestRepo(t, func(m *manifest.Manifest) {
+		m.Git.BranchPrefixes = []string{"spike"}
+		m.PullRequest.Target = "dev"
+	})
+	testutil.Git(t, repo, "branch", "dev")
+	testutil.Git(t, repo, "checkout", "-b", "spike/try-x")
+	r := status(t, repo)
+	if r.Branch.State != branch.Conforming || r.Target != "dev" || !r.TargetFound {
+		t.Errorf("report = %+v", r)
+	}
+	if r.HuskyWarning {
+		t.Error("husky warning on conforming branch")
+	}
+}
+
+func TestStatusInvalidManifestFallsBack(t *testing.T) {
+	cases := map[string]func(t *testing.T) string{
+		"fails validation": func(t *testing.T) string {
+			return manifestRepo(t, func(m *manifest.Manifest) {
+				m.Git.BranchPrefixes = []string{"spike"}
+				m.Project.Type = "bogus"
+			})
+		},
+		"does not parse": func(t *testing.T) string {
+			repo := initRepo(t, "react-vite")
+			putFile(t, repo, ".tija/manifest.yaml", []byte(":::"))
+			return repo
+		},
+	}
+	for name, mk := range cases {
+		t.Run(name, func(t *testing.T) {
+			repo := mk(t)
+			testutil.Git(t, repo, "checkout", "-b", "spike/try-x")
+			r := status(t, repo)
+			if r.Branch.State != branch.Nonconforming {
+				t.Errorf("state = %s, want nonconforming", r.Branch.State)
+			}
+			if want := defaultTarget(context.Background(), gitxRepo(repo)); r.Target != want || want == "" {
+				t.Errorf("target = %q, want %q", r.Target, want)
+			}
+		})
+	}
+}
+
+func TestStatusPublishedAndWorkTree(t *testing.T) {
+	repo := testutil.NewRepo(t, "", testutil.WithRemote("", true), testutil.WithBranch("feat/x"))
+	if r := status(t, repo); r.Published {
+		t.Error("published before push")
+	}
+	testutil.Git(t, repo, "push", "origin", "feat/x")
+	putFile(t, repo, "README.md", []byte("changed\n"))
+	putFile(t, repo, "staged.txt", []byte("s"))
+	testutil.Git(t, repo, "add", "staged.txt")
+	r := status(t, repo)
+	if !r.Published || r.Staged != 1 || r.Unstaged != 1 {
+		t.Errorf("report = %+v", r)
+	}
+}
+
+func gitxRepo(dir string) gitx.Repo { return gitx.Repo{Dir: dir, Run: fakeEnv().Run} }
