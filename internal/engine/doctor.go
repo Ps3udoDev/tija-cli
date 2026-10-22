@@ -75,10 +75,12 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 	add("git.installed", "Git installed", has("git"), StatusFail, "install git")
 
 	root, inRepo, err := gitx.FindRoot(ctx, env.Run, dir)
+	repoHint := "run inside a git repository"
 	if err != nil {
-		inRepo = false // e.g. git cannot be started; reported above
+		inRepo = false
+		repoHint = err.Error() // e.g. dubious ownership, or git cannot be started
 	}
-	add("repo.detected", "repository detected", inRepo, StatusFail, "run inside a git repository")
+	add("repo.detected", "repository detected", inRepo, StatusFail, repoHint)
 
 	var (
 		d       detect.Detection
@@ -119,7 +121,7 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 	ghOK := has("gh")
 	add("gh.installed", "GitHub CLI installed", ghOK, StatusFail, "install GitHub CLI: https://cli.github.com")
 	if ghOK {
-		_, code, rerr := env.Run(ctx, dir, "gh", "auth", "status")
+		_, _, code, rerr := env.Run(ctx, dir, "gh", "auth", "status")
 		add("gh.auth", "GitHub CLI authenticated", rerr == nil && code == 0, StatusFail, "run: gh auth login")
 	}
 

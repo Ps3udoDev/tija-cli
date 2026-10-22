@@ -17,14 +17,19 @@ type Repo struct {
 }
 
 // FindRoot returns the top-level directory of the repository containing dir.
-// ok is false (with a nil error) when dir is not inside a repository.
+// ok is false (with a nil error) when dir is not inside a repository. Any
+// other git failure (e.g. "detected dubious ownership") is returned as an
+// error carrying git's message.
 func FindRoot(ctx context.Context, run sys.Runner, dir string) (root string, ok bool, err error) {
-	out, code, err := run(ctx, dir, "git", "rev-parse", "--show-toplevel")
+	out, stderr, code, err := run(ctx, dir, "git", "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", false, err
 	}
 	if code != 0 {
-		return "", false, nil
+		if strings.Contains(strings.ToLower(stderr), "not a git repository") {
+			return "", false, nil
+		}
+		return "", false, gitError(stderr, code)
 	}
 	root = strings.TrimSpace(out)
 	if root == "" {
@@ -33,9 +38,19 @@ func FindRoot(ctx context.Context, run sys.Runner, dir string) (root string, ok 
 	return filepath.Clean(filepath.FromSlash(root)), true, nil
 }
 
+// gitError turns a failed git invocation into an error with git's message.
+func gitError(stderr string, code int) error {
+	msg := strings.TrimSpace(stderr)
+	msg = strings.TrimSpace(strings.TrimPrefix(msg, "fatal:"))
+	if msg == "" {
+		return fmt.Errorf("git failed with exit code %d", code)
+	}
+	return fmt.Errorf("git: %s", msg)
+}
+
 // git runs a git command and returns trimmed stdout and whether it succeeded.
 func (r Repo) git(ctx context.Context, args ...string) (string, bool) {
-	out, code, err := r.Run(ctx, r.Dir, "git", args...)
+	out, _, code, err := r.Run(ctx, r.Dir, "git", args...)
 	if err != nil || code != 0 {
 		return "", false
 	}
@@ -43,16 +58,20 @@ func (r Repo) git(ctx context.Context, args ...string) (string, bool) {
 }
 
 // CurrentBranch returns the checked-out branch name, or detached=true when
-// HEAD does not point to a branch.
+// HEAD does not point to a branch (git exits 1). Other failures are errors.
 func (r Repo) CurrentBranch(ctx context.Context) (name string, detached bool, err error) {
-	out, code, err := r.Run(ctx, r.Dir, "git", "symbolic-ref", "--short", "-q", "HEAD")
+	out, stderr, code, err := r.Run(ctx, r.Dir, "git", "symbolic-ref", "--short", "-q", "HEAD")
 	if err != nil {
 		return "", false, err
 	}
-	if code != 0 {
+	switch code {
+	case 0:
+		return strings.TrimSpace(out), false, nil
+	case 1:
 		return "", true, nil
+	default:
+		return "", false, gitError(stderr, code)
 	}
-	return strings.TrimSpace(out), false, nil
 }
 
 // HasCommits reports whether HEAD resolves to a commit.
@@ -106,7 +125,7 @@ func (r Repo) AheadBehind(ctx context.Context, base string) (ahead, behind int, 
 // WorkTree counts staged, unstaged and untracked entries.
 func (r Repo) WorkTree(ctx context.Context) (staged, unstaged, untracked int) {
 	// Raw output: the leading space of " M file" is significant.
-	out, code, err := r.Run(ctx, r.Dir, "git", "status", "--porcelain=v1", "--untracked-files=all")
+	out, _, code, err := r.Run(ctx, r.Dir, "git", "status", "--porcelain=v1", "--untracked-files=all")
 	if err != nil || code != 0 {
 		return 0, 0, 0
 	}

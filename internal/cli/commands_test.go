@@ -231,3 +231,16 @@ func TestStdinPrompter(t *testing.T) {
 		}
 	}
 }
+
+func TestGitFailureExits2WithMessage(t *testing.T) {
+	deps := cmdDeps(false)
+	deps.Env.Run = func(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
+		return "", "fatal: detected dubious ownership in repository at 'C:/x'\n", 128, nil
+	}
+	for _, cmd := range []string{"init", "status"} {
+		code, _, errOut := runIn(t, t.TempDir(), deps, "", cmd)
+		if code != 2 || !strings.Contains(errOut, "detected dubious ownership") {
+			t.Errorf("%s: code = %d, stderr = %q", cmd, code, errOut)
+		}
+	}
+}

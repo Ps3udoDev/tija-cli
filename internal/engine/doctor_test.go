@@ -17,9 +17,9 @@ import (
 func doctorEnv(ghAuth int, found ...string) sys.Env {
 	real := sys.Default()
 	return sys.Env{
-		Run: func(ctx context.Context, dir, name string, args ...string) (string, int, error) {
+		Run: func(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
 			if name == "gh" {
-				return "", ghAuth, nil
+				return "", "", ghAuth, nil
 			}
 			return real.Run(ctx, dir, name, args...)
 		},
@@ -166,4 +166,20 @@ func TestDoctorOutsideRepo(t *testing.T) {
 	}
 	wantStatus(t, r, "gh.installed", StatusFail)
 	wantStatus(t, r, "agents.available", StatusWarn)
+}
+
+func TestDoctorGitFailureShowsMessage(t *testing.T) {
+	env := fakeEnv()
+	msg := "fatal: detected dubious ownership in repository at 'C:/x'"
+	env.Run = func(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
+		return "", msg + "\n", 128, nil
+	}
+	r, err := Doctor(context.Background(), t.TempDir(), env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := checkByID(r, "repo.detected")
+	if c.Status != StatusFail || !strings.Contains(c.Hint, "detected dubious ownership") {
+		t.Errorf("repo.detected = %+v, want fail with git's message", c)
+	}
 }

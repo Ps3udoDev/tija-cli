@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
@@ -140,5 +141,43 @@ func TestLocalBranches(t *testing.T) {
 	got := newGitx(dir).LocalBranches(context.Background())
 	if len(got) != 2 {
 		t.Fatalf("got %v", got)
+	}
+}
+
+// fakeRun answers every command with the given exit code and stderr.
+func fakeRun(code int, stderr string) sys.Runner {
+	return func(context.Context, string, string, ...string) (string, string, int, error) {
+		return "", stderr, code, nil
+	}
+}
+
+func TestFindRootDubiousOwnership(t *testing.T) {
+	msg := "fatal: detected dubious ownership in repository at 'C:/x'"
+	_, ok, err := gitx.FindRoot(context.Background(), fakeRun(128, msg+"\n"), "C:/x")
+	if err == nil || ok {
+		t.Fatalf("ok=%v err=%v, want an error", ok, err)
+	}
+	if !strings.Contains(err.Error(), "detected dubious ownership") {
+		t.Errorf("err = %q, want git's message", err)
+	}
+}
+
+func TestFindRootNotARepoMessage(t *testing.T) {
+	_, ok, err := gitx.FindRoot(context.Background(),
+		fakeRun(128, "fatal: not a git repository (or any of the parent directories): .git\n"), "C:/x")
+	if err != nil || ok {
+		t.Fatalf("ok=%v err=%v, want false,nil", ok, err)
+	}
+}
+
+func TestCurrentBranchFailureIsAnError(t *testing.T) {
+	r := gitx.Repo{Dir: "C:/x", Run: fakeRun(128, "fatal: detected dubious ownership in repository at 'C:/x'")}
+	_, detached, err := r.CurrentBranch(context.Background())
+	if err == nil || detached {
+		t.Fatalf("detached=%v err=%v, want an error", detached, err)
+	}
+	r.Run = fakeRun(1, "")
+	if _, detached, err = r.CurrentBranch(context.Background()); err != nil || !detached {
+		t.Fatalf("exit 1: detached=%v err=%v, want detached", detached, err)
 	}
 }

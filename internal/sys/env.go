@@ -10,10 +10,10 @@ import (
 	"os/exec"
 )
 
-// Runner runs a command in dir and returns its stdout and exit code.
+// Runner runs a command in dir and returns its stdout, stderr and exit code.
 // err is non-nil only when the process could not be started; a non-zero
 // exit code is not an error.
-type Runner func(ctx context.Context, dir, name string, args ...string) (stdout string, exitCode int, err error)
+type Runner func(ctx context.Context, dir, name string, args ...string) (stdout, stderr string, exitCode int, err error)
 
 // Env bundles the system capabilities Tija depends on.
 type Env struct {
@@ -27,18 +27,19 @@ func Default() Env {
 	return Env{Run: execRun, LookPath: exec.LookPath, Getenv: os.Getenv}
 }
 
-func execRun(ctx context.Context, dir, name string, args ...string) (string, int, error) {
+func execRun(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
-	var out bytes.Buffer
+	var out, errOut bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &errOut
 	err := cmd.Run()
 	if err == nil {
-		return out.String(), 0, nil
+		return out.String(), errOut.String(), 0, nil
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
-		return out.String(), exitErr.ExitCode(), nil
+		return out.String(), errOut.String(), exitErr.ExitCode(), nil
 	}
-	return out.String(), -1, err
+	return out.String(), errOut.String(), -1, err
 }
