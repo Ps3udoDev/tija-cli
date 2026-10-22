@@ -4,9 +4,7 @@ package manifest
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -189,16 +187,12 @@ func Load(root string) (Manifest, error) {
 	return Parse(data)
 }
 
-// Parse decodes manifest bytes strictly: unknown keys are errors. Errors are
-// prefixed with Path.
+// Parse decodes manifest bytes. Decoding is lenient (unknown keys are
+// allowed); schema problems are reported by Validate. Errors are prefixed
+// with Path.
 func Parse(data []byte) (Manifest, error) {
 	var m Manifest
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&m); err != nil {
-		if errors.Is(err, io.EOF) {
-			err = errors.New("empty file")
-		}
+	if err := yaml.Unmarshal(data, &m); err != nil {
 		return Manifest{}, fmt.Errorf("%s: %w", Path, err)
 	}
 	return m, nil

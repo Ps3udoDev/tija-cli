@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/Ps3udoDev/tija-cli/internal/textdiff"
 )
 
 // MissingFields returns the dotted YAML keys (e.g. "pullRequest.title.maxLength")
@@ -98,10 +100,12 @@ func str(s string) *yaml.Node {
 }
 
 // patch decodes data into a node tree, lets edit modify the root mapping and
-// re-encodes it, preserving CRLF line endings when data used them.
+// re-encodes it. To keep the user's layout it reuses the document's
+// indentation, its blank lines and its line endings (CRLF or LF).
 func patch(data []byte, edit func(root *yaml.Node)) ([]byte, error) {
+	src := bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
 	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil {
+	if err := yaml.Unmarshal(src, &doc); err != nil {
 		return nil, fmt.Errorf("%s: %w", Path, err)
 	}
 	if doc.Kind == 0 {
@@ -112,14 +116,50 @@ func patch(data []byte, edit func(root *yaml.Node)) ([]byte, error) {
 		return nil, fmt.Errorf("%s: top level is not a mapping", Path)
 	}
 	edit(root)
-	out, err := encode(&doc)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(indentOf(src))
+	if err := enc.Encode(&doc); err != nil {
 		return nil, err
 	}
-	if bytes.Contains(data, []byte("\r\n")) {
-		out = bytes.ReplaceAll(out, []byte("\n"), []byte("\r\n"))
+	if err := enc.Close(); err != nil {
+		return nil, err
 	}
-	return out, nil
+
+	// yaml.v3 drops blank lines and may add some after comments: restore the
+	// original blank lines and drop the added ones.
+	var lines []string
+	for _, op := range textdiff.Ops(textdiff.Split(src), textdiff.Split(buf.Bytes())) {
+		blank := strings.TrimSpace(op.Text) == ""
+		if op.Kind == ' ' || (op.Kind == '-' && blank) || (op.Kind == '+' && !blank) {
+			lines = append(lines, op.Text)
+		}
+	}
+	nl := "\n"
+	if bytes.Contains(data, []byte("\r\n")) {
+		nl = "\r\n"
+	}
+	return []byte(strings.Join(lines, nl) + nl), nil
+}
+
+// indentOf returns the smallest indentation used by the document's
+// mappings (2 to 8, default 2).
+func indentOf(src []byte) int {
+	best := 0
+	for _, l := range textdiff.Split(src) {
+		trimmed := strings.TrimLeft(l, " ")
+		n := len(l) - len(trimmed)
+		if n == 0 || trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "- ") {
+			continue
+		}
+		if best == 0 || n < best {
+			best = n
+		}
+	}
+	if best < 2 || best > 8 {
+		return 2
+	}
+	return best
 }
 
 // lookup returns the value node at path inside mapping m, or nil.

@@ -19,6 +19,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/Ps3udoDev/tija-cli/internal/testutil"
+	"github.com/Ps3udoDev/tija-cli/internal/textdiff"
 )
 
 // fakeEnv finds only git on PATH.
@@ -220,14 +221,55 @@ func TestInitKeepsUserEditedRules(t *testing.T) {
 	p := plan(t, repo)
 	apply(t, p, nil, approveAll(p))
 
+	// No newer default exists: the user's edit is simply kept.
 	edited := []byte("# my own rules\n")
 	putFile(t, repo, ".tija/rules/pull-request.md", edited)
 	p2 := plan(t, repo)
-	r := apply(t, p2, nil, nil)
+	if len(p2.Actions) != 0 {
+		t.Errorf("Actions = %+v, want none", p2.Actions)
+	}
+	r := apply(t, p2, nil, approveAll(p2))
 	if got := readFile(t, repo, ".tija/rules/pull-request.md"); !bytes.Equal(got, edited) {
 		t.Errorf("edited rules overwritten: %q", got)
 	}
-	if len(r.Pending) != 1 || r.Pending[0].Kind != KindReplace || !r.Pending[0].NeedsConsent || r.Pending[0].Path != ".tija/rules/pull-request.md" {
+	if len(r.Pending)+len(r.Created)+len(r.Updated) != 0 {
+		t.Errorf("result = %+v", r)
+	}
+}
+
+// simulateOldDefault makes the manifest record oldDefault as the installed
+// rules, as an older Tija version would have.
+func simulateOldDefault(t *testing.T, repo string, oldDefault []byte) {
+	t.Helper()
+	data, err := manifest.RecordInstalled(readFile(t, repo, manifest.Path), "0", map[string]string{".tija/rules/pull-request.md": sum(oldDefault)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	putFile(t, repo, manifest.Path, data)
+}
+
+func TestInitEditedOldDefaultNeedsConsent(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	p := plan(t, repo)
+	apply(t, p, nil, approveAll(p))
+
+	simulateOldDefault(t, repo, []byte("# old default rules\n"))
+	edited := []byte("# old default rules, edited\n")
+	putFile(t, repo, ".tija/rules/pull-request.md", edited)
+	manifestBefore := readFile(t, repo, manifest.Path)
+
+	r := apply(t, plan(t, repo), nil, nil)
+	if got := readFile(t, repo, ".tija/rules/pull-request.md"); !bytes.Equal(got, edited) {
+		t.Errorf("edited rules overwritten: %q", got)
+	}
+	if !bytes.Equal(readFile(t, repo, manifest.Path), manifestBefore) {
+		t.Error("manifest written without consent")
+	}
+	ids := map[string]bool{}
+	for _, a := range r.Pending {
+		ids[a.ID] = a.NeedsConsent
+	}
+	if !ids["replace:.tija/rules/pull-request.md"] || !ids["update:.tija/manifest.yaml"] || len(ids) != 2 {
 		t.Errorf("Pending = %+v", r.Pending)
 	}
 }
@@ -237,14 +279,10 @@ func TestInitUpgradesUneditedDefaults(t *testing.T) {
 	p := plan(t, repo)
 	apply(t, p, nil, approveAll(p))
 
-	// Simulate a default installed by an older Tija version.
 	old := []byte("# old default rules\n")
 	putFile(t, repo, ".tija/rules/pull-request.md", old)
-	data, err := manifest.RecordInstalled(readFile(t, repo, manifest.Path), "0", map[string]string{".tija/rules/pull-request.md": sum(old)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	putFile(t, repo, manifest.Path, data)
+	simulateOldDefault(t, repo, old)
+	manifestBefore := readFile(t, repo, manifest.Path)
 
 	p2 := plan(t, repo)
 	a, ok := findAction(p2, "replace:.tija/rules/pull-request.md")
@@ -256,7 +294,17 @@ func TestInitUpgradesUneditedDefaults(t *testing.T) {
 	if got := readFile(t, repo, ".tija/rules/pull-request.md"); !bytes.Equal(got, rules) {
 		t.Error("unedited old default not upgraded")
 	}
-	if !slices.Contains(r.Updated, ".tija/rules/pull-request.md") || !slices.Contains(r.Updated, manifest.Path) {
+	if !reflect.DeepEqual(r.Updated, []string{".tija/rules/pull-request.md"}) || !reflect.DeepEqual(pendingPaths(r), []string{manifest.Path}) {
+		t.Errorf("Updated = %v, Pending = %v", r.Updated, pendingPaths(r))
+	}
+	if !bytes.Equal(readFile(t, repo, manifest.Path), manifestBefore) {
+		t.Error("manifest written without consent")
+	}
+
+	// The stale hash is refreshed once the manifest update is approved.
+	p3 := plan(t, repo)
+	r = apply(t, p3, nil, approveAll(p3))
+	if !reflect.DeepEqual(r.Updated, []string{manifest.Path}) {
 		t.Errorf("Updated = %v", r.Updated)
 	}
 	m, err := manifest.Load(repo)
@@ -265,6 +313,72 @@ func TestInitUpgradesUneditedDefaults(t *testing.T) {
 	}
 	if m.Tija.DefaultsVersion != assets.DefaultsVersion || m.Tija.Installed[".tija/rules/pull-request.md"] != sum(rules) {
 		t.Errorf("tija = %+v", m.Tija)
+	}
+	if p4 := plan(t, repo); len(p4.Actions) != 0 {
+		t.Errorf("Actions after convergence = %+v", p4.Actions)
+	}
+}
+
+func TestInitCRLFCheckoutIsNotAnEdit(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	p := plan(t, repo)
+	apply(t, p, nil, approveAll(p))
+
+	rules := readFile(t, repo, ".tija/rules/pull-request.md")
+	putFile(t, repo, ".tija/rules/pull-request.md", bytes.ReplaceAll(rules, []byte("\n"), []byte("\r\n")))
+	if p2 := plan(t, repo); len(p2.Actions) != 0 {
+		t.Errorf("Actions = %+v, want none", p2.Actions)
+	}
+}
+
+func TestInitManifestUpdateKeepsLayout(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	p := plan(t, repo)
+	apply(t, p, nil, approveAll(p))
+
+	original := []byte("# team manifest\nversion: 1\n\nproject:\n    name: gmx\n    type: react-vite\n\npullRequest:\n    target: dev\n    title:\n        convention: conventional-commits\n\nagents:\n    tasks:\n        review:\n            tier: deep\n")
+	putFile(t, repo, manifest.Path, original)
+
+	p2 := plan(t, repo)
+	a, ok := findAction(p2, "update:.tija/manifest.yaml")
+	if !ok || !a.NeedsConsent {
+		t.Fatalf("manifest update = %+v, %v", a, ok)
+	}
+	for _, l := range strings.Split(a.Diff, "\n") {
+		if !strings.HasPrefix(l, "+") {
+			t.Errorf("diff line %q is not an addition:\n%s", l, a.Diff)
+		}
+	}
+	if !strings.Contains(a.Diff, "+        maxLength: 100") {
+		t.Errorf("diff lacks 4-space indented field:\n%s", a.Diff)
+	}
+
+	apply(t, p2, nil, nil)
+	if !bytes.Equal(readFile(t, repo, manifest.Path), original) {
+		t.Fatal("manifest modified without consent")
+	}
+
+	apply(t, p2, nil, approveAll(p2))
+	written := readFile(t, repo, manifest.Path)
+	if got := textdiff.Lines(original, written); got != a.Diff {
+		t.Errorf("written changes differ from the approved diff:\n got %s\nwant %s", got, a.Diff)
+	}
+	m, err := manifest.Load(repo)
+	if err != nil || m.Validate() != nil || m.PullRequest.Target != "dev" || m.Agents.Tasks["review"].Tier != "deep" {
+		t.Errorf("merged manifest = %+v, %v", m, err)
+	}
+}
+
+func TestInitGitignoreRecomputedAtApply(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	putFile(t, repo, ".gitignore", []byte("node_modules\n"))
+	p := plan(t, repo)
+
+	putFile(t, repo, ".gitignore", []byte("node_modules\n.tija/cache/\nfoo\n"))
+	apply(t, p, nil, approveAll(p))
+	got := string(readFile(t, repo, ".gitignore"))
+	if !strings.HasPrefix(got, "node_modules\n.tija/cache/\nfoo\n") || strings.Count(got, ".tija/cache/") != 1 || !strings.Contains(got, ".tija/tmp/") {
+		t.Errorf(".gitignore = %q", got)
 	}
 }
 

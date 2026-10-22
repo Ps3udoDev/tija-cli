@@ -21,6 +21,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
+	"github.com/Ps3udoDev/tija-cli/internal/textdiff"
 )
 
 // ActionKind says what an Action does to its file.
@@ -79,8 +80,9 @@ type InitPlan struct {
 	AlreadyInitialized bool              `json:"alreadyInitialized"`
 
 	agents       []string           // installed agent providers
-	existing     *manifest.Manifest // parsed manifest on disk, nil if absent or invalid
+	existing     *manifest.Manifest // manifest on disk, nil if absent or invalid
 	existingData []byte             // its raw bytes
+	refresh      map[string]string  // stale tija.installed entries of files equal to the default
 	notes        []string
 }
 
@@ -113,8 +115,8 @@ func PlanInit(ctx context.Context, dir string, env sys.Env) (InitPlan, error) {
 	switch {
 	case err == nil:
 		p.AlreadyInitialized = true
-		if m, perr := manifest.Parse(data); perr != nil {
-			p.notes = append(p.notes, "manifest is invalid, fix it manually: "+perr.Error())
+		if m, problem := parseValid(data); problem != "" {
+			p.notes = append(p.notes, "manifest is invalid, fix it manually: "+problem)
 		} else {
 			p.existing, p.existingData = &m, data
 		}
@@ -144,13 +146,30 @@ func PlanInit(ctx context.Context, dir string, env sys.Env) (InitPlan, error) {
 	}
 	p.Detection = d
 	p.Manifest = manifest.FromDetection(d, p.agents, target)
-	if p.Actions, err = p.planActions(); err != nil {
+	if err = p.planActions(); err != nil {
 		return InitPlan{}, err
 	}
 	return p, nil
 }
 
-func (p InitPlan) planActions() ([]Action, error) {
+// parseValid parses a manifest and validates it. problem is "" when the
+// manifest is usable.
+func parseValid(data []byte) (manifest.Manifest, string) {
+	m, err := manifest.Parse(data)
+	if err != nil {
+		return m, err.Error()
+	}
+	if errs := m.Validate(); len(errs) > 0 {
+		msgs := make([]string, len(errs))
+		for i, e := range errs {
+			msgs[i] = e.Error()
+		}
+		return m, strings.Join(msgs, "; ")
+	}
+	return m, ""
+}
+
+func (p *InitPlan) planActions() error {
 	files := assets.Files()
 	var installed map[string]string
 	if p.existing != nil {
@@ -175,37 +194,50 @@ func (p InitPlan) planActions() ([]Action, error) {
 	}
 	slices.Sort(extra)
 
-	var actions []Action
+	p.refresh = map[string]string{}
 	for _, path := range append(paths, extra...) {
 		data, _ := source(files, path)
-		a, ok, err := fileAction(p.Root, path, data, installed[path])
+		a, ok, stale, err := fileAction(p.Root, path, data, installed[path])
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if ok {
-			actions = append(actions, a)
+			p.Actions = append(p.Actions, a)
+		}
+		if stale {
+			p.refresh[path] = hash(data)
 		}
 	}
 
 	switch {
 	case !p.AlreadyInitialized:
-		actions = append(actions, newAction(KindCreate, manifest.Path, false))
+		p.Actions = append(p.Actions, newAction(KindCreate, manifest.Path, false))
 	case p.existing != nil:
-		if fields := manifest.MissingFields(*p.existing, p.Manifest); len(fields) > 0 {
-			merged, err := manifest.FillMissing(p.existingData, p.Manifest, fields)
-			if err != nil {
-				return nil, err
-			}
+		// Planned as if every file action ran and the choices keep their
+		// defaults; ApplyInit recomputes the bytes from what actually ran.
+		recorded := p.installedBy(p.Actions)
+		out, fields, err := p.updatedManifest(p.Manifest, recorded)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(out, p.existingData) {
 			a := newAction(KindUpdate, manifest.Path, true)
-			a.Reason = "add missing fields: " + strings.Join(fields, ", ")
-			a.Diff = diffLines(p.existingData, merged)
-			actions = append(actions, a)
+			var why []string
+			if len(fields) > 0 {
+				why = append(why, "add missing fields: "+strings.Join(fields, ", "))
+			}
+			if len(recorded) > 0 {
+				why = append(why, "record installed defaults")
+			}
+			a.Reason = strings.Join(why, "; ")
+			a.Diff = textdiff.Lines(p.existingData, out)
+			p.Actions = append(p.Actions, a)
 		}
 	}
 
 	cur, err := readOptional(abs(p.Root, gitignorePath))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if out, added := mergeGitignore(cur, gitignoreEntries); len(added) > 0 {
 		kind := KindUpdate
@@ -214,9 +246,8 @@ func (p InitPlan) planActions() ([]Action, error) {
 		}
 		a := newAction(kind, gitignorePath, true)
 		a.Reason = "ignore local .tija/ paths"
-		a.Diff = diffLines(cur, out)
-		a.data = out
-		actions = append(actions, a)
+		a.Diff = textdiff.Lines(cur, out)
+		p.Actions = append(p.Actions, a)
 	}
 
 	if p.Detection.PRTemplate == "" && !slices.Contains(extra, githubTemplate) {
@@ -224,12 +255,46 @@ func (p InitPlan) planActions() ([]Action, error) {
 			a := newAction(KindCreate, githubTemplate, true)
 			a.Reason = offerReason
 			a.data = files[assets.TemplatePath]
-			a.Diff = diffLines(nil, a.data)
+			a.Diff = textdiff.Lines(nil, a.data)
 			a.installed = true
-			actions = append(actions, a)
+			p.Actions = append(p.Actions, a)
 		}
 	}
-	return actions, nil
+	return nil
+}
+
+// installedBy returns the tija.installed entries produced by running actions,
+// plus the stale entries to refresh.
+func (p InitPlan) installedBy(actions []Action) map[string]string {
+	out := map[string]string{}
+	for path, h := range p.refresh {
+		out[path] = h
+	}
+	for _, a := range actions {
+		if a.installed {
+			out[a.Path] = hash(a.data)
+		}
+	}
+	return out
+}
+
+// updatedManifest returns the existing manifest bytes with the fields missing
+// from fresh filled in and the installed entries recorded.
+func (p InitPlan) updatedManifest(fresh manifest.Manifest, installed map[string]string) ([]byte, []string, error) {
+	out := p.existingData
+	fields := manifest.MissingFields(*p.existing, fresh)
+	var err error
+	if len(fields) > 0 {
+		if out, err = manifest.FillMissing(out, fresh, fields); err != nil {
+			return nil, nil, err
+		}
+	}
+	if len(installed) > 0 {
+		if out, err = manifest.RecordInstalled(out, assets.DefaultsVersion, installed); err != nil {
+			return nil, nil, err
+		}
+	}
+	return out, fields, nil
 }
 
 // source returns the embedded content installed at path.
@@ -241,33 +306,40 @@ func source(files map[string][]byte, path string) ([]byte, bool) {
 	return data, ok
 }
 
-// fileAction plans installing data at path. installedHash is the sha256
-// recorded when Tija last wrote the file ("" if unknown). ok is false when
-// the file already holds data.
-func fileAction(root, path string, data []byte, installedHash string) (Action, bool, error) {
+// fileAction plans installing the default data at path. recorded is the
+// hash in tija.installed ("" if unknown). Content is compared and hashed
+// with CRLF normalized to LF. ok is false when nothing must be written; stale
+// reports a file equal to the default whose recorded hash is outdated.
+//
+// A file the user edited is only offered for replacement (with consent)
+// when a newer default exists; an unedited one is upgraded silently inside
+// .tija/.
+func fileAction(root, path string, data []byte, recorded string) (a Action, ok, stale bool, err error) {
 	cur, err := readOptional(abs(root, path))
 	if err != nil {
-		return Action{}, false, err
+		return Action{}, false, false, err
 	}
 	outside := !strings.HasPrefix(path, ".tija/")
-	var a Action
+	hCur, hDef := hash(cur), hash(data)
 	switch {
 	case cur == nil:
 		a = newAction(KindCreate, path, outside)
 		a.Reason = "install Tija default"
-	case bytes.Equal(cur, data):
-		return Action{}, false, nil
-	case installedHash != "" && hash(cur) == installedHash:
+	case hCur == hDef:
+		return Action{}, false, recorded != "" && recorded != hDef, nil
+	case recorded == hDef:
+		return Action{}, false, false, nil // edited by the user, no newer default
+	case recorded != "" && hCur == recorded:
 		a = newAction(KindReplace, path, outside)
 		a.Reason = "upgrade unedited Tija default to v" + assets.DefaultsVersion
-		a.Diff = diffLines(cur, data)
+		a.Diff = textdiff.Lines(cur, data)
 	default:
 		a = newAction(KindReplace, path, true)
 		a.Reason = "file differs from Tija default v" + assets.DefaultsVersion + " (edited?)"
-		a.Diff = diffLines(cur, data)
+		a.Diff = textdiff.Lines(cur, data)
 	}
 	a.data, a.installed = data, true
-	return a, true, nil
+	return a, true, false, nil
 }
 
 func newAction(kind ActionKind, path string, consent bool) Action {
@@ -277,6 +349,10 @@ func newAction(kind ActionKind, path string, consent bool) Action {
 // ApplyInit runs the actions that need no consent plus the approved ones;
 // the rest are returned as Pending. Choices are resolved from answers or
 // their defaults.
+//
+// The manifest update and .gitignore merge are recomputed from what actually
+// runs: with default answers and every action approved, the manifest bytes
+// written are exactly those shown in the plan's Diff.
 func ApplyInit(ctx context.Context, plan InitPlan, answers map[string]string, approved map[string]bool) (InitResult, error) {
 	d, m := plan.Detection, plan.Manifest
 	if sol := answers[ChoiceSolution]; sol != "" && sol != d.Solution {
@@ -291,7 +367,7 @@ func ApplyInit(ctx context.Context, plan InitPlan, answers map[string]string, ap
 	}
 
 	res := InitResult{Detection: d, Notes: slices.Clone(plan.notes)}
-	installed := map[string]string{}
+	var ran []Action
 	writeManifest := false
 	for _, a := range plan.Actions {
 		if err := ctx.Err(); err != nil {
@@ -301,19 +377,33 @@ func ApplyInit(ctx context.Context, plan InitPlan, answers map[string]string, ap
 			res.Pending = append(res.Pending, a)
 			continue
 		}
-		if a.Path == manifest.Path {
+		switch a.Path {
+		case manifest.Path:
 			writeManifest = true
 			continue
+		case gitignorePath:
+			cur, err := readOptional(abs(plan.Root, gitignorePath))
+			if err != nil {
+				return res, err
+			}
+			out, added := mergeGitignore(cur, gitignoreEntries)
+			if len(added) == 0 {
+				continue
+			}
+			a.Kind = KindUpdate
+			if cur == nil {
+				a.Kind = KindCreate
+			}
+			a.data = out
 		}
 		if err := writeFile(plan.Root, a.Path, a.data); err != nil {
 			return res, err
 		}
-		if a.installed {
-			installed[a.Path] = hash(a.data)
-		}
+		ran = append(ran, a)
 		res.record(a)
 	}
 
+	installed := plan.installedBy(ran)
 	switch {
 	case !plan.AlreadyInitialized:
 		m.Tija = manifest.Meta{DefaultsVersion: assets.DefaultsVersion, Installed: installed}
@@ -321,18 +411,10 @@ func ApplyInit(ctx context.Context, plan InitPlan, answers map[string]string, ap
 			return res, err
 		}
 		res.Created = append(res.Created, manifest.Path)
-	case plan.existing != nil:
-		out := plan.existingData
-		var err error
-		if writeManifest {
-			if out, err = manifest.FillMissing(out, m, manifest.MissingFields(*plan.existing, m)); err != nil {
-				return res, err
-			}
-		}
-		if len(installed) > 0 {
-			if out, err = manifest.RecordInstalled(out, assets.DefaultsVersion, installed); err != nil {
-				return res, err
-			}
+	case plan.existing != nil && writeManifest:
+		out, _, err := plan.updatedManifest(m, installed)
+		if err != nil {
+			return res, err
 		}
 		if !bytes.Equal(out, plan.existingData) {
 			if err := writeFile(plan.Root, manifest.Path, out); err != nil {
@@ -378,38 +460,9 @@ func writeFile(root, rel string, data []byte) error {
 	return nil
 }
 
+// hash is the sha256 hex of b with CRLF normalized to LF, so that a
+// checkout with core.autocrlf does not look like an edit.
 func hash(b []byte) string {
-	s := sha256.Sum256(b)
+	s := sha256.Sum256(bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n")))
 	return hex.EncodeToString(s[:])
-}
-
-// diffLines renders the changed middle of old→new as "-"/"+" lines, after
-// dropping the lines both share at the start and the end.
-func diffLines(old, new []byte) string {
-	a, b := splitLines(old), splitLines(new)
-	pre := 0
-	for pre < len(a) && pre < len(b) && a[pre] == b[pre] {
-		pre++
-	}
-	suf := 0
-	for suf < len(a)-pre && suf < len(b)-pre && a[len(a)-1-suf] == b[len(b)-1-suf] {
-		suf++
-	}
-	var out []string
-	for _, l := range a[pre : len(a)-suf] {
-		out = append(out, "-"+l)
-	}
-	for _, l := range b[pre : len(b)-suf] {
-		out = append(out, "+"+l)
-	}
-	return strings.Join(out, "\n")
-}
-
-func splitLines(b []byte) []string {
-	s := strings.ReplaceAll(string(b), "\r\n", "\n")
-	s = strings.TrimSuffix(s, "\n")
-	if s == "" {
-		return nil
-	}
-	return strings.Split(s, "\n")
 }

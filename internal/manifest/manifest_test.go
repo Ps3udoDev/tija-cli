@@ -107,12 +107,54 @@ func TestLoadErrors(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(p, []byte(":::\n"), 0o644); err != nil {
+	if err := os.WriteFile(p, []byte("version: [\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := Load(root)
 	if err == nil || !strings.Contains(err.Error(), "manifest.yaml") {
-		t.Errorf("invalid manifest err = %v", err)
+		t.Errorf("unparsable manifest err = %v", err)
+	}
+
+	// Decoding is lenient: unknown keys are allowed; schema problems are
+	// reported by Validate.
+	if err := os.WriteFile(p, []byte(":::\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, err := Load(root)
+	if err != nil || len(m.Validate()) == 0 {
+		t.Errorf("':::' -> err %v, Validate %v; want parse ok and Validate errors", err, m.Validate())
+	}
+	valid := FromDetection(frontendDetection(t), nil, "main")
+	if err := Save(root, valid); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(p)
+	if err := os.WriteFile(p, append(data, []byte("myTeamKey: hello\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if m, err := Load(root); err != nil || m.Validate() != nil {
+		t.Errorf("user key rejected: %v %v", err, m.Validate())
+	}
+}
+
+func TestPatchKeepsLayout(t *testing.T) {
+	data := []byte("# mine\nversion: 1\n\nproject:\n    name: x\n    type: unknown\n\npullRequest:\n    target: dev\n    title:\n        convention: conventional-commits\n")
+	fresh := FromDetection(frontendDetection(t), nil, "main")
+	out, err := FillMissing(data, fresh, []string{"pullRequest.title.maxLength"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := string(data) + "        maxLength: 100\n"
+	if string(out) != want {
+		t.Errorf("FillMissing =\n%s\nwant\n%s", out, want)
+	}
+	crlf := []byte(strings.ReplaceAll(string(data), "\n", "\r\n"))
+	out, err = FillMissing(crlf, fresh, []string{"pullRequest.title.maxLength"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != strings.ReplaceAll(want, "\n", "\r\n") {
+		t.Errorf("CRLF FillMissing = %q", out)
 	}
 }
 
