@@ -110,7 +110,6 @@ func TestNoArgsNOCOLORDoesNotRunTUI(t *testing.T) {
 	}
 }
 
-
 func TestJSONErrorEnvelope(t *testing.T) {
 	deps := Deps{
 		Env: sys.Default(),

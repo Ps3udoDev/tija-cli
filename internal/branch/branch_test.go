@@ -73,7 +73,6 @@ func TestClassifyHuskyPrefixes(t *testing.T) {
 	}
 }
 
-
 func TestDefaultBaseBranches(t *testing.T) {
 	wantBases := []string{"main", "master", "dev", "develop", "desarrollo"}
 	for _, b := range wantBases {

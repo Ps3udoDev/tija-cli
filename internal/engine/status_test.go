@@ -171,7 +171,6 @@ func TestStatusPublishedAndWorkTree(t *testing.T) {
 
 func gitxRepo(dir string) gitx.Repo { return gitx.Repo{Dir: dir, Run: fakeEnv().Run} }
 
-
 func TestBaseBranchesConfigurable(t *testing.T) {
 	repo := testutil.NewRepo(t, "", testutil.WithBranch("trunk"))
 	data := []byte("version: 1\nproject:\n  name: x\n  type: unknown\ngit:\n  baseBranches: [\"trunk\"]\npullRequest:\n  target: main\n")

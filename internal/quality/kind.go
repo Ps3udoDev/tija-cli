@@ -26,11 +26,11 @@ const (
 type Invocation struct {
 	Kinds    []Kind
 	Provider string
-	Bin      string   // logical name ("biome", "dotnet", "bun", "npm")
-	Path     string   // resolved executable path; "" if unavailable
+	Bin      string // logical name ("biome", "dotnet", "bun", "npm")
+	Path     string // resolved executable path; "" if unavailable
 	Args     []string
-	Report   string   // absolute path of test report to read afterwards ("" if none)
-	Hint     string   // installation hint if Path == ""
+	Report   string // absolute path of test report to read afterwards ("" if none)
+	Hint     string // installation hint if Path == ""
 }
 
 // Display returns a human-readable command string: Bin + Args, quoting args that contain spaces.

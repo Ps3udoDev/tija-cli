@@ -10,9 +10,9 @@ import (
 type TailWriter struct {
 	Max int
 
-	mu      sync.Mutex
-	buf     []byte
-	lines   []string
+	mu    sync.Mutex
+	buf   []byte
+	lines []string
 }
 
 // Write appends p to the writer, splitting by newlines and keeping at most Max lines.

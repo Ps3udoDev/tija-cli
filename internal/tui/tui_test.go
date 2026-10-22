@@ -417,7 +417,6 @@ func TestStartupViewTestFiles(t *testing.T) {
 	}
 }
 
-
 func TestQualityProgressView(t *testing.T) {
 	m := newModel("/projects/claims-api", "0.1.0", sys.Env{})
 	m = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 30})
@@ -555,4 +554,3 @@ func TestStartupShowsFindRootError(t *testing.T) {
 		t.Errorf("startup view lacks error message:\n%s", v)
 	}
 }
-

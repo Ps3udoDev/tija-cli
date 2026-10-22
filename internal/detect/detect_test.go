@@ -240,7 +240,6 @@ func TestMajor(t *testing.T) {
 	}
 }
 
-
 func TestDetectNodeScripts(t *testing.T) {
 	dir := t.TempDir()
 	pkgJSON := `{

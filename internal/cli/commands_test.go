@@ -247,7 +247,6 @@ func TestGitFailureExits2WithMessage(t *testing.T) {
 	}
 }
 
-
 func TestCheckCommandJSON(t *testing.T) {
 	repo := testutil.NewRepo(t, fixture("react-vite"))
 	// Initialize manifest

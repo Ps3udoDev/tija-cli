@@ -243,7 +243,6 @@ func TestDoctorGhAuthTimeout(t *testing.T) {
 	}
 }
 
-
 func TestDoctorChecksScriptFallbackTool(t *testing.T) {
 	repo := testutil.NewRepo(t, fixture("react-vite"))
 	putFile(t, repo, "package.json", []byte(`{

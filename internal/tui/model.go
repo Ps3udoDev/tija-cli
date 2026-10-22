@@ -157,8 +157,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-
-
 // handleKey reacts to a key given as tea.KeyPressMsg.String().
 func (m model) handleKey(k string) (model, tea.Cmd) {
 	if k == "ctrl+c" {
