@@ -19,17 +19,17 @@ Or download a binary for Windows, Linux or macOS from the [Releases](https://git
 | Command | What it does |
 |---|---|
 | `tija init` | Detects the stack and template, creates `.tija/` and updates `.gitignore`. Idempotent. |
-| `tija doctor` | Checks git, `gh` and the agent CLIs available on `PATH`. |
-| `tija status` | Shows the state of `.tija/` and classifies branches. |
+| `tija doctor` | Checks git, `gh` (and its login), the agent CLIs on `PATH`, the manifest, the quality tools and the PR template. |
+| `tija status` | Classifies the current branch against the naming rules, shows ahead/behind against the PR target, the working tree and the remote. |
 
 Flags:
 
 - `--json` machine-readable output (no colors, no TUI).
 - `--yes` approves every action that needs consent (Tija never edits existing files outside `.tija/` without it).
 - `--no-color` plain text (also honored via `NO_COLOR`, and automatically when stdout is not a TTY).
-- `status --strict` makes warnings fail the command.
+- `status --strict` exits `1` when the branch is nonconforming or detached.
 
-Exit codes: `0` ok, `1` validation or check failure, `2` usage or environment error.
+Exit codes: `0` ok, `1` validation or check failure, `2` usage or environment error. `doctor` reports environment problems (missing git, `gh` or tools, not a repository) as failed checks, so it exits `1` rather than `2`.
 
 ## TUI
 
