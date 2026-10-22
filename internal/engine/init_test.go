@@ -528,3 +528,41 @@ func TestInitDoesNotOverwriteInvalidManifest(t *testing.T) {
 		t.Errorf("Notes = %v", r.Notes)
 	}
 }
+
+func TestDefaultTargetNeverEmpty(t *testing.T) {
+	ctx := context.Background()
+	run := sys.Default().Run
+
+	// origin/master without origin/HEAD or local main/master.
+	repo := testutil.NewRepo(t, "", testutil.WithRemote("", false), testutil.WithBranch("feat/x"))
+	testutil.Git(t, repo, "push", "origin", "main:master")
+	testutil.Git(t, repo, "update-ref", "-d", "refs/remotes/origin/main")
+	testutil.Git(t, repo, "branch", "-m", "main", "trunk")
+	if got := defaultTarget(ctx, gitx.Repo{Dir: repo, Run: run}); got != "master" {
+		t.Errorf("origin/master: %q, want master", got)
+	}
+
+	// Detached HEAD, nothing else to go by.
+	repo = testutil.NewRepo(t, "")
+	testutil.Git(t, repo, "branch", "-m", "main", "trunk")
+	testutil.Git(t, repo, "checkout", "--detach")
+	if got := defaultTarget(ctx, gitx.Repo{Dir: repo, Run: run}); got != "main" {
+		t.Errorf("detached: %q, want main", got)
+	}
+}
+
+func TestInitDetachedWritesValidManifest(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("unknown"))
+	testutil.Git(t, repo, "branch", "-m", "main", "trunk")
+	testutil.Git(t, repo, "checkout", "--detach")
+	p := plan(t, repo)
+	apply(t, p, nil, approveAll(p))
+	r, err := Doctor(context.Background(), repo, fakeEnv())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, r, "manifest.valid", StatusOK)
+	if p2 := plan(t, repo); len(p2.notes) > 0 {
+		t.Errorf("re-run notes = %v", p2.notes)
+	}
+}

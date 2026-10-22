@@ -9,7 +9,8 @@ import (
 )
 
 // defaultTarget picks the PR target branch: origin's default branch, else
-// local main, else local master, else the current branch ("" if detached).
+// local main, local master, origin/main, origin/master, the current branch
+// and finally "main". It never returns "", so the manifest stays valid.
 func defaultTarget(ctx context.Context, repo gitx.Repo) string {
 	if b := repo.DefaultRemoteBranch(ctx); b != "" {
 		return b
@@ -20,8 +21,15 @@ func defaultTarget(ctx context.Context, repo gitx.Repo) string {
 			return b
 		}
 	}
-	cur, _, _ := repo.CurrentBranch(ctx)
-	return cur
+	for _, b := range []string{"main", "master"} {
+		if repo.IsPublished(ctx, b) {
+			return b
+		}
+	}
+	if cur, detached, err := repo.CurrentBranch(ctx); err == nil && !detached && cur != "" {
+		return cur
+	}
+	return "main"
 }
 
 // targetChoice offers the base branches that exist locally or on origin
