@@ -1,0 +1,25 @@
+version: 2
+
+project_name: tija
+
+builds:
+  - id: tija
+    main: ./cmd/tija
+    binary: tija
+    env:
+      - CGO_ENABLED=0
+    goos: [windows, linux, darwin]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/Ps3udoDev/tija-cli/internal/cli.Version={{.Version}}
+
+archives:
+  - id: tija
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
