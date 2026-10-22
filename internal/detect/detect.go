@@ -51,6 +51,7 @@ type Detection struct {
 // skipDirs are never descended into when scanning for sources.
 var skipDirs = map[string]bool{
 	"node_modules": true, "bin": true, "obj": true, "dist": true, ".git": true,
+	".next": true, "coverage": true, "build": true, "out": true,
 }
 
 // Detect inspects root and reports its stack. remoteURL is only used to

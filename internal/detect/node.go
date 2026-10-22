@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -8,7 +9,9 @@ import (
 	"strings"
 )
 
-var majorRe = regexp.MustCompile(`\d+`)
+// majorRe matches the major version of a semver range such as ^19.1.0, ~7,
+// >=18 or v7.1.0. Tags (latest), catalog: and workspace: ranges do not match.
+var majorRe = regexp.MustCompile(`^\s*(?:[\^~]|[<>]=?|=)?\s*v?(\d+)`)
 
 type packageJSON struct {
 	PackageManager  string            `json:"packageManager"`
@@ -33,6 +36,7 @@ func (d *Detection) detectNode() {
 		return
 	}
 	var pkg packageJSON
+	b = bytes.TrimPrefix(b, []byte("\xef\xbb\xbf")) // UTF-8 BOM
 	if json.Unmarshal(b, &pkg) != nil {
 		return
 	}
@@ -49,7 +53,7 @@ func (d *Detection) detectNode() {
 		return
 	}
 	d.Stack = StackReactVite
-	d.Framework = "React " + major(reactV) + " + Vite " + major(viteV)
+	d.Framework = withMajor("React", reactV) + " + " + withMajor("Vite", viteV)
 
 	d.Language = "JavaScript"
 	if fileExists(filepath.Join(d.Root, "tsconfig.json")) || hasTSSources(filepath.Join(d.Root, "src")) {
@@ -92,7 +96,19 @@ func (d *Detection) detectNode() {
 }
 
 func major(version string) string {
-	return majorRe.FindString(version)
+	if m := majorRe.FindStringSubmatch(version); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
+// withMajor appends the major version of version to name, or omits it when
+// the range has none.
+func withMajor(name, version string) string {
+	if v := major(version); v != "" {
+		return name + " " + v
+	}
+	return name
 }
 
 func hasTSSources(dir string) bool {

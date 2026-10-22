@@ -192,3 +192,50 @@ func TestDotnetTestPackages(t *testing.T) {
 		}
 	}
 }
+
+func writeFiles(t *testing.T, root string, files map[string]string) {
+	t.Helper()
+	for rel, content := range files {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestDetectNodeVersionRangesBOMAndSkipDirs(t *testing.T) {
+	root := t.TempDir()
+	writeFiles(t, root, map[string]string{
+		"package.json":             "\ufeff" + `{"dependencies":{"react":"latest"},"devDependencies":{"vite":"catalog:"}}`,
+		"src/a.test.js":            "",
+		".next/server/b.test.js":   "",
+		"coverage/c.test.js":       "",
+		"build/d.test.js":          "",
+		"out/e.test.js":            "",
+		"node_modules/x/f.test.js": "",
+	})
+	d, err := Detect(root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Stack != StackReactVite || d.Framework != "React + Vite" {
+		t.Errorf("stack/framework = %q %q", d.Stack, d.Framework)
+	}
+	if d.TestCount != 1 {
+		t.Errorf("TestCount = %d, want 1 (skip .next, coverage, build, out)", d.TestCount)
+	}
+}
+
+func TestMajor(t *testing.T) {
+	for in, want := range map[string]string{
+		"^19.1.0": "19", "~7.0.4": "7", ">=18": "18", "19": "19", "v7.1.0": "7",
+		"latest": "", "catalog:": "", "workspace:*": "", "npm:react@19": "", "*": "",
+	} {
+		if got := major(in); got != want {
+			t.Errorf("major(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
