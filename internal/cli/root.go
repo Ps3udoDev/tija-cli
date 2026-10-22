@@ -69,7 +69,11 @@ func newRootCmd(deps Deps, in io.Reader) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			jsonOut, _ := cmd.Flags().GetBool("json")
-			interactive := !jsonOut && deps.RunTUI != nil && deps.IsTTY != nil &&
+			noColor, _ := cmd.Flags().GetBool("no-color")
+			if deps.Env.Getenv != nil && deps.Env.Getenv("NO_COLOR") != "" {
+				noColor = true
+			}
+			interactive := !jsonOut && !noColor && deps.RunTUI != nil && deps.IsTTY != nil &&
 				deps.IsTTY(in) && deps.IsTTY(cmd.OutOrStdout())
 			if !interactive {
 				return cmd.Help()

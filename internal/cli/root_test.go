@@ -18,7 +18,7 @@ func run(t *testing.T, deps Deps, args ...string) (int, string, string) {
 
 func baseDeps(isTTY bool, calls *[]string) Deps {
 	return Deps{
-		Env:   sys.Default(),
+		Env:   sys.Env{Getenv: func(string) string { return "" }},
 		IsTTY: func(any) bool { return isTTY },
 		RunTUI: func(dir string) error {
 			*calls = append(*calls, dir)
@@ -83,5 +83,28 @@ func TestNoArgsJSONDoesNotRunTUI(t *testing.T) {
 	}
 	if len(calls) != 0 {
 		t.Fatalf("RunTUI called with --json")
+	}
+}
+
+func TestNoArgsNoColorFlagDoesNotRunTUI(t *testing.T) {
+	var calls []string
+	code, _, _ := run(t, baseDeps(true, &calls), "--no-color")
+	if code != 0 || len(calls) != 0 {
+		t.Fatalf("code = %d, RunTUI calls = %v; want 0 and none", code, calls)
+	}
+}
+
+func TestNoArgsNOCOLORDoesNotRunTUI(t *testing.T) {
+	var calls []string
+	deps := baseDeps(true, &calls)
+	deps.Env.Getenv = func(k string) string {
+		if k == "NO_COLOR" {
+			return "1"
+		}
+		return ""
+	}
+	code, _, _ := run(t, deps)
+	if code != 0 || len(calls) != 0 {
+		t.Fatalf("code = %d, RunTUI calls = %v; want 0 and none", code, calls)
 	}
 }
