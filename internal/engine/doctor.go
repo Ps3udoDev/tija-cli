@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
+	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 )
 
@@ -52,9 +52,6 @@ func (r DoctorReport) ExitCode() int {
 	}
 	return 0
 }
-
-// nodeTools are looked up in node_modules/.bin before PATH.
-var nodeTools = []string{"biome", "eslint", "prettier", "vitest", "jest", "playwright"}
 
 // ghAuthTimeout bounds `gh auth status`, which may hit the network.
 const ghAuthTimeout = 10 * time.Second
@@ -117,8 +114,30 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 	}
 
 	if mOK {
-		for _, bin := range toolBins(m, d) {
-			add("tool."+bin, bin+" available", toolFound(root, bin, has), StatusFail, "install "+bin)
+		proj := quality.Project{
+			Root:           root,
+			PackageManager: d.PackageManager,
+			Solution:       d.Solution,
+			Scripts:        d.Scripts,
+			GOOS:           runtime.GOOS,
+		}
+		steps := quality.Resolve(&m, d, nil)
+		invocations := quality.Plan(proj, steps, quality.CheckMode, env.LookPath)
+		seen := make(map[string]bool)
+		for _, inv := range invocations {
+			if seen[inv.Bin] {
+				continue
+			}
+			seen[inv.Bin] = true
+			if inv.Path != "" {
+				add("tool."+inv.Bin, inv.Bin+" available", true, StatusFail, "")
+			} else {
+				add("tool."+inv.Bin, inv.Bin+" available", false, StatusFail, inv.Hint)
+			}
+		}
+		if pm := d.PackageManager; pm != "" && !seen[pm] {
+			seen[pm] = true
+			add("tool."+pm, pm+" available", has(pm), StatusFail, "install "+pm)
 		}
 	}
 
@@ -167,42 +186,4 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 		}
 	}
 	return rep, nil
-}
-
-// toolBins lists the distinct binaries behind the quality providers of m
-// plus the package manager, in a stable order. dotnet-format, dotnet-test
-// and dotnet all resolve to the dotnet binary.
-func toolBins(m manifest.Manifest, d detect.Detection) []string {
-	var bins []string
-	for _, q := range m.Quality {
-		if q.Provider == "" {
-			continue
-		}
-		bin := q.Provider
-		if strings.HasPrefix(bin, "dotnet-") {
-			bin = "dotnet"
-		}
-		bins = append(bins, bin)
-	}
-	slices.Sort(bins)
-	bins = slices.Compact(bins)
-	if pm := d.PackageManager; pm != "" && !slices.Contains(bins, pm) {
-		bins = append(bins, pm)
-	}
-	return bins
-}
-
-func toolFound(root, bin string, has func(string) bool) bool {
-	if slices.Contains(nodeTools, bin) {
-		names := []string{bin}
-		if runtime.GOOS == "windows" {
-			names = append(names, bin+".cmd", bin+".exe")
-		}
-		for _, n := range names {
-			if st, err := os.Stat(filepath.Join(root, "node_modules", ".bin", n)); err == nil && !st.IsDir() {
-				return true
-			}
-		}
-	}
-	return has(bin)
 }
