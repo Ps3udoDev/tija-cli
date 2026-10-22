@@ -6,10 +6,12 @@ import (
 	"bytes"
 	"context"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/Ps3udoDev/tija-cli/internal/engine"
+	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 )
@@ -23,6 +25,7 @@ var (
 	mutedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand)).Faint(true)
 	separatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand)).Faint(true)
 	okStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange))
+	failStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange)).Bold(true)
 	warnStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand))
 )
 
@@ -33,6 +36,7 @@ const (
 	screenDetecting screen = iota // initial detection, scanning mascot
 	screenMenu
 	screenRunning // an engine command is in flight
+	screenQuality // live quality check or tests running
 	screenChoice  // init: answering a Choice
 	screenConsent // init: approving an Action
 	screenResult
@@ -59,14 +63,26 @@ type model struct {
 	title string    // title of the current command
 	flow  *initFlow // state of an interactive init
 
-	result string // rendered report
-	ok     bool   // the command succeeded
+	result string      // rendered report
+	ok     bool        // the command succeeded
+	mascot MascotState // mascot expression in result
+
+	// Scrolling
+	scrollOffset    int
+	maxScrollOffset int
+	needsScroll     bool
+
+	// Quality live progress
+	qualitySteps  []qualityStepState
+	spinnerIndex  int
+	qualityEvents chan engine.QualityEvent
 }
 
 // resultMsg carries the rendered outcome of an engine command.
 type resultMsg struct {
 	title  string
 	output string
+	mascot MascotState
 	ok     bool
 }
 
@@ -95,14 +111,53 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.screen = screenMenu
 	case planMsg:
 		return m.startFlow(msg)
+	case qualityEventMsg:
+		if msg.Total > len(m.qualitySteps) {
+			steps := make([]qualityStepState, msg.Total)
+			for i := range steps {
+				steps[i].status = "pending"
+			}
+			copy(steps, m.qualitySteps)
+			m.qualitySteps = steps
+		}
+		if msg.Index >= 0 && msg.Index < len(m.qualitySteps) {
+			st := &m.qualitySteps[msg.Index]
+			if msg.Step.Command != "" {
+				st.command = msg.Step.Command
+			}
+			if msg.Type == engine.EventStart {
+				st.status = "running"
+			} else if msg.Type == engine.EventDone {
+				st.status = string(msg.Step.Status)
+				st.duration = time.Duration(msg.Step.DurationMs) * time.Millisecond
+			}
+		}
+		if m.qualityEvents != nil {
+			return m, waitForEvent(m.qualityEvents)
+		}
+	case spinnerTickMsg:
+		if m.screen == screenQuality {
+			m.spinnerIndex++
+			return m, tickSpinner()
+		}
 	case resultMsg:
 		m.title = msg.title
-		m.result, m.ok = msg.output, msg.ok
+		m.result, m.ok, m.mascot = msg.output, msg.ok, msg.mascot
+		if m.mascot == "" {
+			if m.ok {
+				m.mascot = Success
+			} else {
+				m.mascot = Error
+			}
+		}
+		m.scrollOffset = 0
 		m.flow = nil
 		m.screen = screenResult
 	}
 	return m, nil
 }
+
+
 
 // handleKey reacts to a key given as tea.KeyPressMsg.String().
 func (m model) handleKey(k string) (model, tea.Cmd) {
@@ -110,7 +165,7 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	switch m.screen {
-	case screenDetecting, screenRunning:
+	case screenDetecting, screenRunning, screenQuality:
 		if k == "q" && m.screen == screenDetecting {
 			return m, tea.Quit
 		}
@@ -130,7 +185,24 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 	case screenConsent:
 		return m.consentKey(k)
 	case screenResult:
+		visibleHeight := m.height - 6
+		if visibleHeight < 1 {
+			visibleHeight = 1
+		}
+		_, _, maxOffset := wrapAndSliceResult(m.result, m.width, m.height, 0)
 		switch k {
+		case "up", "k":
+			m.scrollOffset = max(0, m.scrollOffset-1)
+		case "down", "j":
+			m.scrollOffset = min(maxOffset, m.scrollOffset+1)
+		case "pgup":
+			m.scrollOffset = max(0, m.scrollOffset-visibleHeight)
+		case "pgdown":
+			m.scrollOffset = min(maxOffset, m.scrollOffset+visibleHeight)
+		case "home":
+			m.scrollOffset = 0
+		case "end":
+			m.scrollOffset = maxOffset
 		case "esc":
 			return m.backToMenu()
 		case "q":
@@ -150,39 +222,95 @@ func (m model) backToMenu() (model, tea.Cmd) {
 
 // run starts the engine command behind item.
 func (m model) run(item MenuItem) (model, tea.Cmd) {
-	m.screen, m.title = screenRunning, item.Title
 	dir, env := m.dir, m.env
 	switch item.Key {
+	case keyCheck, keyTests:
+		m.screen = screenQuality
+		m.title = item.Title
+		m.spinnerIndex = 0
+		m.qualitySteps = nil
+		ch := make(chan engine.QualityEvent, 32)
+		m.qualityEvents = ch
+		var kinds []quality.Kind
+		if item.Key == keyTests {
+			kinds = []quality.Kind{quality.Tests}
+		}
+		req := engine.QualityRequest{
+			Kinds: kinds,
+			Mode:  quality.CheckMode,
+		}
+		cmd := func() tea.Msg {
+			defer close(ch)
+			rep, err := engine.RunQuality(context.Background(), dir, env, req, func(ev engine.QualityEvent) {
+				ch <- ev
+			})
+			if err != nil {
+				return failed(item.Title, err)
+			}
+			mascot := Success
+			if rep.ExitCode() != 0 {
+				mascot = Warning
+			}
+			return rendered(item.Title, mascot, func(p render.Printer) { render.Quality(p, rep) })
+		}
+		return m, tea.Batch(cmd, waitForEvent(ch), tickSpinner())
+
 	case keyInit:
+		m.screen, m.title = screenRunning, item.Title
 		return m, planCmd(dir, env)
+
 	case keyDoctor:
+		m.screen, m.title = screenRunning, item.Title
 		return m, func() tea.Msg {
 			rep, err := engine.Doctor(context.Background(), dir, env)
 			if err != nil {
 				return failed(item.Title, err)
 			}
-			return rendered(item.Title, rep.ExitCode() == 0, func(p render.Printer) { render.Doctor(p, rep) })
+			mascot := Success
+			hasWarn := false
+			for _, c := range rep.Checks {
+				if c.Status == engine.StatusWarn {
+					hasWarn = true
+				}
+			}
+			if rep.ExitCode() != 0 {
+				mascot = Error
+			} else if hasWarn {
+				mascot = Warning
+			}
+			return rendered(item.Title, mascot, func(p render.Printer) { render.Doctor(p, rep) })
 		}
-	default:
+
+	default: // status
+		m.screen, m.title = screenRunning, item.Title
 		return m, func() tea.Msg {
 			rep, err := engine.Status(context.Background(), dir, env)
 			if err != nil {
 				return failed(item.Title, err)
 			}
-			return rendered(item.Title, rep.ExitCode(false) == 0, func(p render.Printer) { render.Status(p, rep) })
+			mascot := Success
+			if rep.ExitCode(false) != 0 {
+				mascot = Error
+			}
+			return rendered(item.Title, mascot, func(p render.Printer) { render.Status(p, rep) })
 		}
 	}
 }
 
 // rendered renders a report in Styled mode into a resultMsg.
-func rendered(title string, ok bool, fn func(render.Printer)) resultMsg {
+func rendered(title string, mascot MascotState, fn func(render.Printer)) resultMsg {
 	var buf bytes.Buffer
 	fn(render.Printer{W: &buf, Mode: render.Styled})
-	return resultMsg{title: title, output: strings.TrimRight(buf.String(), "\n"), ok: ok}
+	return resultMsg{
+		title:  title,
+		output: strings.TrimRight(buf.String(), "\n"),
+		mascot: mascot,
+		ok:     mascot == Success,
+	}
 }
 
 func failed(title string, err error) resultMsg {
-	return rendered(title, false, func(p render.Printer) { p.Fail(err.Error()) })
+	return rendered(title, Error, func(p render.Printer) { p.Fail(err.Error()) })
 }
 
 func (m model) View() tea.View {
@@ -192,16 +320,15 @@ func (m model) View() tea.View {
 		s = m.startupView()
 	case screenRunning:
 		s = m.panel(Scanning, mutedStyle.Render("Running "+m.title+"..."))
+	case screenQuality:
+		s = m.panel(Scanning, m.qualityView())
 	case screenChoice:
 		s = m.panel(Idle, m.choiceView())
 	case screenConsent:
 		s = m.panel(Idle, m.consentView())
 	case screenResult:
-		state := Success
-		if !m.ok {
-			state = Error
-		}
-		s = m.panel(state, m.result)
+		body, _, _ := wrapAndSliceResult(m.result, m.width, m.height, m.scrollOffset)
+		s = m.panel(m.mascot, body)
 	}
 	v := tea.NewView(s)
 	v.AltScreen = true
@@ -225,14 +352,19 @@ func (m model) footer() string {
 		help = "q quit"
 	case screenMenu:
 		help = "↑/↓ move · enter select · q quit"
-	case screenRunning:
+	case screenRunning, screenQuality:
 		help = "ctrl+c quit"
 	case screenChoice:
 		help = "↑/↓ move · enter confirm · esc cancel"
 	case screenConsent:
 		help = "y apply · n skip · esc cancel"
 	case screenResult:
-		help = "esc back · q quit"
+		_, needsScroll, _ := wrapAndSliceResult(m.result, m.width, m.height, 0)
+		if needsScroll {
+			help = "↑/↓ scroll · esc back · q quit"
+		} else {
+			help = "esc back · q quit"
+		}
 	}
 	return indent(mutedStyle.Render(help))
 }

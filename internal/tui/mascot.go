@@ -14,6 +14,7 @@ const (
 	Idle     MascotState = "idle"
 	Scanning MascotState = "scanning"
 	Success  MascotState = "success"
+	Warning  MascotState = "warning"
 	Error    MascotState = "error"
 )
 
@@ -68,6 +69,25 @@ var sprites = map[MascotState][]string{
 		"OOKOOOOOKOO..SSS",
 		"OKOKOOOKOKO...S.",
 		"OOOOOOOOOOO.....",
+		"OWWWWKWWWWO.....",
+		".WWWWWWWWW......",
+		"..OOOOOOO.......",
+		".OOWWWWWOO...O..",
+		".OOWWWWWOO...O..",
+		".OOWWWWWOOO.OO..",
+		".OOOOOOOOOOOO...",
+		"..WW.WW.WW......",
+	},
+	// Alert ears, dot eyes and an exclamation mark.
+	Warning: {
+		"................",
+		".O.......O......",
+		".OO.....OO......",
+		".OSO...OSO..S...",
+		".OOOOOOOOO..S...",
+		"OOOOOOOOOOO.S...",
+		"OOKOOOOOKOO.....",
+		"OOKOOOOOKOO.S...",
 		"OWWWWKWWWWO.....",
 		".WWWWWWWWW......",
 		"..OOOOOOO.......",

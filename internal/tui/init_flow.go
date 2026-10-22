@@ -74,7 +74,7 @@ func (m model) nextStep() (model, tea.Cmd) {
 		if err != nil {
 			return failed(itemInit.Title, err)
 		}
-		return rendered(itemInit.Title, true, func(p render.Printer) { render.InitResult(p, res) })
+		return rendered(itemInit.Title, Success, func(p render.Printer) { render.InitResult(p, res) })
 	}
 }
 
