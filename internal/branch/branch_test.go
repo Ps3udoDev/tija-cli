@@ -72,3 +72,14 @@ func TestClassifyHuskyPrefixes(t *testing.T) {
 		t.Fatalf("state = %q", v.State)
 	}
 }
+
+
+func TestDefaultBaseBranches(t *testing.T) {
+	wantBases := []string{"main", "master", "dev", "develop", "desarrollo"}
+	for _, b := range wantBases {
+		v := Classify(b, false, Rules{Prefixes: DefaultPrefixes, Bases: DefaultBases})
+		if v.State != Base {
+			t.Errorf("Classify(%q) = %q, want Base", b, v.State)
+		}
+	}
+}

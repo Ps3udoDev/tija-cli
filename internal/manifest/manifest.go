@@ -67,6 +67,7 @@ type Git struct {
 	Host             string   `yaml:"host"`
 	BranchConvention string   `yaml:"branchConvention"`
 	BranchPrefixes   []string `yaml:"branchPrefixes"`
+	BaseBranches     []string `yaml:"baseBranches,omitempty" json:"baseBranches,omitempty"`
 }
 
 type PullRequest struct {
