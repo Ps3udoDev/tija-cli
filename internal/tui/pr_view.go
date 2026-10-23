@@ -2,7 +2,6 @@ package tui
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -266,53 +265,9 @@ const prReadyCaption = "Draft ready."
 // on path, as a prEditorMsg.
 func editorCmd(env sys.Env, root, path string) tea.Cmd {
 	return func() tea.Msg {
-		stdout, stderr, code, err := env.Run(context.Background(), root, "git", "var", "GIT_EDITOR")
-		if err != nil {
-			return prEditorMsg{err: fmt.Errorf("git var GIT_EDITOR: %w", err)}
-		}
-		argv := splitCommand(strings.TrimSpace(stdout))
-		if code != 0 || len(argv) == 0 {
-			return prEditorMsg{err: errors.New("git var GIT_EDITOR failed: " + strings.TrimSpace(stderr))}
-		}
-		c := exec.Command(argv[0], append(argv[1:], path)...)
-		c.Dir = root
-		return prEditorMsg{cmd: c}
+		c, err := sys.EditorCommand(context.Background(), env, root, path)
+		return prEditorMsg{cmd: c, err: err}
 	}
-}
-
-// splitCommand splits a command line on blanks, honoring single and double
-// quotes. It mirrors the helper of tija pr create --edit, which this
-// package cannot import.
-func splitCommand(s string) []string {
-	var out []string
-	var cur strings.Builder
-	var quote rune
-	started := false
-	for _, r := range s {
-		switch {
-		case quote != 0:
-			if r == quote {
-				quote = 0
-			} else {
-				cur.WriteRune(r)
-			}
-		case r == '"' || r == '\'':
-			quote, started = r, true
-		case r == ' ' || r == '\t':
-			if started {
-				out = append(out, cur.String())
-				cur.Reset()
-				started = false
-			}
-		default:
-			cur.WriteRune(r)
-			started = true
-		}
-	}
-	if started {
-		out = append(out, cur.String())
-	}
-	return out
 }
 
 func capitalizeFirst(s string) string {

@@ -820,11 +820,3 @@ func TestPRCreateResultShowsURL(t *testing.T) {
 		t.Errorf("result lacks the URL:\n%s", p)
 	}
 }
-
-func TestSplitCommand(t *testing.T) {
-	got := splitCommand(`"C:/Program Files/Code/code.exe" --wait -n`)
-	want := []string{"C:/Program Files/Code/code.exe", "--wait", "-n"}
-	if !slices.Equal(got, want) {
-		t.Errorf("splitCommand = %q, want %q", got, want)
-	}
-}

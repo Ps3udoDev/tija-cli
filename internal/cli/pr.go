@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/Ps3udoDev/tija-cli/internal/engine"
 	"github.com/Ps3udoDev/tija-cli/internal/render"
+	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/spf13/cobra"
 )
 
@@ -199,52 +198,13 @@ func runPRCreate(cmd *cobra.Command, deps Deps, in io.Reader) error {
 
 // editDraft opens path in the editor git would use, attached to the terminal.
 func editDraft(ctx context.Context, deps Deps, root, path string) error {
-	stdout, stderr, code, err := deps.Env.Run(ctx, root, "git", "var", "GIT_EDITOR")
-	if err != nil || code != 0 || strings.TrimSpace(stdout) == "" {
-		if err != nil {
-			return fmt.Errorf("git var GIT_EDITOR: %w", err)
-		}
-		return fmt.Errorf("git var GIT_EDITOR failed: %s", strings.TrimSpace(stderr))
+	c, err := sys.EditorCommand(ctx, deps.Env, root, path)
+	if err != nil {
+		return err
 	}
-	argv := splitCommand(strings.TrimSpace(stdout))
-	c := exec.CommandContext(ctx, argv[0], append(argv[1:], path)...)
-	c.Dir = root
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := c.Run(); err != nil {
-		return fmt.Errorf("editor %s: %w", argv[0], err)
+		return fmt.Errorf("editor %s: %w", c.Args[0], err)
 	}
 	return nil
-}
-
-// splitCommand splits a command line on blanks, honoring single and double quotes.
-func splitCommand(s string) []string {
-	var out []string
-	var cur strings.Builder
-	var quote rune
-	started := false
-	for _, r := range s {
-		switch {
-		case quote != 0:
-			if r == quote {
-				quote = 0
-			} else {
-				cur.WriteRune(r)
-			}
-		case r == '"' || r == '\'':
-			quote, started = r, true
-		case r == ' ' || r == '\t':
-			if started {
-				out = append(out, cur.String())
-				cur.Reset()
-				started = false
-			}
-		default:
-			cur.WriteRune(r)
-			started = true
-		}
-	}
-	if started {
-		out = append(out, cur.String())
-	}
-	return out
 }
