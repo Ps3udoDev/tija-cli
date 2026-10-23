@@ -9,7 +9,7 @@ import (
 // wrapAndSliceResult wraps content to fit inside the panel width,
 // and if height is constrained, slices lines using offset.
 func wrapAndSliceResult(content string, width, height, offset int) (string, bool, int) {
-	availWidth := width - 24
+	availWidth := width - panelBodyIndent - 3
 	if availWidth < 20 {
 		availWidth = 20
 	}

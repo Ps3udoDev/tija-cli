@@ -47,27 +47,82 @@ func TestMenuItemsPhase2(t *testing.T) {
 	}
 }
 
+var allStates = []MascotState{Idle, Scanning, Thinking, Success, Warning, Error}
+
 func TestSpritesDistinctAndBounded(t *testing.T) {
-	states := []MascotState{Idle, Scanning, Success, Warning, Error}
+	idle := sprites[Idle]
 	seen := map[string]MascotState{}
-	for _, s := range states {
-		sp := Sprite(s)
-		if sp == "" {
-			t.Fatalf("Sprite(%s) is empty", s)
+	for _, s := range allStates {
+		grid, ok := sprites[s]
+		if !ok {
+			t.Fatalf("no grid for %s", s)
 		}
+		if len(grid) != 18 {
+			t.Errorf("%s grid has %d rows, want 18", s, len(grid))
+		}
+		for y, row := range grid {
+			if len(row) != 20 {
+				t.Errorf("%s row %d has %d columns, want 20", s, y, len(row))
+				continue
+			}
+			for x := 0; x < len(row); x++ {
+				if !strings.ContainsRune("OKWS.", rune(row[x])) {
+					t.Errorf("%s row %d col %d: invalid pixel %q", s, y, x, row[x])
+				}
+			}
+			if row[14] != '.' {
+				t.Errorf("%s row %d: column 14 is %q, want empty", s, y, row[14])
+			}
+			if y >= 10 && y < len(idle) && row[:14] != idle[y][:14] {
+				t.Errorf("%s row %d body %q differs from idle %q", s, y, row[:14], idle[y][:14])
+			}
+		}
+
+		sp := Sprite(s)
 		if prev, dup := seen[sp]; dup {
 			t.Errorf("Sprite(%s) equals Sprite(%s)", s, prev)
 		}
 		seen[sp] = s
-		lines := strings.Split(sp, "\n")
-		if len(lines) > 8 {
-			t.Errorf("Sprite(%s) has %d lines, want <= 8", s, len(lines))
+		if w := lipgloss.Width(sp); w != 20 {
+			t.Errorf("Sprite(%s) width = %d, want 20", s, w)
 		}
-		for i, l := range lines {
-			if w := lipgloss.Width(l); w > 16 {
-				t.Errorf("Sprite(%s) line %d is %d cells wide, want <= 16", s, i, w)
-			}
+		if h := lipgloss.Height(sp); h != 9 {
+			t.Errorf("Sprite(%s) height = %d, want 9", s, h)
 		}
+	}
+	if Sprite("unknown") != Sprite(Idle) {
+		t.Error("unknown state does not render as Idle")
+	}
+}
+
+func TestCaptions(t *testing.T) {
+	want := map[MascotState]string{
+		Idle:     "Tija is ready.",
+		Scanning: "Scanning repository...",
+		Thinking: "Thinking...",
+		Success:  "All tasks completed!",
+		Warning:  "Needs your review.",
+		Error:    "Check failed.",
+	}
+	for _, s := range allStates {
+		if got := Caption(s); got != want[s] {
+			t.Errorf("Caption(%s) = %q, want %q", s, got, want[s])
+		}
+	}
+}
+
+func TestPanelShowsCaption(t *testing.T) {
+	m := newModel("/projects/claims-api", "0.1.0", sys.Env{})
+	m = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 30})
+	m.screen, m.title = screenRunning, "Doctor"
+	if v := plainView(m); !strings.Contains(v, "Scanning repository...") {
+		t.Errorf("running view lacks the scanning caption:\n%s", v)
+	}
+
+	// A failed quality check keeps the default error caption.
+	m = step(t, m, resultMsg{title: "Check", output: "✗ build", mascot: Error})
+	if v := plainView(m); !strings.Contains(v, "Check failed.") {
+		t.Errorf("error result lacks the default caption:\n%s", v)
 	}
 }
 
@@ -313,6 +368,9 @@ func TestStatusOutsideRepoShowsError(t *testing.T) {
 	}
 	if !hasSprite(v, Error) {
 		t.Error("error result does not show the error mascot")
+	}
+	if p := ansi.Strip(v); !strings.Contains(p, "Something failed.") || strings.Contains(p, "Check failed.") {
+		t.Errorf("status error should use the caption override:\n%s", p)
 	}
 }
 

@@ -63,9 +63,10 @@ type model struct {
 	title string    // title of the current command
 	flow  *initFlow // state of an interactive init
 
-	result string      // rendered report
-	ok     bool        // the command succeeded
-	mascot MascotState // mascot expression in result
+	result  string      // rendered report
+	ok      bool        // the command succeeded
+	mascot  MascotState // mascot expression in result
+	caption string      // overrides Caption(mascot) in result when set
 
 	// Scrolling
 	scrollOffset    int
@@ -83,7 +84,9 @@ type resultMsg struct {
 	title  string
 	output string
 	mascot MascotState
-	ok     bool
+	// caption overrides Caption(mascot) when not empty.
+	caption string
+	ok      bool
 }
 
 func newModel(dir, version string, env sys.Env) model {
@@ -142,7 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case resultMsg:
 		m.title = msg.title
-		m.result, m.ok, m.mascot = msg.output, msg.ok, msg.mascot
+		m.result, m.ok, m.mascot, m.caption = msg.output, msg.ok, msg.mascot, msg.caption
 		if m.mascot == "" {
 			if m.ok {
 				m.mascot = Success
@@ -262,7 +265,7 @@ func (m model) run(item MenuItem) (model, tea.Cmd) {
 		return m, func() tea.Msg {
 			rep, err := engine.Doctor(context.Background(), dir, env)
 			if err != nil {
-				return failed(item.Title, err)
+				return genericFailure(failed(item.Title, err))
 			}
 			mascot := Success
 			hasWarn := false
@@ -276,7 +279,7 @@ func (m model) run(item MenuItem) (model, tea.Cmd) {
 			} else if hasWarn {
 				mascot = Warning
 			}
-			return rendered(item.Title, mascot, func(p render.Printer) { render.Doctor(p, rep) })
+			return genericFailure(rendered(item.Title, mascot, func(p render.Printer) { render.Doctor(p, rep) }))
 		}
 
 	default: // status
@@ -284,13 +287,13 @@ func (m model) run(item MenuItem) (model, tea.Cmd) {
 		return m, func() tea.Msg {
 			rep, err := engine.Status(context.Background(), dir, env)
 			if err != nil {
-				return failed(item.Title, err)
+				return genericFailure(failed(item.Title, err))
 			}
 			mascot := Success
 			if rep.ExitCode(false) != 0 {
 				mascot = Error
 			}
-			return rendered(item.Title, mascot, func(p render.Printer) { render.Status(p, rep) })
+			return genericFailure(rendered(item.Title, mascot, func(p render.Printer) { render.Status(p, rep) }))
 		}
 	}
 }
@@ -311,34 +314,63 @@ func failed(title string, err error) resultMsg {
 	return rendered(title, Error, func(p render.Printer) { p.Fail(err.Error()) })
 }
 
+// genericFailureCaption replaces "Check failed." for commands that are not a
+// quality check, such as Doctor and Status.
+const genericFailureCaption = "Something failed."
+
+// genericFailure gives an Error result the generic failure caption.
+func genericFailure(msg resultMsg) resultMsg {
+	if msg.mascot == Error {
+		msg.caption = genericFailureCaption
+	}
+	return msg
+}
+
 func (m model) View() tea.View {
 	var s string
 	switch m.screen {
 	case screenDetecting, screenMenu:
 		s = m.startupView()
 	case screenRunning:
-		s = m.panel(Scanning, mutedStyle.Render("Running "+m.title+"..."))
+		s = m.panel(Scanning, "", mutedStyle.Render("Running "+m.title+"..."))
 	case screenQuality:
-		s = m.panel(Scanning, m.qualityView())
+		s = m.panel(Scanning, "", m.qualityView())
 	case screenChoice:
-		s = m.panel(Idle, m.choiceView())
+		s = m.panel(Idle, "", m.choiceView())
 	case screenConsent:
-		s = m.panel(Idle, m.consentView())
+		s = m.panel(Idle, "", m.consentView())
 	case screenResult:
 		body, _, _ := wrapAndSliceResult(m.result, m.width, m.height, m.scrollOffset)
-		s = m.panel(m.mascot, body)
+		s = m.panel(m.mascot, m.caption, body)
 	}
 	v := tea.NewView(s)
 	v.AltScreen = true
 	return v
 }
 
+// mascotColumnWidth is the width of the panel column holding the mascot and
+// its caption: the widest caption ("Scanning repository...") is wider than
+// the 20-cell sprite. A fixed width keeps the body still between states.
+const mascotColumnWidth = 22
+
+// panelGap separates the mascot column from the body.
+const panelGap = "   "
+
+// panelBodyIndent is the column where the body of a panel starts.
+const panelBodyIndent = len(margin) + mascotColumnWidth + len(panelGap)
+
 // panel is the layout of every screen but the startup one: the top bar,
-// the mascot, a titled body and the key help.
-func (m model) panel(state MascotState, body string) string {
+// the mascot with its caption, a titled body and the key help. An empty
+// caption uses Caption(state).
+func (m model) panel(state MascotState, caption, body string) string {
+	if caption == "" {
+		caption = Caption(state)
+	}
+	mascot := lipgloss.NewStyle().Width(mascotColumnWidth).
+		Render(Sprite(state) + "\n\n" + mutedStyle.Render(caption))
 	content := headingStyle.Render(m.title) + "\n\n" + body
 	return topBar(displayPath(m.info.Root), m.version, m.width) + "\n\n" +
-		indent(lipgloss.JoinHorizontal(lipgloss.Top, Sprite(state), "   ", content)) +
+		indent(lipgloss.JoinHorizontal(lipgloss.Top, mascot, panelGap, content)) +
 		"\n\n" + m.footer()
 }
 
