@@ -139,7 +139,10 @@ func describeResult(r quality.StepResult) string {
 		name = r.Provider
 	}
 	s := fmt.Sprintf("`%s`: %s", name, r.Status)
-	if r.Status == quality.StatusFailed {
+	switch {
+	case r.TimedOut:
+		s += " (timed out)"
+	case r.Status == quality.StatusFailed:
 		s += fmt.Sprintf(" (exit code %d)", r.ExitCode)
 	}
 	if t := r.Tests; t != nil {

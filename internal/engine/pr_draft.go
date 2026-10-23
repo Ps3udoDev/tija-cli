@@ -327,22 +327,28 @@ func testsList(results []quality.StepResult) string {
 		if name == "" {
 			name = r.Provider
 		}
-		var line string
-		switch {
-		case r.Tests != nil:
-			line = fmt.Sprintf("- `%s`: %d superadas, %d fallidas", name, r.Tests.Passed, r.Tests.Failed)
-			if r.Tests.Skipped > 0 {
-				line += fmt.Sprintf(", %d omitidas", r.Tests.Skipped)
-			}
-			line += "."
-		case r.Status == quality.StatusPassed:
-			line = fmt.Sprintf("- `%s`: sin errores.", name)
-		case r.Status == quality.StatusFailed:
-			line = fmt.Sprintf("- `%s`: con errores (código de salida %d).", name, r.ExitCode)
-		default:
+		// Only runs that passed or failed are cited; the status always wins
+		// over the counts, so a failed run never reads as passing.
+		if r.Status != quality.StatusPassed && r.Status != quality.StatusFailed {
 			continue
 		}
-		out = append(out, line)
+		var parts []string
+		if r.Tests != nil {
+			counts := fmt.Sprintf("%d superadas, %d fallidas", r.Tests.Passed, r.Tests.Failed)
+			if r.Tests.Skipped > 0 {
+				counts += fmt.Sprintf(", %d omitidas", r.Tests.Skipped)
+			}
+			parts = append(parts, counts)
+		}
+		switch {
+		case r.Status == quality.StatusFailed && r.TimedOut:
+			parts = append(parts, "falló por tiempo agotado")
+		case r.Status == quality.StatusFailed:
+			parts = append(parts, fmt.Sprintf("falló (código de salida %d)", r.ExitCode))
+		case r.Tests == nil:
+			parts = append(parts, "sin errores")
+		}
+		out = append(out, fmt.Sprintf("- `%s`: %s.", name, strings.Join(parts, "; ")))
 	}
 	if len(out) == 0 {
 		return "- No se ejecutaron verificaciones automáticas para este commit."

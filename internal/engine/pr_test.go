@@ -381,3 +381,35 @@ func TestSaveLoadDraftRoundTrip(t *testing.T) {
 		t.Errorf("meta = %+v", gotMeta)
 	}
 }
+
+func TestDeterministicDraftFailedChecks(t *testing.T) {
+	c := sampleContext()
+	c.Tests = []quality.StepResult{
+		{Command: "vitest run", Status: quality.StatusFailed, ExitCode: 1, Tests: &quality.TestCounts{Total: 74, Passed: 70, Failed: 4}},
+		{Command: "dotnet test", Status: quality.StatusFailed, ExitCode: -1, TimedOut: true, Tests: &quality.TestCounts{Total: 10, Passed: 10}},
+		{Command: "biome ci .", Status: quality.StatusFailed, ExitCode: 2},
+		{Command: "eslint .", Status: quality.StatusSkipped, Tests: &quality.TestCounts{Total: 1, Passed: 1}},
+	}
+	content, _ := prrules.SectionContent(DeterministicDraft(c).Body, "Pruebas")
+	for _, want := range []string{
+		"`vitest run`: 70 superadas, 4 fallidas; falló (código de salida 1).",
+		"`dotnet test`: 10 superadas, 0 fallidas; falló por tiempo agotado.",
+		"`biome ci .`: falló (código de salida 2).",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("Pruebas lacks %q:\n%s", want, content)
+		}
+	}
+	if strings.Contains(content, "eslint") {
+		t.Errorf("skipped step cited:\n%s", content)
+	}
+	for _, l := range strings.Split(content, "\n") {
+		if strings.Contains(l, "superadas") && !strings.Contains(l, "falló") {
+			t.Errorf("failed run presented as passing: %q", l)
+		}
+	}
+	p := BuildPRPrompt(c, nil)
+	if !strings.Contains(p, "`dotnet test`: failed (timed out)") {
+		t.Error("prompt must state the timeout")
+	}
+}
