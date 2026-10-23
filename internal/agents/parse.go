@@ -4,6 +4,8 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+
+	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 )
 
 // ErrUnparseable means the agent output contains no recognisable draft.
@@ -18,8 +20,6 @@ var (
 	ansiRx  = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 	titleBl = regexp.MustCompile(`(?s)<<<TITLE(.*?)TITLE>>>`)
 	bodyBl  = regexp.MustCompile(`(?s)<<<BODY(.*?)BODY>>>`)
-	// titleRx is the same conventional-commit pattern as internal/prrules.
-	titleRx = regexp.MustCompile(`^(\w+)(?:\(([\w$.\-*/ ]+)\))?!?: (.+)$`)
 )
 
 // ParseDraft extracts the title and body from an agent answer of the form
@@ -52,7 +52,7 @@ func ParseDraft(out string) (Draft, error) {
 	lines := strings.Split(s, "\n")
 	for i, l := range lines {
 		title := cleanTitle(l)
-		if !titleRx.MatchString(title) {
+		if !prrules.MatchTitle(title) {
 			continue
 		}
 		for j := i + 1; j < len(lines); j++ {

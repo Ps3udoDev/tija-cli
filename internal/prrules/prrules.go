@@ -36,6 +36,12 @@ func Normalize(s string) string {
 	return strings.TrimSpace(s) + "\n"
 }
 
+// MatchTitle reports whether title has the type(scope): subject shape that
+// ValidateTitle requires. It does not check the type, scope or length.
+func MatchTitle(title string) bool {
+	return titleRx.MatchString(title)
+}
+
 // ValidateTitle checks a PR title against the conventional commits rules.
 func ValidateTitle(title string, r manifest.PullRequest) []Problem {
 	var ps []Problem

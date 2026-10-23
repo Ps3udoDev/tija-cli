@@ -98,3 +98,16 @@ func TestValidateBodyEmpty(t *testing.T) {
 		t.Errorf("%v", ps)
 	}
 }
+
+func TestMatchTitle(t *testing.T) {
+	for _, s := range []string{"feat(pr): x", "fix: y", "feat(a/b)!: z"} {
+		if !MatchTitle(s) {
+			t.Errorf("MatchTitle(%q) = false", s)
+		}
+	}
+	for _, s := range []string{"", "add stuff", "feat(x) missing colon", "feat(x):no space"} {
+		if MatchTitle(s) {
+			t.Errorf("MatchTitle(%q) = true", s)
+		}
+	}
+}
