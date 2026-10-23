@@ -35,7 +35,10 @@ type CreatePlan struct {
 	Push bool `json:"push"`
 	// Existing is the URL of an open pull request for the branch, or "".
 	Existing string `json:"existing"`
-	Assign   bool   `json:"assign"`
+	// ExistingBase is the base branch of the Existing pull request. When it
+	// differs from Report.Target the plan warns; the base is never changed.
+	ExistingBase string `json:"existingBase"`
+	Assign       bool   `json:"assign"`
 }
 
 // Question is the consent question for p, shared by the CLI and the TUI:
@@ -47,7 +50,11 @@ func (p CreatePlan) Question() string {
 		parts = append(parts, "push "+p.Report.Branch)
 	}
 	if p.Existing != "" {
-		parts = append(parts, "update pull request "+p.Existing)
+		update := "update pull request " + p.Existing
+		if p.ExistingBase != "" && p.ExistingBase != p.Report.Target {
+			update += " (base: " + p.ExistingBase + ")"
+		}
+		parts = append(parts, update)
 	} else {
 		parts = append(parts, "open a pull request to "+p.Report.Target)
 	}
@@ -103,8 +110,12 @@ func PlanCreatePR(ctx context.Context, dir string, env sys.Env, req CreateReques
 	if p.Push, err = needsPush(ctx, root, env, c.Branch); err != nil {
 		return CreatePlan{}, err
 	}
-	if p.Existing, err = openPRFor(ctx, root, env, c.Branch); err != nil {
+	if p.Existing, p.ExistingBase, err = openPRFor(ctx, root, env, c.Branch); err != nil {
 		return CreatePlan{}, err
+	}
+	if p.Existing != "" && p.ExistingBase != "" && p.ExistingBase != p.Report.Target {
+		p.Report.Warnings = append(p.Report.Warnings, fmt.Sprintf(
+			"existing pull request targets %s, not %s — its diff differs from this description", p.ExistingBase, p.Report.Target))
 	}
 	return p, nil
 }
@@ -264,24 +275,31 @@ func needsPush(ctx context.Context, root string, env sys.Env, branch string) (bo
 	return n > 0, nil
 }
 
-// openPRFor returns the URL of the open pull request whose head is branch, or "".
-func openPRFor(ctx context.Context, root string, env sys.Env, branch string) (string, error) {
-	stdout, stderr, code, err := env.Run(ctx, root, "gh", "pr", "list", "--head", branch, "--state", "open", "--json", "url", "--limit", "1")
+// openPRFor returns the URL and base branch of the open pull request whose
+// head is branch in this repository, or "" when there is none. Pull
+// requests from forks with a branch of the same name are ignored.
+func openPRFor(ctx context.Context, root string, env sys.Env, branch string) (string, string, error) {
+	stdout, stderr, code, err := env.Run(ctx, root, "gh", "pr", "list", "--head", branch, "--state", "open",
+		"--json", "url,baseRefName,isCrossRepository", "--limit", "5")
 	if err != nil || code != 0 {
-		return "", commandError("gh pr list", stderr, code, err)
+		return "", "", commandError("gh pr list", stderr, code, err)
 	}
 	var prs []struct {
-		URL string `json:"url"`
+		URL               string `json:"url"`
+		BaseRefName       string `json:"baseRefName"`
+		IsCrossRepository bool   `json:"isCrossRepository"`
 	}
 	if s := strings.TrimSpace(stdout); s != "" {
 		if err := json.Unmarshal([]byte(s), &prs); err != nil {
-			return "", fmt.Errorf("gh pr list: %w", err)
+			return "", "", fmt.Errorf("gh pr list: %w", err)
 		}
 	}
-	if len(prs) == 0 {
-		return "", nil
+	for _, pr := range prs {
+		if !pr.IsCrossRepository {
+			return pr.URL, pr.BaseRefName, nil
+		}
 	}
-	return prs[0].URL, nil
+	return "", "", nil
 }
 
 // lastURL returns the last stdout line that starts with https://.

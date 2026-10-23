@@ -186,7 +186,7 @@ func TestCreatePRDraftAndNoAssign(t *testing.T) {
 func TestCreatePRUpdatesExisting(t *testing.T) {
 	repo, _ := remotePRRepo(t)
 	testutil.Git(t, repo, "push", "-u", "origin", "feat/auth-mask")
-	g := &ghFake{list: `[{"url":"https://github.com/o/r/pull/3"}]`}
+	g := &ghFake{list: `[{"url":"https://github.com/o/r/pull/3","baseRefName":"main","isCrossRepository":false}]`}
 	env := withGH(fakeEnv(), g)
 
 	p := planCreate(t, repo, env, noneReq)
@@ -194,7 +194,7 @@ func TestCreatePRUpdatesExisting(t *testing.T) {
 		t.Fatalf("plan = %+v", p)
 	}
 	lists := g.called("list")
-	if len(lists) != 1 || strings.Join(lists[0], " ") != "pr list --head feat/auth-mask --state open --json url --limit 1" {
+	if len(lists) != 1 || strings.Join(lists[0], " ") != "pr list --head feat/auth-mask --state open --json url,baseRefName,isCrossRepository --limit 5" {
 		t.Errorf("list calls = %v", lists)
 	}
 	rep, err := ApplyCreatePR(context.Background(), repo, env, p, noneReq)
@@ -407,5 +407,50 @@ func TestCreatePlanQuestion(t *testing.T) {
 		if got := c.plan.Question(); got != c.want {
 			t.Errorf("Question(%+v) = %q, want %q", c.plan, got, c.want)
 		}
+	}
+}
+
+func TestCreatePRExistingBaseMismatch(t *testing.T) {
+	repo, _ := remotePRRepo(t)
+	testutil.Git(t, repo, "push", "-u", "origin", "feat/auth-mask")
+	g := &ghFake{list: `[{"url":"https://github.com/o/r/pull/3","baseRefName":"develop","isCrossRepository":false}]`}
+	env := withGH(fakeEnv(), g)
+
+	p := planCreate(t, repo, env, noneReq)
+	if p.Existing != "https://github.com/o/r/pull/3" || p.ExistingBase != "develop" {
+		t.Fatalf("plan = %+v", p)
+	}
+	if !hasWarning(p.Report, "existing pull request targets develop, not main — its diff differs from this description") {
+		t.Errorf("warnings = %v", p.Report.Warnings)
+	}
+	if q := p.Question(); q != "Update pull request https://github.com/o/r/pull/3 (base: develop) and assign it to you?" {
+		t.Errorf("question = %q", q)
+	}
+	if _, err := ApplyCreatePR(context.Background(), repo, env, p, noneReq); err != nil {
+		t.Fatal(err)
+	}
+	argv := strings.Join(g.called("edit")[0], " ")
+	if strings.Contains(argv, "--base") {
+		t.Errorf("edit changed the base: %q", argv)
+	}
+}
+
+func TestCreatePRIgnoresForkPullRequests(t *testing.T) {
+	repo, _ := remotePRRepo(t)
+	testutil.Git(t, repo, "push", "-u", "origin", "feat/auth-mask")
+	g := &ghFake{
+		list: `[{"url":"https://github.com/o/r/pull/2","baseRefName":"main","isCrossRepository":true},` +
+			`{"url":"https://github.com/o/r/pull/4","baseRefName":"main","isCrossRepository":false}]`,
+		create: "https://github.com/o/r/pull/9\n",
+	}
+	p := planCreate(t, repo, withGH(fakeEnv(), g), noneReq)
+	if p.Existing != "https://github.com/o/r/pull/4" || p.ExistingBase != "main" || hasWarning(p.Report, "existing pull request targets") {
+		t.Fatalf("plan = %+v", p)
+	}
+
+	g = &ghFake{list: `[{"url":"https://github.com/o/r/pull/2","baseRefName":"main","isCrossRepository":true}]`}
+	p = planCreate(t, repo, withGH(fakeEnv(), g), noneReq)
+	if p.Existing != "" {
+		t.Errorf("a fork pull request was taken as existing: %+v", p)
 	}
 }
