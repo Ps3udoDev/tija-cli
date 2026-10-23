@@ -12,24 +12,28 @@ type MenuItem struct {
 }
 
 const (
+	keyCheck  = "check"
+	keyTests  = "tests"
 	keyInit   = "init"
 	keyDoctor = "doctor"
 	keyStatus = "status"
 )
 
 var (
+	itemCheck  = MenuItem{Key: keyCheck, Title: "Check", Description: "Lint, format and tests"}
+	itemTests  = MenuItem{Key: keyTests, Title: "Tests", Description: "Run the test suite"}
 	itemInit   = MenuItem{Key: keyInit, Title: "Init", Description: "Detect the stack and set up .tija/"}
 	itemDoctor = MenuItem{Key: keyDoctor, Title: "Doctor", Description: "Check tools, manifest and agents"}
 	itemStatus = MenuItem{Key: keyStatus, Title: "Status", Description: "Branch, commits and working tree"}
 )
 
-// MenuItems returns the Phase 1 menu. Init comes first until the repository
+// MenuItems returns the menu items. Init comes first until the repository
 // is initialized, then last.
 func MenuItems(initialized bool) []MenuItem {
 	if initialized {
-		return []MenuItem{itemDoctor, itemStatus, itemInit}
+		return []MenuItem{itemCheck, itemTests, itemDoctor, itemStatus, itemInit}
 	}
-	return []MenuItem{itemInit, itemDoctor, itemStatus}
+	return []MenuItem{itemInit, itemCheck, itemTests, itemDoctor, itemStatus}
 }
 
 // renderMenu lists items with "> " on the selected one. With withDesc each

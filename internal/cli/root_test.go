@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -106,5 +107,36 @@ func TestNoArgsNOCOLORDoesNotRunTUI(t *testing.T) {
 	code, _, _ := run(t, deps)
 	if code != 0 || len(calls) != 0 {
 		t.Fatalf("code = %d, RunTUI calls = %v; want 0 and none", code, calls)
+	}
+}
+
+func TestJSONErrorEnvelope(t *testing.T) {
+	deps := Deps{
+		Env: sys.Default(),
+	}
+	dir := t.TempDir()
+	t.Chdir(dir)
+	var out, errOut bytes.Buffer
+	code := ExecuteWith(deps, []string{"status", "--json"}, strings.NewReader(""), &out, &errOut)
+	if code != 2 {
+		t.Fatalf("code = %d, want 2", code)
+	}
+	if errOut.Len() != 0 {
+		t.Errorf("stderr = %q, want empty", errOut.String())
+	}
+	var env struct {
+		Error struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+		t.Fatalf("invalid JSON: %v\nout:\n%s", err, out.String())
+	}
+	if env.Error.Code != 2 {
+		t.Errorf("error.code = %d, want 2", env.Error.Code)
+	}
+	if !strings.Contains(env.Error.Message, "not a git repository") {
+		t.Errorf("error.message = %q, want 'not a git repository'", env.Error.Message)
 	}
 }

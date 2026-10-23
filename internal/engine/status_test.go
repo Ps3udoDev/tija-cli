@@ -5,6 +5,8 @@ import (
 	"errors"
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
+	"github.com/Ps3udoDev/tija-cli/internal/sys"
+	"slices"
 	"testing"
 
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
@@ -168,3 +170,45 @@ func TestStatusPublishedAndWorkTree(t *testing.T) {
 }
 
 func gitxRepo(dir string) gitx.Repo { return gitx.Repo{Dir: dir, Run: fakeEnv().Run} }
+
+func TestBaseBranchesConfigurable(t *testing.T) {
+	repo := testutil.NewRepo(t, "", testutil.WithBranch("trunk"))
+	data := []byte("version: 1\nproject:\n  name: x\n  type: unknown\ngit:\n  baseBranches: [\"trunk\"]\npullRequest:\n  target: main\n")
+	putFile(t, repo, ".tija/manifest.yaml", data)
+
+	r := status(t, repo)
+	if r.Branch.State != branch.Base {
+		t.Errorf("r.Branch.State = %q, want Base", r.Branch.State)
+	}
+}
+
+func TestRemoteDefaultIsBase(t *testing.T) {
+	repo := testutil.NewRepo(t, "", testutil.WithBranch("production"))
+	env := fakeEnv()
+	realRun := sys.Default().Run
+	env.Run = func(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
+		if name == "git" && len(args) > 0 && args[0] == "symbolic-ref" && slices.Contains(args, "refs/remotes/origin/HEAD") {
+			return "origin/production\n", "", 0, nil
+		}
+		return realRun(ctx, dir, name, args...)
+	}
+	r, err := Status(context.Background(), repo, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Branch.State != branch.Base {
+		t.Errorf("r.Branch.State = %q, want Base", r.Branch.State)
+	}
+}
+
+func TestStatusNoDeleteHintIfPublishedBase(t *testing.T) {
+	repo := testutil.NewRepo(t, "", testutil.WithBranch("desarrollo"))
+	testutil.Git(t, repo, "commit", "--allow-empty", "-m", "init")
+	r := status(t, repo)
+	if r.Branch.State != branch.Base {
+		t.Errorf("r.Branch.State = %q, want Base", r.Branch.State)
+	}
+	if r.Branch.Suggested != "" {
+		t.Errorf("r.Branch.Suggested = %q, want empty", r.Branch.Suggested)
+	}
+}

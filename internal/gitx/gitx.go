@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
@@ -78,6 +79,47 @@ func (r Repo) CurrentBranch(ctx context.Context) (name string, detached bool, er
 func (r Repo) HasCommits(ctx context.Context) bool {
 	_, ok := r.git(ctx, "rev-parse", "--verify", "-q", "HEAD")
 	return ok
+}
+
+// Head returns the commit SHA of HEAD, or ok=false if there are no commits.
+func (r Repo) Head(ctx context.Context) (sha string, ok bool) {
+	out, ok := r.git(ctx, "rev-parse", "--verify", "-q", "HEAD")
+	if !ok {
+		return "", false
+	}
+	sha = strings.TrimSpace(out)
+	if sha == "" {
+		return "", false
+	}
+	return sha, true
+}
+
+// StatusPaths returns sorted, forward-slash relative paths of modified, untracked,
+// or staged files from `git status --porcelain=v1 -z -uall`.
+// In case of renames/copies, the destination path is returned.
+func (r Repo) StatusPaths(ctx context.Context) []string {
+	out, _, code, err := r.Run(ctx, r.Dir, "git", "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	if err != nil || code != 0 || out == "" {
+		return nil
+	}
+	parts := strings.Split(out, "\x00")
+	var paths []string
+	for i := 0; i < len(parts); i++ {
+		entry := parts[i]
+		if len(entry) < 4 {
+			continue
+		}
+		x, y := entry[0], entry[1]
+		path := filepath.ToSlash(entry[3:])
+		if path != "" {
+			paths = append(paths, path)
+		}
+		if x == 'R' || y == 'R' || x == 'C' || y == 'C' {
+			i++
+		}
+	}
+	sort.Strings(paths)
+	return paths
 }
 
 // LocalBranches lists local branch names.

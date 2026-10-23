@@ -181,3 +181,61 @@ func TestCurrentBranchFailureIsAnError(t *testing.T) {
 		t.Fatalf("exit 1: detached=%v err=%v, want detached", detached, err)
 	}
 }
+
+func TestHeadAndStatusPaths(t *testing.T) {
+	// Without commits
+	dirEmpty := testutil.NewRepo(t, "", testutil.WithoutCommit())
+	rEmpty := newGitx(dirEmpty)
+	sha, ok := rEmpty.Head(context.Background())
+	if ok || sha != "" {
+		t.Fatalf("empty repo Head: got ok=%v sha=%q, want false, \"\"", ok, sha)
+	}
+
+	// With commits
+	dir := testutil.NewRepo(t, "")
+	r := newGitx(dir)
+	sha, ok = r.Head(context.Background())
+	if !ok || len(sha) != 40 {
+		t.Fatalf("Head got ok=%v sha=%q (want 40 hex chars)", ok, sha)
+	}
+
+	// Create a new file with spaces and unicode: "a b/ñ.txt"
+	sub := filepath.Join(dir, "a b")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	newFile := filepath.Join(sub, "ñ.txt")
+	if err := os.WriteFile(newFile, []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Modify an existing file: README.md
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("modified"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	paths := r.StatusPaths(context.Background())
+	// Should be sorted and use forward slashes
+	want := []string{"README.md", "a b/ñ.txt"}
+	if len(paths) != len(want) {
+		t.Fatalf("StatusPaths = %v, want %v", paths, want)
+	}
+	for i, p := range want {
+		if paths[i] != p {
+			t.Fatalf("StatusPaths[%d] = %q, want %q", i, paths[i], p)
+		}
+	}
+
+	// Test rename: git mv README.md DOCS.md
+	testutil.Git(t, dir, "mv", "README.md", "DOCS.md")
+	paths = r.StatusPaths(context.Background())
+	want = []string{"DOCS.md", "a b/ñ.txt"}
+	if len(paths) != len(want) {
+		t.Fatalf("StatusPaths after rename = %v, want %v", paths, want)
+	}
+	for i, p := range want {
+		if paths[i] != p {
+			t.Fatalf("StatusPaths after rename [%d] = %q, want %q", i, paths[i], p)
+		}
+	}
+}

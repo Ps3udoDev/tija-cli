@@ -49,7 +49,8 @@ func Status(p Printer, r engine.StatusReport) {
 			oldName, newName := shellQuote(v.Name), shellQuote(v.Suggested)
 			p.Line("  rename: git branch -m " + oldName + " " + newName)
 			if r.Published {
-				p.Line("  then: git push origin -u " + newName + " && git push origin --delete " + oldName)
+				p.Line("  then: git push origin -u " + newName)
+				p.Line("  delete the old remote branch only if nobody else uses it")
 			}
 		}
 		if r.HuskyWarning {

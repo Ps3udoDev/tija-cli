@@ -35,6 +35,12 @@ var (
 	tiers        = []string{"fast", "balanced", "deep"}
 )
 
+// QualityProviders lists valid quality provider names.
+var QualityProviders = []string{"biome", "eslint", "prettier", "dotnet", "dotnet-format", "dotnet-test", "vitest", "jest", "playwright", "script", "none"}
+
+// QualityKinds lists valid quality kinds in standard order.
+var QualityKinds = []string{"build", "lint", "format", "tests", "e2e"}
+
 // Manifest is the content of .tija/manifest.yaml (schema version 1).
 type Manifest struct {
 	Version     int                     `yaml:"version"`
@@ -61,6 +67,7 @@ type Git struct {
 	Host             string   `yaml:"host"`
 	BranchConvention string   `yaml:"branchConvention"`
 	BranchPrefixes   []string `yaml:"branchPrefixes"`
+	BaseBranches     []string `yaml:"baseBranches,omitempty" json:"baseBranches,omitempty"`
 }
 
 type PullRequest struct {
@@ -84,6 +91,7 @@ type Title struct {
 
 type QualityEntry struct {
 	Provider string `yaml:"provider"`
+	Script   string `yaml:"script,omitempty"` // solo con provider "script"
 }
 
 type Agents struct {
@@ -117,6 +125,21 @@ var qualityByTool = map[string]map[string]string{
 	"playwright":    {"e2e": "playwright"},
 }
 
+// DetectedQuality returns the quality mapping inferred from detected tools.
+func DetectedQuality(d detect.Detection) map[string]QualityEntry {
+	quality := map[string]QualityEntry{}
+	tools := slices.Clone(d.Tools)
+	slices.Sort(tools)
+	for _, tool := range tools {
+		for kind, provider := range qualityByTool[tool] {
+			if _, taken := quality[kind]; !taken {
+				quality[kind] = QualityEntry{Provider: provider}
+			}
+		}
+	}
+	return quality
+}
+
 // FromDetection builds a fresh manifest. agents are the installed agent
 // providers in preference order; target is the PR target branch.
 func FromDetection(d detect.Detection, agents []string, target string) Manifest {
@@ -136,16 +159,7 @@ func FromDetection(d detect.Detection, agents []string, target string) Manifest 
 	if rules == "" {
 		rules = DefaultRules
 	}
-	quality := map[string]QualityEntry{}
-	tools := slices.Clone(d.Tools)
-	slices.Sort(tools)
-	for _, tool := range tools {
-		for kind, provider := range qualityByTool[tool] {
-			if _, taken := quality[kind]; !taken {
-				quality[kind] = QualityEntry{Provider: provider}
-			}
-		}
-	}
+	quality := DetectedQuality(d)
 	def := ""
 	if len(agents) > 0 {
 		def = agents[0]
@@ -155,7 +169,7 @@ func FromDetection(d detect.Detection, agents []string, target string) Manifest 
 		Version: version,
 		Project: Project{Name: d.ProjectName, Type: string(d.Stack), Solution: d.Solution},
 		Content: Content{Language: "es"},
-		Git:     Git{Host: d.GitHost, BranchConvention: "conventional", BranchPrefixes: prefixes},
+		Git:     Git{Host: d.GitHost, BranchConvention: "conventional", BranchPrefixes: prefixes, BaseBranches: slices.Clone(branch.DefaultBases)},
 		PullRequest: PullRequest{
 			Target:           target,
 			Template:         tpl,
@@ -248,5 +262,25 @@ func (m Manifest) Validate() []error {
 			errs = append(errs, fmt.Errorf("agents.tasks.%s.tier: invalid value %q (want one of %v)", name, tier, tiers))
 		}
 	}
+
+	qualityKeys := make([]string, 0, len(m.Quality))
+	for k := range m.Quality {
+		qualityKeys = append(qualityKeys, k)
+	}
+	slices.Sort(qualityKeys)
+	for _, k := range qualityKeys {
+		if !slices.Contains(QualityKinds, k) {
+			errs = append(errs, fmt.Errorf("quality.%s: unknown kind %q (want one of %v)", k, k, QualityKinds))
+			continue
+		}
+		entry := m.Quality[k]
+		if !slices.Contains(QualityProviders, entry.Provider) {
+			errs = append(errs, fmt.Errorf("quality.%s.provider: invalid value %q (want one of %v)", k, entry.Provider, QualityProviders))
+		}
+		if entry.Provider == "script" && entry.Script == "" {
+			errs = append(errs, fmt.Errorf("quality.%s.script: required for provider \"script\"", k))
+		}
+	}
+
 	return errs
 }

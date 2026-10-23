@@ -21,6 +21,7 @@ const (
 	symOk   = "✓"
 	symFail = "✗"
 	symWarn = "!"
+	symSkip = "-"
 )
 
 // ModeFor picks the output mode. JSON has priority; Styled requires a TTY

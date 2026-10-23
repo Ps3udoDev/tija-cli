@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
 	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
@@ -69,6 +70,14 @@ func ExecuteWith(deps Deps, args []string, in io.Reader, out, errOut io.Writer) 
 			return code
 		}
 	}
+	jsonOut, _ := root.Flags().GetBool("json")
+	if !jsonOut {
+		jsonOut = slices.Contains(args, "--json")
+	}
+	if jsonOut {
+		render.JSONError(out, code, err)
+		return code
+	}
 	if msg := err.Error(); msg != "" {
 		fmt.Fprintf(errOut, "✗ %s\n", msg)
 	}
@@ -105,7 +114,16 @@ func newRootCmd(deps Deps, in io.Reader) *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return &ExitError{Code: 2, Err: err}
 	})
-	root.AddCommand(newVersionCmd(), newInitCmd(deps, in), newDoctorCmd(deps), newStatusCmd(deps))
+	root.AddCommand(
+		newVersionCmd(),
+		newInitCmd(deps, in),
+		newDoctorCmd(deps),
+		newStatusCmd(deps),
+		newCheckCmd(deps),
+		newLintCmd(deps),
+		newFormatCmd(deps),
+		newTestCmd(deps),
+	)
 	return root
 }
 

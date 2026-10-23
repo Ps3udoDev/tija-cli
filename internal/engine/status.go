@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
@@ -53,11 +54,15 @@ func Status(ctx context.Context, dir string, env sys.Env) (StatusReport, error) 
 	repo := gitx.Repo{Dir: root, Run: env.Run}
 	rep := StatusReport{Root: root, HasCommits: repo.HasCommits(ctx)}
 
+	bases := append([]string{}, branch.DefaultBases...)
 	prefixes, target := branch.DefaultPrefixes, ""
 	if data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(manifest.Path))); err == nil {
 		if mm, problem := parseValid(data); problem == "" {
 			if len(mm.Git.BranchPrefixes) > 0 {
 				prefixes = mm.Git.BranchPrefixes
+			}
+			if len(mm.Git.BaseBranches) > 0 {
+				bases = append(bases, mm.Git.BaseBranches...)
 			}
 			target = mm.PullRequest.Target
 		}
@@ -71,7 +76,10 @@ func Status(ctx context.Context, dir string, env sys.Env) (StatusReport, error) 
 	if err != nil {
 		return StatusReport{}, err
 	}
-	rep.Branch = branch.Classify(name, detached, branch.Rules{Prefixes: prefixes, Bases: branch.DefaultBases, Target: target})
+	if rb := repo.DefaultRemoteBranch(ctx); rb != "" && !slices.Contains(bases, rb) {
+		bases = append(bases, rb)
+	}
+	rep.Branch = branch.Classify(name, detached, branch.Rules{Prefixes: prefixes, Bases: bases, Target: target})
 
 	if rep.HasCommits {
 		rep.Ahead, rep.Behind, rep.TargetFound = repo.AheadBehind(ctx, target)

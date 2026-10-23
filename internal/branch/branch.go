@@ -11,7 +11,7 @@ import (
 var DefaultPrefixes = []string{"feat", "fix", "refactor", "chore", "docs", "ci", "perf", "test", "build", "style", "revert", "feature", "bugfix", "hotfix", "release"}
 
 // DefaultBases are branch names that are never classified.
-var DefaultBases = []string{"main", "master", "dev", "develop"}
+var DefaultBases = []string{"main", "master", "dev", "develop", "desarrollo"}
 
 // State is the classification outcome.
 type State string

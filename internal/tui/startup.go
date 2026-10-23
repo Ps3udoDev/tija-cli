@@ -21,6 +21,7 @@ type startupInfo struct {
 	InRepo      bool
 	Detection   *detect.Detection // nil outside a repo or when detection failed
 	Initialized bool              // .tija/manifest.yaml exists at the root
+	Err         string            // real error if FindRoot failed
 }
 
 // startupMsg delivers the result of loadStartup.
@@ -31,7 +32,11 @@ func loadStartup(dir string, env sys.Env) startupInfo {
 	ctx := context.Background()
 	info := startupInfo{Root: dir}
 	root, ok, err := gitx.FindRoot(ctx, env.Run, dir)
-	if err != nil || !ok {
+	if err != nil {
+		info.Err = err.Error()
+		return info
+	}
+	if !ok {
 		return info
 	}
 	info.Root, info.InRepo = root, true
@@ -81,6 +86,9 @@ func topBar(path, version string, width int) string {
 // checklist lists what detection found.
 func checklist(info startupInfo) []string {
 	if !info.InRepo {
+		if info.Err != "" {
+			return []string{warn(info.Err)}
+		}
 		return []string{warn("not a git repository")}
 	}
 	d := info.Detection

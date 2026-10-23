@@ -12,6 +12,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
 	"github.com/Ps3udoDev/tija-cli/internal/engine"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
+	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/Ps3udoDev/tija-cli/internal/testutil"
 	"github.com/charmbracelet/x/ansi"
@@ -25,14 +26,16 @@ func titles(items []MenuItem) []string {
 	return out
 }
 
-func TestMenuItemsOnlyPhase1(t *testing.T) {
-	if got, want := titles(MenuItems(false)), []string{"Init", "Doctor", "Status"}; !slices.Equal(got, want) {
+func TestMenuItemsPhase2(t *testing.T) {
+	if got, want := titles(MenuItems(false)), []string{"Init", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(false) = %v, want %v", got, want)
 	}
-	if got, want := titles(MenuItems(true)), []string{"Doctor", "Status", "Init"}; !slices.Equal(got, want) {
+	if got, want := titles(MenuItems(true)), []string{"Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(true) = %v, want %v", got, want)
 	}
 	desc := map[string]string{
+		"Check":  "Lint, format and tests",
+		"Tests":  "Run the test suite",
 		"Init":   "Detect the stack and set up .tija/",
 		"Doctor": "Check tools, manifest and agents",
 		"Status": "Branch, commits and working tree",
@@ -45,7 +48,7 @@ func TestMenuItemsOnlyPhase1(t *testing.T) {
 }
 
 func TestSpritesDistinctAndBounded(t *testing.T) {
-	states := []MascotState{Idle, Scanning, Success, Error}
+	states := []MascotState{Idle, Scanning, Success, Warning, Error}
 	seen := map[string]MascotState{}
 	for _, s := range states {
 		sp := Sprite(s)
@@ -121,21 +124,21 @@ func TestNavigation(t *testing.T) {
 	if m.cursor != 0 {
 		t.Fatalf("after up at 0 cursor = %d, want 0", m.cursor)
 	}
-	m, _ = m.handleKey("j")
-	m, _ = m.handleKey("j")
-	m, _ = m.handleKey("j")
-	if m.cursor != 2 {
-		t.Fatalf("after j past end cursor = %d, want 2", m.cursor)
+	for i := 0; i < 10; i++ {
+		m, _ = m.handleKey("j")
+	}
+	if m.cursor != 4 {
+		t.Fatalf("after j past end cursor = %d, want 4", m.cursor)
 	}
 	m, _ = m.handleKey("k")
-	if m.cursor != 1 {
-		t.Fatalf("after k cursor = %d, want 1", m.cursor)
+	if m.cursor != 3 {
+		t.Fatalf("after k cursor = %d, want 3", m.cursor)
 	}
 	if _, cmd := m.handleKey("q"); !isQuit(cmd) {
-		t.Fatal(`"q" did not quit`)
+		t.Fatal("\"q\" did not quit")
 	}
 	if _, cmd := m.handleKey("ctrl+c"); !isQuit(cmd) {
-		t.Fatal(`"ctrl+c" did not quit`)
+		t.Fatal("\"ctrl+c\" did not quit")
 	}
 }
 
@@ -260,7 +263,12 @@ func TestDoctorResultAndBack(t *testing.T) {
 	repo := testutil.NewRepo(t, fixture("react-vite"))
 	m := newModel(repo, "dev", sys.Default())
 	m = step(t, m, startupMsg{info: loadStartup(repo, sys.Default())})
-	m, _ = m.handleKey("down") // Doctor
+	for i, it := range m.items {
+		if it.Key == keyDoctor {
+			m.cursor = i
+			break
+		}
+	}
 	m, cmd := m.handleKey("enter")
 	if m.screen != screenRunning {
 		t.Fatalf("screen = %v, want running", m.screen)
@@ -288,7 +296,12 @@ func TestStatusOutsideRepoShowsError(t *testing.T) {
 	m := newModel(dir, "dev", sys.Default())
 	m = step(t, m, startupMsg{info: loadStartup(dir, sys.Default())})
 	m, _ = m.handleKey("down")
-	m, _ = m.handleKey("down") // Status
+	for i, it := range m.items {
+		if it.Key == keyStatus {
+			m.cursor = i
+			break
+		}
+	}
 	m, cmd := m.handleKey("enter")
 	m = drive(t, m, cmd)
 	if m.ok {
@@ -401,5 +414,143 @@ func TestStartupViewTestFiles(t *testing.T) {
 	m = step(t, m, startupMsg{info: info})
 	if v := plainView(m); !strings.Contains(v, "5 test files") || strings.Contains(v, "no tests detected") {
 		t.Errorf("view should list 5 test files:\n%s", v)
+	}
+}
+
+func TestQualityProgressView(t *testing.T) {
+	m := newModel("/projects/claims-api", "0.1.0", sys.Env{})
+	m = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 30})
+	m.screen = screenQuality
+	m.title = "Check"
+
+	ev0Start := engine.QualityEvent{
+		Type:  engine.EventStart,
+		Index: 0,
+		Total: 2,
+		Step: quality.StepResult{
+			Kinds:   []quality.Kind{quality.Build},
+			Command: "build",
+		},
+	}
+	m = step(t, m, qualityEventMsg(ev0Start))
+
+	ev0Done := engine.QualityEvent{
+		Type:  engine.EventDone,
+		Index: 0,
+		Total: 2,
+		Step: quality.StepResult{
+			Kinds:      []quality.Kind{quality.Build},
+			Command:    "build",
+			Status:     quality.StatusPassed,
+			DurationMs: 1200,
+		},
+	}
+	m = step(t, m, qualityEventMsg(ev0Done))
+
+	ev1Start := engine.QualityEvent{
+		Type:  engine.EventStart,
+		Index: 1,
+		Total: 2,
+		Step: quality.StepResult{
+			Kinds:   []quality.Kind{quality.Tests},
+			Command: "tests",
+		},
+	}
+	m = step(t, m, qualityEventMsg(ev1Start))
+
+	v := ansi.Strip(m.View().Content)
+	if !strings.Contains(v, "✓ build") {
+		t.Errorf("view lacks '✓ build':\n%s", v)
+	}
+	hasSpinner := false
+	for _, f := range spinnerFrames {
+		if strings.Contains(v, f) {
+			hasSpinner = true
+			break
+		}
+	}
+	if !hasSpinner {
+		t.Errorf("view lacks spinner frame for running step:\n%s", v)
+	}
+}
+
+func TestQualityResultWarningMascot(t *testing.T) {
+	m := newModel("/projects/claims-api", "0.1.0", sys.Env{})
+	m = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 30})
+	m.title = "Check"
+	m = step(t, m, resultMsg{
+		title:  "Check",
+		output: "Check\n✗ lint biome\n",
+		mascot: Warning,
+		ok:     false,
+	})
+	v := m.View().Content
+	if !hasSprite(v, Warning) {
+		t.Errorf("view does not contain Sprite(Warning):\n%s", v)
+	}
+}
+
+func TestResultScroll(t *testing.T) {
+	m := newModel("/projects/claims-api", "0.1.0", sys.Env{})
+	m = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 30})
+	var lines []string
+	for i := 0; i < 100; i++ {
+		lines = append(lines, strings.Repeat("line ", 1)+string(rune('0'+i/10))+string(rune('0'+i%10)))
+	}
+	m.title = "Check"
+	m = step(t, m, resultMsg{
+		title:  "Check",
+		output: strings.Join(lines, "\n"),
+		mascot: Success,
+		ok:     true,
+	})
+
+	v := m.View().Content
+	if strings.Contains(v, "line 99") {
+		t.Errorf("initial view contains line 99:\n%s", v)
+	}
+	if !strings.Contains(v, "line 00") {
+		t.Errorf("initial view lacks line 00:\n%s", v)
+	}
+
+	m, _ = m.handleKey("end")
+	vEnd := m.View().Content
+	if !strings.Contains(vEnd, "line 99") {
+		t.Errorf("view after end lacks line 99:\n%s", vEnd)
+	}
+	if strings.Contains(vEnd, "line 00") {
+		t.Errorf("view after end still contains line 00:\n%s", vEnd)
+	}
+}
+
+func TestResultWraps(t *testing.T) {
+	m := newModel("/projects/claims-api", "0.1.0", sys.Env{})
+	m = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 30})
+	m.title = "Check"
+	m = step(t, m, resultMsg{
+		title:  "Check",
+		output: strings.Repeat("x", 200),
+		mascot: Success,
+		ok:     true,
+	})
+	v := ansi.Strip(m.View().Content)
+	for i, line := range strings.Split(v, "\n") {
+		if w := lipgloss.Width(line); w > 80 {
+			t.Errorf("line %d width = %d > 80: %q", i, w, line)
+		}
+	}
+}
+
+func TestStartupShowsFindRootError(t *testing.T) {
+	info := startupInfo{
+		Root:   "/projects/claims-api",
+		InRepo: false,
+		Err:    "fatal: detected dubious ownership in repository",
+	}
+	m := newModel("/projects/claims-api", "0.1.0", sys.Env{})
+	m = step(t, m, startupMsg{info: info})
+	v := m.View().Content
+	if !strings.Contains(v, "detected dubious ownership") {
+		t.Errorf("startup view lacks error message:\n%s", v)
 	}
 }

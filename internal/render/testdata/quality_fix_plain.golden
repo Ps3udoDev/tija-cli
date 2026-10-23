@@ -1,0 +1,6 @@
+Fix
+✓ lint + format  biome check --write .                                    1.2s
+
+Changed files:
+  src/app.tsx
+  src/index.ts

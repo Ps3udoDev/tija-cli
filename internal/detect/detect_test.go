@@ -239,3 +239,39 @@ func TestMajor(t *testing.T) {
 		}
 	}
 }
+
+func TestDetectNodeScripts(t *testing.T) {
+	dir := t.TempDir()
+	pkgJSON := `{
+		"name": "foo",
+		"scripts": {
+			"test": "vitest",
+			"lint": "eslint",
+			"build": "vite build"
+		}
+	}`
+	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, err := Detect(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"build", "lint", "test"}
+	if !slices.Equal(d.Scripts, want) {
+		t.Fatalf("Scripts = %v, want %v", d.Scripts, want)
+	}
+
+	// Without scripts
+	dirNoScripts := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dirNoScripts, "package.json"), []byte(`{"name":"bar"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dNo, err := Detect(dirNoScripts, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dNo.Scripts != nil {
+		t.Fatalf("expected nil Scripts, got %v", dNo.Scripts)
+	}
+}

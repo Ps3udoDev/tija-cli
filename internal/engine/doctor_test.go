@@ -201,7 +201,7 @@ func TestDoctorToolChecksDeduplicatedByBinary(t *testing.T) {
 		t.Errorf("tool checks = %v, want %v", tools, want)
 	}
 	c, _ := checkByID(r, "tool.dotnet")
-	if c.Status != StatusFail || c.Hint != "install dotnet" {
+	if c.Status != StatusFail || c.Hint != "install the .NET SDK: https://dot.net" {
 		t.Errorf("tool.dotnet = %+v", c)
 	}
 }
@@ -240,5 +240,51 @@ func TestDoctorGhAuthTimeout(t *testing.T) {
 	}
 	if deadline <= 0 || deadline > 10*time.Second {
 		t.Errorf("gh auth status deadline = %v, want <= 10s", deadline)
+	}
+}
+
+func TestDoctorChecksScriptFallbackTool(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	putFile(t, repo, "package.json", []byte(`{
+  "name": "gmx-frontend",
+  "packageManager": "bun@1.3.5",
+  "scripts": { "lint": "eslint ." }
+}`))
+	manifestContent := `version: 1
+project:
+  name: gmx
+  type: react-vite
+pullRequest:
+  target: main
+  template: .github/PULL_REQUEST_TEMPLATE.md
+`
+	putFile(t, repo, ".tija/manifest.yaml", []byte(manifestContent))
+	putFile(t, repo, ".github/PULL_REQUEST_TEMPLATE.md", []byte("PR template"))
+
+	r, err := Doctor(context.Background(), repo, doctorEnv(0, "gh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, ok := checkByID(r, "tool.bun")
+	if !ok {
+		t.Fatalf("expected tool.bun check in %+v", r.Checks)
+	}
+	if c.Status != StatusFail || c.Hint != "install bun" {
+		t.Errorf("tool.bun = %+v, want fail with 'install bun'", c)
+	}
+}
+
+func TestDoctorMissingBiomeHint(t *testing.T) {
+	repo := initRepo(t, "react-vite")
+	r, err := Doctor(context.Background(), repo, doctorEnv(0, "gh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, ok := checkByID(r, "tool.biome")
+	if !ok {
+		t.Fatalf("expected tool.biome check in %+v", r.Checks)
+	}
+	if c.Status != StatusFail || c.Hint != "run: bun install" {
+		t.Errorf("tool.biome = %+v, want fail with 'run: bun install'", c)
 	}
 }

@@ -33,6 +33,7 @@ type Detection struct {
 	PackageManager string   `json:"packageManager"`
 	Lockfiles      []string `json:"lockfiles"`
 	Tools          []string `json:"tools"`
+	Scripts        []string `json:"scripts"`
 	TestFramework  string   `json:"testFramework"`
 	TestCount      int      `json:"testCount"`
 	TestFiles      int      `json:"testFiles"` // *.test.* / *.spec.* files, where tests are not counted individually

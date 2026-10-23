@@ -1,0 +1,10 @@
+Check
+✓ build          dotnet build ClaimsService.sln --nologo                 12.4s
+✗ format         dotnet format ClaimsService.sln --verify-no-changes      3.1s
+    ClaimsService/Program.cs(12,1): error: formatting violated
+    log: .tija/session/logs/format.log
+- tests          skipped (format failed)
+! lint           biome unavailable — run: bun install
+✓ tests          vitest run                                               8.2s  12 passed, 1 skipped
+
+! not initialized — results are not saved (run: tija init)

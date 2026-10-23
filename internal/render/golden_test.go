@@ -3,11 +3,15 @@ package render
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/Ps3udoDev/tija-cli/internal/quality"
 
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
@@ -226,11 +230,15 @@ func TestRenderStatusRenameHintQuotesAndPush(t *testing.T) {
 	got := renderPlain(func(p Printer) { Status(p, r) })
 	for _, want := range []string{
 		`  rename: git branch -m 'it'\''s (wip)' feat/wip` + "\n",
-		`  then: git push origin -u feat/wip && git push origin --delete 'it'\''s (wip)'` + "\n",
+		"  then: git push origin -u feat/wip\n",
+		"  delete the old remote branch only if nobody else uses it\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output lacks %q:\n%s", want, got)
 		}
+	}
+	if strings.Contains(got, "--delete") {
+		t.Errorf("rename hint deletes the remote branch:\n%s", got)
 	}
 
 	r.Published = false
@@ -268,5 +276,182 @@ func TestTestsLabel(t *testing.T) {
 		if got := tests(c.d); got != c.want {
 			t.Errorf("tests(%+v) = %q, want %q", c.d, got, c.want)
 		}
+	}
+}
+
+func sampleQualityCheck() engine.QualityReport {
+	return engine.QualityReport{
+		Mode: "check",
+		Steps: []quality.StepResult{
+			{
+				Kinds:      []quality.Kind{quality.Build},
+				Provider:   "dotnet",
+				Command:    "dotnet build ClaimsService.sln --nologo",
+				Status:     quality.StatusPassed,
+				DurationMs: 12400,
+			},
+			{
+				Kinds:      []quality.Kind{quality.Format},
+				Provider:   "dotnet-format",
+				Command:    "dotnet format ClaimsService.sln --verify-no-changes",
+				Status:     quality.StatusFailed,
+				DurationMs: 3100,
+				Tail:       []string{"ClaimsService/Program.cs(12,1): error: formatting violated"},
+				Log:        ".tija/session/logs/format.log",
+			},
+			{
+				Kinds:    []quality.Kind{quality.Tests},
+				Provider: "dotnet-test",
+				Command:  "dotnet test ClaimsService.sln",
+				Status:   quality.StatusSkipped,
+			},
+			{
+				Kinds:    []quality.Kind{quality.Lint},
+				Provider: "biome",
+				Command:  "biome check .",
+				Status:   quality.StatusUnavailable,
+				Hint:     "run: bun install",
+			},
+			{
+				Kinds:      []quality.Kind{quality.Tests},
+				Provider:   "vitest",
+				Command:    "vitest run",
+				Status:     quality.StatusPassed,
+				DurationMs: 8200,
+				Tests: &quality.TestCounts{
+					Total:   13,
+					Passed:  12,
+					Skipped: 1,
+				},
+			},
+		},
+		Warnings: []string{"not initialized — results are not saved (run: tija init)"},
+	}
+}
+
+func sampleQualityFix() engine.QualityReport {
+	return engine.QualityReport{
+		Mode: "fix",
+		Steps: []quality.StepResult{
+			{
+				Kinds:      []quality.Kind{quality.Lint, quality.Format},
+				Provider:   "biome",
+				Command:    "biome check --write .",
+				Status:     quality.StatusPassed,
+				DurationMs: 1200,
+			},
+		},
+		ChangedFiles: []string{"src/app.tsx", "src/index.ts"},
+	}
+}
+
+func TestRenderQualityCheckPlain(t *testing.T) {
+	golden(t, "quality_check_plain", renderPlain(func(p Printer) { Quality(p, sampleQualityCheck()) }))
+}
+
+func TestRenderQualityFixPlain(t *testing.T) {
+	golden(t, "quality_fix_plain", renderPlain(func(p Printer) { Quality(p, sampleQualityFix()) }))
+}
+
+func TestRenderQualityJSONStable(t *testing.T) {
+	var b bytes.Buffer
+	Quality(Printer{W: &b, Mode: JSON}, engine.QualityReport{})
+	dec := json.NewDecoder(&b)
+	var v map[string]any
+	if err := dec.Decode(&v); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, b.String())
+	}
+	if dec.More() {
+		t.Fatal("more than one JSON document")
+	}
+	for _, k := range []string{"steps", "changedFiles", "warnings"} {
+		arr, ok := v[k].([]any)
+		if !ok || arr == nil {
+			t.Errorf("%s = %v, want []", k, v[k])
+		}
+	}
+}
+
+func TestFormatDuration(t *testing.T) {
+	if got := FormatDuration(1240 * time.Millisecond); got != "1.2s" {
+		t.Errorf("FormatDuration(1240ms) = %q, want 1.2s", got)
+	}
+	if got := FormatDuration(65 * time.Second); got != "1m05s" {
+		t.Errorf("FormatDuration(65s) = %q, want 1m05s", got)
+	}
+}
+
+func TestJSONError(t *testing.T) {
+	var b bytes.Buffer
+	JSONError(&b, 2, errors.New("not a git repository"))
+	want := `{"error":{"code":2,"message":"not a git repository"}}` + "\n"
+	if got := b.String(); got != want {
+		t.Errorf("JSONError = %q, want %q", got, want)
+	}
+}
+
+func TestRenderQualityFixNoFilesChanged(t *testing.T) {
+	r := engine.QualityReport{
+		Mode: "fix",
+		Steps: []quality.StepResult{
+			{
+				Kinds:      []quality.Kind{quality.Format},
+				Provider:   "prettier",
+				Command:    "prettier --write .",
+				Status:     quality.StatusPassed,
+				DurationMs: 500,
+			},
+		},
+		ChangedFiles: []string{},
+	}
+	got := renderPlain(func(p Printer) { Quality(p, r) })
+	if !strings.Contains(got, "No files changed") {
+		t.Errorf("got:\n%s\nwant to contain 'No files changed'", got)
+	}
+}
+
+func TestRenderQualityEmpty(t *testing.T) {
+	r := engine.QualityReport{Mode: "check"}
+	got := renderPlain(func(p Printer) { Quality(p, r) })
+	want := "Check\n! nothing to run — no quality tools configured or detected\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestRenderQualityProgress(t *testing.T) {
+	var b bytes.Buffer
+	p := Printer{W: &b, Mode: Plain}
+	ev := engine.QualityEvent{
+		Type: engine.EventDone,
+		Step: quality.StepResult{
+			Kinds:      []quality.Kind{quality.Build},
+			Provider:   "dotnet",
+			Command:    "dotnet build ClaimsService.sln --nologo",
+			Status:     quality.StatusPassed,
+			DurationMs: 12400,
+		},
+	}
+	QualityProgress(p, ev)
+	want := "✓ build          dotnet build ClaimsService.sln --nologo                 12.4s\n"
+	if b.String() != want {
+		t.Errorf("got %q, want %q", b.String(), want)
+	}
+
+	// JSON mode produces nothing
+	b.Reset()
+	p.Mode = JSON
+	QualityProgress(p, ev)
+	if b.Len() != 0 {
+		t.Errorf("expected empty in JSON mode, got %q", b.String())
+	}
+
+	// EventStart produces nothing
+	b.Reset()
+	p.Mode = Plain
+	ev.Type = engine.EventStart
+	QualityProgress(p, ev)
+	if b.Len() != 0 {
+		t.Errorf("expected empty on EventStart, got %q", b.String())
 	}
 }
