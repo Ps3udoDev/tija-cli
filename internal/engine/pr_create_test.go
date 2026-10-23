@@ -102,6 +102,17 @@ func planCreate(t *testing.T, repo string, env sys.Env, req CreateRequest) Creat
 	return p
 }
 
+// realPath resolves symlinks so paths compare on macOS, where the temp dir
+// /var is a symlink to /private/var and git reports the resolved root.
+func realPath(t *testing.T, p string) string {
+	t.Helper()
+	r, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q): %v", p, err)
+	}
+	return filepath.Clean(r)
+}
+
 var noneReq = CreateRequest{Prepare: PRRequest{Agent: "none", NoCheck: true}}
 
 func TestCreatePRPushesUnpublished(t *testing.T) {
@@ -146,7 +157,7 @@ func TestCreatePRPushesUnpublished(t *testing.T) {
 		t.Errorf("body file = %q, want %q", g.bodies, p.Report.Body)
 	}
 	bodyFile := creates[0][slices.Index(creates[0], "--body-file")+1]
-	if filepath.Clean(bodyFile) != filepath.Join(repo, ".tija", "tmp", "pr", "body.md") {
+	if realPath(t, bodyFile) != filepath.Join(realPath(t, repo), ".tija", "tmp", "pr", "body.md") {
 		t.Errorf("body file path = %q", bodyFile)
 	}
 }
@@ -378,7 +389,7 @@ func TestCreatePRUninitializedUsesTempBody(t *testing.T) {
 	}
 	c := g.called("create")[0]
 	bodyFile := c[slices.Index(c, "--body-file")+1]
-	if strings.HasPrefix(filepath.Clean(bodyFile), repo) {
+	if strings.HasPrefix(filepath.Clean(bodyFile), realPath(t, repo)) {
 		t.Errorf("body file %q is inside the repo", bodyFile)
 	}
 	if _, err := os.Stat(filepath.Join(repo, ".tija")); err == nil {
