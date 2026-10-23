@@ -54,11 +54,6 @@ func detectCmd(dir string, env sys.Env) tea.Cmd {
 	return func() tea.Msg { return startupMsg{info: loadStartup(dir, env)} }
 }
 
-// asciiCat is the startup cat of the product draft (§31).
-const asciiCat = ` /\_/\
-( o.o )
- > ^ <`
-
 const tagline = "Repository engineering for humans & agents"
 
 // wideLayout is the minimum width for side-by-side columns.
@@ -130,9 +125,8 @@ func plural(n int, word string) string {
 // scanning mascot while detecting) on the right; stacked when narrow.
 func (m model) startupView() string {
 	leftParts := []string{
-		catStyle.Render(asciiCat),
+		brandHeader(m.width),
 		"",
-		logoStyle.Render("TIJA"),
 		tagline,
 	}
 	if m.screen != screenDetecting {
@@ -143,9 +137,9 @@ func (m model) startupView() string {
 
 	right := func(withDesc bool) string {
 		if m.screen == screenDetecting {
-			return Sprite(Scanning) + "\n\n" + mutedStyle.Render("Scanning repository...")
+			return Sprite(Scanning) + "\n\n" + mutedStyle.Render(Caption(Scanning))
 		}
-		return Sprite(Idle) + "\n\n" + headingStyle.Render("What do you want to do?") + "\n\n" +
+		return Sprite(Idle) + "\n\n" + mutedStyle.Render(Caption(Idle)) + "\n\n" + headingStyle.Render("What do you want to do?") + "\n\n" +
 			renderMenu(m.items, m.cursor, withDesc)
 	}
 

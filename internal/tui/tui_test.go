@@ -13,6 +13,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/engine"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
+	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/Ps3udoDev/tija-cli/internal/testutil"
 	"github.com/charmbracelet/x/ansi"
@@ -198,23 +199,85 @@ func TestNavigation(t *testing.T) {
 }
 
 func TestStartupViewContents(t *testing.T) {
-	for _, width := range []int{120, 60} {
+	logoTop := strings.SplitN(logoBlock, "\n", 2)[0]
+	for _, width := range []int{120, 80, 60} {
 		v := plainView(menuModel(t, width))
-		for _, want := range []string{
-			"TIJA", "Repository engineering for humans & agents", "What do you want to do?",
-			"> Init", "Detect the stack and set up .tija/",
+		want := []string{
+			"Repository engineering for humans & agents", "What do you want to do?",
+			"> Init", "Detect the stack", "Tija is ready.",
 			"✓ ClaimsAPI detected", "✓ .NET 8", "✓ GitHub", "✓ 74 tests",
-			"v0.1.0", "( o.o )",
-		} {
-			if !strings.Contains(v, want) {
-				t.Errorf("width %d: view lacks %q:\n%s", width, want, v)
+			"v0.1.0",
+		}
+		if width >= wideLayout {
+			want = append(want, ">_", logoTop, "Small cat. Big workflows.")
+		} else {
+			want = append(want, "TIJA", "( o.o )")
+		}
+		for _, w := range want {
+			if !strings.Contains(v, w) {
+				t.Errorf("width %d: view lacks %q:\n%s", width, w, v)
 			}
 		}
-		for i, l := range strings.Split(v, "\n") {
-			if w := lipgloss.Width(l); w > width {
-				t.Errorf("width %d: line %d is %d cells wide", width, i, w)
+	}
+}
+
+func TestStartupViewFitsWidth(t *testing.T) {
+	for _, width := range []int{60, 80, 100, 140} {
+		for _, m := range []model{menuModel(t, width), detectingModel(t, width)} {
+			for i, l := range strings.Split(plainView(m), "\n") {
+				if w := lipgloss.Width(l); w > width {
+					t.Errorf("width %d: line %d is %d cells wide: %q", width, i, w, l)
+				}
 			}
 		}
+	}
+}
+
+func detectingModel(t *testing.T, width int) model {
+	t.Helper()
+	m := newModel("/projects/claims-api", "0.1.0", sys.Env{})
+	return step(t, m, tea.WindowSizeMsg{Width: width, Height: 30})
+}
+
+// inkBackground is the SGR sequence that opens the Ink background.
+func inkBackground() string {
+	s := lipgloss.NewStyle().Background(lipgloss.Color(render.Ink)).Render(" ")
+	return s[:strings.Index(s, " ")]
+}
+
+func TestMenuSelectionBar(t *testing.T) {
+	bg := inkBackground()
+	if bg == "" {
+		t.Fatal("no background sequence")
+	}
+	items := MenuItems(false)
+	for _, withDesc := range []bool{true, false} {
+		lines := strings.Split(renderMenu(items, 1, withDesc), "\n")
+		for i := range items {
+			has := strings.Contains(lines[i], bg)
+			if i == 1 && !has {
+				t.Errorf("withDesc=%v: selected row lacks the Ink background: %q", withDesc, lines[i])
+			}
+			if i != 1 && has {
+				t.Errorf("withDesc=%v: row %d has the Ink background: %q", withDesc, i, lines[i])
+			}
+		}
+		if withDesc {
+			// The bar spans the title and the widest description.
+			titleW, descW := 0, 0
+			for _, it := range items {
+				titleW, descW = max(titleW, len(it.Title)), max(descW, len(it.Description))
+			}
+			if got, want := lipgloss.Width(lines[1]), 2+titleW+3+descW; got != want {
+				t.Errorf("selection bar is %d cells, want %d", got, want)
+			}
+		}
+	}
+}
+
+func TestOkStyleGreen(t *testing.T) {
+	if got := okStyle.Render("✓"); !strings.Contains(got, "38;2;34;197;94") {
+		t.Errorf("tui okStyle is not green: %q", got)
 	}
 }
 

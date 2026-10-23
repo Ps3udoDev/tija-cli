@@ -24,7 +24,7 @@ var (
 	sandStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand))
 	mutedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand)).Faint(true)
 	separatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand)).Faint(true)
-	okStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange))
+	okStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Green))
 	failStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange)).Bold(true)
 	warnStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand))
 )
@@ -395,6 +395,12 @@ func (m model) footer() string {
 		} else {
 			help = "esc back · q quit"
 		}
+	}
+	// The brand tagline sits at the right edge when it fits with a gap of
+	// at least two cells.
+	gap := m.width - len(margin) - lipgloss.Width(help) - lipgloss.Width(brandTagline)
+	if gap >= 2 {
+		return indent(mutedStyle.Render(help) + strings.Repeat(" ", gap) + mutedStyle.Render(brandTagline))
 	}
 	return indent(mutedStyle.Render(help))
 }

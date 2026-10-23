@@ -8,10 +8,12 @@ const (
 	Ink    = "#111827"
 	White  = "#FFFFFF"
 	Sand   = "#FED7AA"
+	// Green is only for the ✓ symbol in styled output.
+	Green = "#22C55E"
 )
 
 var (
-	okStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(Orange))
+	okStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(Green))
 	failStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(Orange)).Bold(true)
 	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(Sand))
 	skipStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(Sand))
