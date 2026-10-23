@@ -119,20 +119,7 @@ func PreparePR(ctx context.Context, dir string, env sys.Env, req PRRequest, onEv
 		return PRReport{}, err
 	}
 
-	var warnings []string
-	if !c.Initialized {
-		if manifestExists(c.Root) {
-			warnings = append(warnings, "manifest invalid — using defaults; draft is not saved")
-		} else {
-			warnings = append(warnings, "not initialized — draft is not saved (run: tija init)")
-		}
-	}
-	if c.Verdict.State == branch.Nonconforming {
-		warnings = append(warnings, fmt.Sprintf("branch %s does not follow the convention (suggested: %s)", c.Branch, c.Verdict.Suggested))
-	}
-	if c.Dirty {
-		warnings = append(warnings, "uncommitted changes are not part of the pull request")
-	}
+	warnings := contextWarnings(c)
 
 	if len(c.Tests) == 0 && !req.NoCheck {
 		tests, err := runPRCheck(ctx, c, env, req, emit)
@@ -178,6 +165,26 @@ func PreparePR(ctx context.Context, dir string, env sys.Env, req PRRequest, onEv
 	}
 	emit(PREvent{Stage: StageDone, Message: "draft ready"})
 	return rep, nil
+}
+
+// contextWarnings returns the warnings every pull request report carries
+// for c: an unsaved draft, a nonconforming branch and uncommitted changes.
+func contextWarnings(c PRContext) []string {
+	var warnings []string
+	if !c.Initialized {
+		if manifestExists(c.Root) {
+			warnings = append(warnings, "manifest invalid — using defaults; draft is not saved")
+		} else {
+			warnings = append(warnings, "not initialized — draft is not saved (run: tija init)")
+		}
+	}
+	if c.Verdict.State == branch.Nonconforming {
+		warnings = append(warnings, fmt.Sprintf("branch %s does not follow the convention (suggested: %s)", c.Branch, c.Verdict.Suggested))
+	}
+	if c.Dirty {
+		warnings = append(warnings, "uncommitted changes are not part of the pull request")
+	}
+	return warnings
 }
 
 // manifestExists reports whether root has a manifest file, valid or not.
