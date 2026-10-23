@@ -495,3 +495,14 @@ func TestRenderPRCreatePlain(t *testing.T) {
 	updated := engine.CreateReport{URL: "https://github.com/o/r/pull/7", Updated: true}
 	golden(t, "pr_create_updated_plain", renderPlain(func(p Printer) { PRCreate(p, plan, updated) }))
 }
+
+func TestRenderPRPrepareTestStatusesPlain(t *testing.T) {
+	r := samplePRReport()
+	r.Tests = []quality.StepResult{
+		{Command: "npm run lint", Status: quality.StatusPassed},
+		{Command: "npm test", Status: quality.StatusFailed, Tests: &quality.TestCounts{Total: 3, Passed: 2, Failed: 1}},
+		{Command: "npm run format", Status: quality.StatusSkipped},
+		{Command: "dotnet test", Status: quality.StatusUnavailable},
+	}
+	golden(t, "pr_prepare_statuses_plain", renderPlain(func(p Printer) { PRPrepare(p, r) }))
+}

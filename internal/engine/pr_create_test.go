@@ -454,3 +454,23 @@ func TestCreatePRIgnoresForkPullRequests(t *testing.T) {
 		t.Errorf("a fork pull request was taken as existing: %+v", p)
 	}
 }
+
+func TestCreatePRGhFailureAfterPushSaysPushed(t *testing.T) {
+	repo, _ := remotePRRepo(t)
+	env := withGH(fakeEnv(), &ghFake{})
+	p := planCreate(t, repo, env, noneReq)
+	if !p.Push {
+		t.Fatal("Push = false")
+	}
+	run := env.Run
+	env.Run = func(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
+		if name == "gh" && len(args) >= 2 && args[1] == "create" {
+			return "", "HTTP 502", 1, nil
+		}
+		return run(ctx, dir, name, args...)
+	}
+	_, err := ApplyCreatePR(context.Background(), repo, env, p, noneReq)
+	if err == nil || !strings.HasPrefix(err.Error(), "pushed feat/auth-mask; gh pr create failed: HTTP 502") {
+		t.Fatalf("err = %v", err)
+	}
+}

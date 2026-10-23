@@ -121,7 +121,14 @@ func PreparePR(ctx context.Context, dir string, env sys.Env, req PRRequest, onEv
 
 	warnings := contextWarnings(c)
 
-	if len(c.Tests) == 0 && !req.NoCheck {
+	switch {
+	case len(c.Tests) > 0 || req.NoCheck:
+		// verified results already, or the user asked not to check
+	case c.Dirty:
+		// check would run on the working tree, not on HEAD: its results
+		// could never be cited.
+		warnings = append(warnings, "uncommitted changes — skipping checks (results would not be citable)")
+	default:
 		tests, err := runPRCheck(ctx, c, env, req, emit)
 		if err != nil {
 			return PRReport{}, err
@@ -236,9 +243,13 @@ func draftPR(ctx context.Context, c PRContext, env sys.Env, req PRRequest, emit 
 		d, ps := deterministic()
 		return d, SourceDeterministic, 0, ps, nil
 	}
-	if name == "" || agents.Binary(name, env.LookPath) == "" {
+	if name == "" {
 		d, ps := deterministic()
 		return d, SourceDeterministic, 0, ps, []string{"no agent available — using deterministic draft"}
+	}
+	if agents.Binary(name, env.LookPath) == "" {
+		d, ps := deterministic()
+		return d, SourceDeterministic, 0, ps, []string{fmt.Sprintf("agent %s is not installed — using deterministic draft", name)}
 	}
 
 	tmpDir, cleanup, err := agentTmpDir(c)

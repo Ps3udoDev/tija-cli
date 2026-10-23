@@ -413,3 +413,32 @@ func TestDeterministicDraftFailedChecks(t *testing.T) {
 		t.Error("prompt must state the timeout")
 	}
 }
+
+func TestLoadDraftStripsBOM(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".tija", "session"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(DraftPath)), []byte("\xEF\xBB\xBFfeat(a): título\r\n\r\n## Resumen\r\n\r\nalgo\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, _, err := LoadDraft(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Title != "feat(a): título" || d.Body != "## Resumen\n\nalgo\n" {
+		t.Errorf("draft = %+v", d)
+	}
+}
+
+func TestBuildPRPromptFencesBackticksInDiff(t *testing.T) {
+	c := PRContext{Branch: "feat/x", Target: "main", Diff: "+```go\n+x := 1\n+```\n+````\n"}
+	p := BuildPRPrompt(c, nil)
+	if !strings.Contains(p, "\n`````diff\n+```go\n") || !strings.Contains(p, "\n+````\n`````\n") {
+		t.Errorf("diff not fenced with five backticks:\n%s", p)
+	}
+	c.Diff = "+plain\n"
+	if p := BuildPRPrompt(c, nil); !strings.Contains(p, "\n```diff\n+plain\n```\n") {
+		t.Errorf("plain diff not fenced with three backticks:\n%s", p)
+	}
+}

@@ -145,3 +145,20 @@ func TestPRCreateEditNeedsTTY(t *testing.T) {
 		t.Error("gh pr create ran")
 	}
 }
+
+func TestPRPreparePrintPromptJSON(t *testing.T) {
+	repo := prBranchRepo(t)
+	code, out, errOut := runIn(t, repo, cmdDeps(false), "", "pr", "prepare", "--print-prompt", "--json")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, errOut)
+	}
+	var v struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if !strings.Contains(v.Prompt, "<<<TITLE") {
+		t.Errorf("prompt = %q", v.Prompt)
+	}
+}

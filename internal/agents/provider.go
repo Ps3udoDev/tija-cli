@@ -110,8 +110,9 @@ func Generate(ctx context.Context, env sys.Env, provider string, req Request) (s
 	return out, nil
 }
 
-// lastLines returns the last n non-trailing lines of s.
+// lastLines returns the last n non-trailing lines of s, without ANSI sequences.
 func lastLines(s string, n int) string {
+	s = ansiRx.ReplaceAllString(s, "")
 	s = strings.TrimRight(strings.ReplaceAll(s, "\r\n", "\n"), " \t\n")
 	lines := strings.Split(s, "\n")
 	if len(lines) > n {

@@ -139,6 +139,14 @@ func ApplyCreatePR(ctx context.Context, dir string, env sys.Env, p CreatePlan, r
 	}
 
 	var out CreateReport
+	// fail reports a failure after the push step, saying when the branch
+	// was pushed already so the user knows the remote changed.
+	fail := func(err error) (CreateReport, error) {
+		if out.Pushed {
+			return out, fmt.Errorf("pushed %s; %w", r.Branch, err)
+		}
+		return out, err
+	}
 	if p.Push {
 		if _, stderr, code, err := env.Run(ctx, root, "git", "push", "-u", "origin", r.Branch); err != nil || code != 0 {
 			return CreateReport{}, commandError("git push", stderr, code, err)
@@ -149,12 +157,12 @@ func ApplyCreatePR(ctx context.Context, dir string, env sys.Env, p CreatePlan, r
 	_, initialized := loadValidManifest(root)
 	tmpDir, cleanup, err := agentTmpDir(PRContext{Root: root, Initialized: initialized})
 	if err != nil {
-		return out, err
+		return fail(err)
 	}
 	defer cleanup()
 	bodyFile := filepath.Join(tmpDir, bodyFileName)
 	if err := os.WriteFile(bodyFile, []byte(prrules.Normalize(r.Body)), 0o644); err != nil {
-		return out, err
+		return fail(err)
 	}
 
 	if p.Existing != "" {
@@ -163,7 +171,7 @@ func ApplyCreatePR(ctx context.Context, dir string, env sys.Env, p CreatePlan, r
 			args = append(args, "--add-assignee", "@me")
 		}
 		if _, stderr, code, err := env.Run(ctx, root, "gh", args...); err != nil || code != 0 {
-			return out, commandError("gh pr edit", stderr, code, err)
+			return fail(commandError("gh pr edit", stderr, code, err))
 		}
 		out.URL, out.Updated, out.Assigned = p.Existing, true, p.Assign
 		return out, nil
@@ -178,11 +186,11 @@ func ApplyCreatePR(ctx context.Context, dir string, env sys.Env, p CreatePlan, r
 	}
 	stdout, stderr, code, err := env.Run(ctx, root, "gh", args...)
 	if err != nil || code != 0 {
-		return out, commandError("gh pr create", stderr, code, err)
+		return fail(commandError("gh pr create", stderr, code, err))
 	}
 	out.URL = lastURL(stdout)
 	if out.URL == "" {
-		return out, fmt.Errorf("gh pr create printed no pull request URL")
+		return fail(fmt.Errorf("gh pr create printed no pull request URL"))
 	}
 	out.Assigned = p.Assign
 	return out, nil

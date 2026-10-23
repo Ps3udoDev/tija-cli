@@ -63,7 +63,8 @@ func LoadDraft(root string) (agents.Draft, DraftMeta, error) {
 	if err != nil {
 		return agents.Draft{}, DraftMeta{}, err
 	}
-	s := strings.ReplaceAll(string(data), "\r\n", "\n")
+	// Editors on Windows may save with a UTF-8 BOM; it is not part of the title.
+	s := strings.TrimPrefix(strings.ReplaceAll(string(data), "\r\n", "\n"), "\uFEFF")
 	title, body, _ := strings.Cut(s, "\n")
 	d := agents.Draft{Title: strings.TrimSpace(title)}
 	if strings.TrimSpace(body) != "" {

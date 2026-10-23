@@ -91,7 +91,8 @@ func BuildPRPrompt(c PRContext, problems []prrules.Problem) string {
 	if c.Diff == "" {
 		b.WriteString("(no textual diff)\n")
 	} else {
-		b.WriteString("```diff\n" + strings.TrimRight(c.Diff, "\n") + "\n```\n")
+		fence := diffFence(c.Diff)
+		b.WriteString(fence + "diff\n" + strings.TrimRight(c.Diff, "\n") + "\n" + fence + "\n")
 	}
 	if len(c.Truncated) > 0 {
 		b.WriteString("\nThese files are left out of the diff (lockfiles, generated, binary or too large); only their line counts above are known:\n")
@@ -131,6 +132,21 @@ func BuildPRPrompt(c PRContext, problems []prrules.Problem) string {
 		b.WriteString("Fix all of them in the new answer.\n")
 	}
 	return b.String()
+}
+
+// diffFence returns a backtick fence longer than the longest run of
+// backticks in s (at least three), so a diff containing ``` cannot close it.
+func diffFence(s string) string {
+	longest, run := 0, 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '`' {
+			run++
+			longest = max(longest, run)
+		} else {
+			run = 0
+		}
+	}
+	return strings.Repeat("`", max(3, longest+1))
 }
 
 func describeResult(r quality.StepResult) string {

@@ -90,6 +90,11 @@ func newPRPrepareCmd(deps Deps) *cobra.Command {
 				if err != nil {
 					return prExit(err)
 				}
+				if o.json {
+					return o.printer.JSONOut(struct {
+						Prompt string `json:"prompt"`
+					}{prompt})
+				}
 				_, err = io.WriteString(cmd.OutOrStdout(), prompt)
 				return err
 			}

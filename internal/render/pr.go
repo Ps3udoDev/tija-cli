@@ -35,10 +35,13 @@ func PRPrepare(p Printer, r engine.PRReport) {
 		if tc := prTestCounts(s.Tests); tc != "" {
 			line += " — " + tc
 		}
-		if s.Status == quality.StatusPassed {
+		switch s.Status {
+		case quality.StatusPassed:
 			p.Ok(line)
-		} else {
+		case quality.StatusFailed:
 			p.Fail(line)
+		default: // skipped or unavailable: not a failure, but not verified either
+			p.Warn(line)
 		}
 	}
 	for _, w := range r.Warnings {

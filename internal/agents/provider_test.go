@@ -137,3 +137,10 @@ func TestGenerateCodexFallsBackToStdout(t *testing.T) {
 		t.Errorf("out = %q, err = %v", out, err)
 	}
 }
+
+func TestLastLinesStripsANSI(t *testing.T) {
+	got := lastLines("one\n\x1b[31merror:\x1b[0m bad flag\r\n\x1b[2Kdone\n", 2)
+	if got != "error: bad flag\ndone" {
+		t.Errorf("lastLines = %q", got)
+	}
+}

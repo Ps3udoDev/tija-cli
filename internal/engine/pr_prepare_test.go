@@ -248,7 +248,7 @@ func TestPreparePRAgentUnavailable(t *testing.T) {
 	env, calls := fakeAgentEnv()
 
 	r, _ := prepare(t, repo, env, PRRequest{Agent: "codex", NoCheck: true})
-	if r.Source != "deterministic" || len(*calls) != 0 || !hasWarning(r, "no agent available — using deterministic draft") {
+	if r.Source != "deterministic" || len(*calls) != 0 || !hasWarning(r, "agent codex is not installed — using deterministic draft") {
 		t.Errorf("source=%q calls=%d warnings=%v", r.Source, len(*calls), r.Warnings)
 	}
 }
@@ -464,5 +464,21 @@ func TestReplaceSection(t *testing.T) {
 	missing := "## Resumen\n\nuno\n"
 	if got := replaceSection(missing, "Pruebas", func(string) string { return "x" }); got != missing {
 		t.Errorf("missing section changed the body: %q", got)
+	}
+}
+
+func TestPreparePRDirtySkipsCheck(t *testing.T) {
+	repo := prRepo(t)
+	writeTestFile(t, repo, "src/y.ts", "export const y = 1\n")
+	env, _ := fakeAgentEnv()
+
+	r, events := prepare(t, repo, env, PRRequest{Agent: "none"})
+	for _, e := range events {
+		if e.Stage == StageCheck {
+			t.Errorf("check ran on a dirty tree: %+v", e)
+		}
+	}
+	if !hasWarning(r, "uncommitted changes — skipping checks (results would not be citable)") {
+		t.Errorf("warnings = %v", r.Warnings)
 	}
 }
