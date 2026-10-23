@@ -47,16 +47,16 @@ func TestDotnetCommands(t *testing.T) {
 	lookPath := func(string) (string, error) { return "/bin/dotnet", nil }
 
 	// With Solution
-	pSln := quality.Project{Solution: "ClaimsService.sln"}
+	pSln := quality.Project{Solution: "SampleService.sln"}
 	buildSteps := []quality.Step{{Kind: quality.Build, Entry: manifest.QualityEntry{Provider: "dotnet"}}}
 	invs := quality.Plan(pSln, buildSteps, quality.CheckMode, lookPath)
-	if len(invs) != 1 || !reflect.DeepEqual(invs[0].Args, []string{"build", "ClaimsService.sln", "--nologo"}) {
+	if len(invs) != 1 || !reflect.DeepEqual(invs[0].Args, []string{"build", "SampleService.sln", "--nologo"}) {
 		t.Errorf("dotnet build with sln = %v", invs[0].Args)
 	}
 
 	formatSteps := []quality.Step{{Kind: quality.Format, Entry: manifest.QualityEntry{Provider: "dotnet-format"}}}
 	invs = quality.Plan(pSln, formatSteps, quality.CheckMode, lookPath)
-	if len(invs) != 1 || !reflect.DeepEqual(invs[0].Args, []string{"format", "ClaimsService.sln", "--verify-no-changes"}) {
+	if len(invs) != 1 || !reflect.DeepEqual(invs[0].Args, []string{"format", "SampleService.sln", "--verify-no-changes"}) {
 		t.Errorf("dotnet format with sln = %v", invs[0].Args)
 	}
 

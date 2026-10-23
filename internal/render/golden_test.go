@@ -286,23 +286,23 @@ func sampleQualityCheck() engine.QualityReport {
 			{
 				Kinds:      []quality.Kind{quality.Build},
 				Provider:   "dotnet",
-				Command:    "dotnet build ClaimsService.sln --nologo",
+				Command:    "dotnet build SampleService.sln --nologo",
 				Status:     quality.StatusPassed,
 				DurationMs: 12400,
 			},
 			{
 				Kinds:      []quality.Kind{quality.Format},
 				Provider:   "dotnet-format",
-				Command:    "dotnet format ClaimsService.sln --verify-no-changes",
+				Command:    "dotnet format SampleService.sln --verify-no-changes",
 				Status:     quality.StatusFailed,
 				DurationMs: 3100,
-				Tail:       []string{"ClaimsService/Program.cs(12,1): error: formatting violated"},
+				Tail:       []string{"SampleService/Program.cs(12,1): error: formatting violated"},
 				Log:        ".tija/session/logs/format.log",
 			},
 			{
 				Kinds:    []quality.Kind{quality.Tests},
 				Provider: "dotnet-test",
-				Command:  "dotnet test ClaimsService.sln",
+				Command:  "dotnet test SampleService.sln",
 				Status:   quality.StatusSkipped,
 			},
 			{
@@ -427,13 +427,13 @@ func TestRenderQualityProgress(t *testing.T) {
 		Step: quality.StepResult{
 			Kinds:      []quality.Kind{quality.Build},
 			Provider:   "dotnet",
-			Command:    "dotnet build ClaimsService.sln --nologo",
+			Command:    "dotnet build SampleService.sln --nologo",
 			Status:     quality.StatusPassed,
 			DurationMs: 12400,
 		},
 	}
 	QualityProgress(p, ev)
-	want := "✓ build          dotnet build ClaimsService.sln --nologo                 12.4s\n"
+	want := "✓ build          dotnet build SampleService.sln --nologo                 12.4s\n"
 	if b.String() != want {
 		t.Errorf("got %q, want %q", b.String(), want)
 	}

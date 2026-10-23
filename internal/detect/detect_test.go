@@ -21,10 +21,10 @@ func TestDetectDotnet(t *testing.T) {
 	if d.ProjectName != "dotnet-api" {
 		t.Errorf("ProjectName = %q", d.ProjectName)
 	}
-	if d.Solution != "ClaimsService.sln" {
+	if d.Solution != "SampleService.sln" {
 		t.Errorf("Solution = %q", d.Solution)
 	}
-	want := []string{"src/Claims.API/Claims.API.csproj", "tests/Claims.Tests/Claims.Tests.csproj"}
+	want := []string{"src/Sample.Api/Sample.Api.csproj", "tests/Sample.Tests/Sample.Tests.csproj"}
 	if !slices.Equal(d.Projects, want) {
 		t.Errorf("Projects = %v", d.Projects)
 	}
