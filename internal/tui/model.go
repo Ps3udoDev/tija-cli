@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -38,8 +37,10 @@ const (
 	screenRunning // an engine command is in flight
 	screenQuality // live quality check or tests running
 	screenChoice  // init: answering a Choice
-	screenConsent // init: approving an Action
+	screenConsent // init: approving an Action; pull request: approving the plan
 	screenResult
+	screenPRWorking // pull request: planning and drafting
+	screenPRPreview // pull request: draft and validation
 )
 
 // defaultWidth is assumed until the terminal reports its size.
@@ -77,6 +78,10 @@ type model struct {
 	qualitySteps  []qualityStepState
 	spinnerIndex  int
 	qualityEvents chan engine.QualityEvent
+
+	// Pull Request flow
+	pr       *prFlow
+	prEvents chan engine.PREvent
 }
 
 // resultMsg carries the rendered outcome of an engine command.
@@ -115,34 +120,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case planMsg:
 		return m.startFlow(msg)
 	case qualityEventMsg:
-		if msg.Total > len(m.qualitySteps) {
-			steps := make([]qualityStepState, msg.Total)
-			for i := range steps {
-				steps[i].status = "pending"
-			}
-			copy(steps, m.qualitySteps)
-			m.qualitySteps = steps
-		}
-		if msg.Index >= 0 && msg.Index < len(m.qualitySteps) {
-			st := &m.qualitySteps[msg.Index]
-			if msg.Step.Command != "" {
-				st.command = msg.Step.Command
-			}
-			if msg.Type == engine.EventStart {
-				st.status = "running"
-			} else if msg.Type == engine.EventDone {
-				st.status = string(msg.Step.Status)
-				st.duration = time.Duration(msg.Step.DurationMs) * time.Millisecond
-			}
-		}
+		m.applyQualityEvent(engine.QualityEvent(msg))
 		if m.qualityEvents != nil {
 			return m, waitForEvent(m.qualityEvents)
 		}
 	case spinnerTickMsg:
-		if m.screen == screenQuality {
+		if m.screen == screenQuality || m.screen == screenPRWorking {
 			m.spinnerIndex++
 			return m, tickSpinner()
 		}
+	case prEventMsg, prPlanMsg, prEditorMsg, prEditedMsg, prCreatedMsg:
+		return m.updatePR(msg)
 	case resultMsg:
 		m.title = msg.title
 		m.result, m.ok, m.mascot, m.caption = msg.output, msg.ok, msg.mascot, msg.caption
@@ -166,7 +154,7 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	switch m.screen {
-	case screenDetecting, screenRunning, screenQuality:
+	case screenDetecting, screenRunning, screenQuality, screenPRWorking:
 		if k == "q" && m.screen == screenDetecting {
 			return m, tea.Quit
 		}
@@ -184,26 +172,17 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 	case screenChoice:
 		return m.choiceKey(k)
 	case screenConsent:
-		return m.consentKey(k)
-	case screenResult:
-		visibleHeight := m.height - 6
-		if visibleHeight < 1 {
-			visibleHeight = 1
+		if m.flow == nil && m.pr != nil {
+			return m.prConsentKey(k)
 		}
-		_, _, maxOffset := wrapAndSliceResult(m.result, m.width, m.height, 0)
+		return m.consentKey(k)
+	case screenPRPreview:
+		return m.prPreviewKey(k)
+	case screenResult:
+		if m.scroll(k, m.result, m.height) {
+			return m, nil
+		}
 		switch k {
-		case "up", "k":
-			m.scrollOffset = max(0, m.scrollOffset-1)
-		case "down", "j":
-			m.scrollOffset = min(maxOffset, m.scrollOffset+1)
-		case "pgup":
-			m.scrollOffset = max(0, m.scrollOffset-visibleHeight)
-		case "pgdown":
-			m.scrollOffset = min(maxOffset, m.scrollOffset+visibleHeight)
-		case "home":
-			m.scrollOffset = 0
-		case "end":
-			m.scrollOffset = maxOffset
 		case "esc":
 			return m.backToMenu()
 		case "q":
@@ -216,7 +195,7 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 // backToMenu recomputes the startup info, since a command such as Init may
 // have changed the repository.
 func (m model) backToMenu() (model, tea.Cmd) {
-	m.flow, m.result = nil, ""
+	m.flow, m.pr, m.result = nil, nil, ""
 	m.screen = screenDetecting
 	return m, detectCmd(m.dir, m.env)
 }
@@ -225,6 +204,10 @@ func (m model) backToMenu() (model, tea.Cmd) {
 func (m model) run(item MenuItem) (model, tea.Cmd) {
 	dir, env := m.dir, m.env
 	switch item.Key {
+	case keyPR:
+		m.pr = nil
+		return m.startPR(false)
+
 	case keyCheck, keyTests:
 		m.screen = screenQuality
 		m.title = item.Title
@@ -338,7 +321,13 @@ func (m model) View() tea.View {
 	case screenChoice:
 		s = m.panel(Idle, "", m.choiceView())
 	case screenConsent:
-		s = m.panel(Idle, "", m.consentView())
+		s = m.panel(Idle, "", m.consentBody())
+	case screenPRWorking:
+		state, body := m.prWorkingView()
+		s = m.panel(state, "", body)
+	case screenPRPreview:
+		state, caption, body := m.prPreviewView()
+		s = m.panel(state, caption, body)
 	case screenResult:
 		body, _, _ := wrapAndSliceResult(m.result, m.width, m.height, m.scrollOffset)
 		s = m.panel(m.mascot, m.caption, body)
@@ -382,12 +371,17 @@ func (m model) footer() string {
 		help = "q quit"
 	case screenMenu:
 		help = "↑/↓ move · enter select · q quit"
-	case screenRunning, screenQuality:
+	case screenRunning, screenQuality, screenPRWorking:
 		help = "ctrl+c quit"
 	case screenChoice:
 		help = "↑/↓ move · enter confirm · esc cancel"
 	case screenConsent:
 		help = "y apply · n skip · esc cancel"
+		if m.flow == nil && m.pr != nil {
+			help = "y create · n back"
+		}
+	case screenPRPreview:
+		help = "↑/↓ scroll · e edit · r regenerate · enter create · esc back"
 	case screenResult:
 		_, needsScroll, _ := wrapAndSliceResult(m.result, m.width, m.height, 0)
 		if needsScroll {

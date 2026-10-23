@@ -12,6 +12,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
 	"github.com/Ps3udoDev/tija-cli/internal/engine"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
+	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
@@ -27,19 +28,23 @@ func titles(items []MenuItem) []string {
 	return out
 }
 
-func TestMenuItemsPhase2(t *testing.T) {
-	if got, want := titles(MenuItems(false)), []string{"Init", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
+func TestMenuItemsPhase3(t *testing.T) {
+	if got, want := titles(MenuItems(false)), []string{"Init", "Pull Request", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(false) = %v, want %v", got, want)
 	}
-	if got, want := titles(MenuItems(true)), []string{"Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
+	if got, want := titles(MenuItems(true)), []string{"Pull Request", "Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(true) = %v, want %v", got, want)
 	}
+	if k := MenuItems(true)[0].Key; k != "pr" {
+		t.Errorf("Pull Request key = %q, want pr", k)
+	}
 	desc := map[string]string{
-		"Check":  "Lint, format and tests",
-		"Tests":  "Run the test suite",
-		"Init":   "Detect the stack and set up .tija/",
-		"Doctor": "Check tools, manifest and agents",
-		"Status": "Branch, commits and working tree",
+		"Pull Request": "Draft and open a pull request",
+		"Check":        "Lint, format and tests",
+		"Tests":        "Run the test suite",
+		"Init":         "Detect the stack and set up .tija/",
+		"Doctor":       "Check tools, manifest and agents",
+		"Status":       "Branch, commits and working tree",
 	}
 	for _, it := range MenuItems(false) {
 		if it.Description != desc[it.Title] {
@@ -183,12 +188,12 @@ func TestNavigation(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		m, _ = m.handleKey("j")
 	}
-	if m.cursor != 4 {
-		t.Fatalf("after j past end cursor = %d, want 4", m.cursor)
+	if m.cursor != 5 {
+		t.Fatalf("after j past end cursor = %d, want 5", m.cursor)
 	}
 	m, _ = m.handleKey("k")
-	if m.cursor != 3 {
-		t.Fatalf("after k cursor = %d, want 3", m.cursor)
+	if m.cursor != 4 {
+		t.Fatalf("after k cursor = %d, want 4", m.cursor)
 	}
 	if _, cmd := m.handleKey("q"); !isQuit(cmd) {
 		t.Fatal("\"q\" did not quit")
@@ -673,5 +678,153 @@ func TestStartupShowsFindRootError(t *testing.T) {
 	v := m.View().Content
 	if !strings.Contains(v, "detected dubious ownership") {
 		t.Errorf("startup view lacks error message:\n%s", v)
+	}
+}
+
+// prModel is a model showing the pull request preview of plan.
+func prModel(t *testing.T, plan engine.CreatePlan) model {
+	t.Helper()
+	m := menuModel(t, 100)
+	m.screen, m.title = screenPRWorking, "Pull Request"
+	return step(t, m, prPlanMsg{plan: plan})
+}
+
+func validPlan() engine.CreatePlan {
+	return engine.CreatePlan{Report: engine.PRReport{
+		Branch:   "feat/login",
+		Target:   "main",
+		Title:    "feat(auth): add the login form",
+		Body:     "## Resumen\nAdds the login form.\n",
+		Problems: []prrules.Problem{},
+	}}
+}
+
+func TestPRWorkingShowsThinking(t *testing.T) {
+	m := menuModel(t, 100)
+	m.screen, m.title = screenPRWorking, "Pull Request"
+	m = step(t, m, prEventMsg(engine.PREvent{Stage: engine.StageContext, Message: "collecting branch, commits and diff"}))
+	if v := m.View().Content; !hasSprite(v, Scanning) {
+		t.Errorf("context stage does not show the scanning mascot:\n%s", ansi.Strip(v))
+	}
+	m = step(t, m, prEventMsg(engine.PREvent{Stage: "agent", Message: "claude is drafting (attempt 1)"}))
+	v := m.View().Content
+	if !hasSprite(v, Thinking) {
+		t.Errorf("agent stage does not show the thinking mascot:\n%s", ansi.Strip(v))
+	}
+	p := ansi.Strip(v)
+	if !strings.Contains(p, "Thinking...") || !strings.Contains(p, "Drafting with claude...") {
+		t.Errorf("agent stage lacks the thinking caption or drafting text:\n%s", p)
+	}
+}
+
+func TestPRWorkingShowsCheckSteps(t *testing.T) {
+	m := menuModel(t, 100)
+	m.screen, m.title = screenPRWorking, "Pull Request"
+	ev := engine.QualityEvent{Type: engine.EventDone, Index: 0, Total: 1, Step: quality.StepResult{Command: "go test ./...", Status: quality.StatusPassed}}
+	m = step(t, m, prEventMsg(engine.PREvent{Stage: engine.StageCheck, Message: "go test ./...", Quality: &ev}))
+	v := m.View().Content
+	if !hasSprite(v, Scanning) || !strings.Contains(ansi.Strip(v), "✓ go test ./...") {
+		t.Errorf("check stage lacks the scanning mascot or quality steps:\n%s", ansi.Strip(v))
+	}
+}
+
+func TestPRPreviewKeys(t *testing.T) {
+	m := prModel(t, validPlan())
+	if m.screen != screenPRPreview {
+		t.Fatalf("screen = %v, want preview", m.screen)
+	}
+	v := m.View().Content
+	p := ansi.Strip(v)
+	for _, want := range []string{"feat(auth): add the login form", "Adds the login form.", "✓", "↑/↓ scroll · e edit · r regenerate · enter create · esc back"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("preview lacks %q:\n%s", want, p)
+		}
+	}
+	if !hasSprite(v, Success) {
+		t.Error("valid preview does not show the success mascot")
+	}
+	m, _ = m.handleKey("enter")
+	if m.screen != screenConsent {
+		t.Fatalf("after enter screen = %v, want consent", m.screen)
+	}
+	if p := plainView(m); !strings.Contains(p, "Push feat/login and open a pull request to main?") {
+		t.Errorf("consent lacks the plan question:\n%s", p)
+	}
+	m, _ = m.handleKey("n")
+	if m.screen != screenPRPreview {
+		t.Fatalf("after n screen = %v, want preview", m.screen)
+	}
+	m, _ = m.handleKey("esc")
+	if m.screen != screenDetecting && m.screen != screenMenu {
+		t.Fatalf("after esc screen = %v, want detecting or menu", m.screen)
+	}
+}
+
+func TestPRConsentUpdateQuestion(t *testing.T) {
+	plan := validPlan()
+	plan.Existing = "https://github.com/o/r/pull/7"
+	m := prModel(t, plan)
+	m, _ = m.handleKey("enter")
+	if p := plainView(m); !strings.Contains(p, "Update pull request https://github.com/o/r/pull/7?") {
+		t.Errorf("consent lacks the update question:\n%s", p)
+	}
+}
+
+func TestPRPreviewBlocksCreateWithProblems(t *testing.T) {
+	plan := validPlan()
+	plan.Report.Problems = []prrules.Problem{{Field: "body", Message: "missing section ## Pruebas"}}
+	m := prModel(t, plan)
+	m, _ = m.handleKey("enter")
+	if m.screen != screenPRPreview {
+		t.Fatalf("after enter screen = %v, want preview", m.screen)
+	}
+	v := m.View().Content
+	if !strings.Contains(ansi.Strip(v), "✗ missing section ## Pruebas") {
+		t.Errorf("preview lacks the problem:\n%s", ansi.Strip(v))
+	}
+	if !hasSprite(v, Warning) {
+		t.Error("preview with problems does not show the warning mascot")
+	}
+}
+
+func TestPRPreviewEditNeedsInit(t *testing.T) {
+	m := prModel(t, validPlan()) // not initialized, no DraftPath
+	m, cmd := m.handleKey("e")
+	if cmd != nil || m.screen != screenPRPreview {
+		t.Fatalf("e on an uninitialized repo: screen = %v, cmd = %v", m.screen, cmd != nil)
+	}
+	if p := plainView(m); !strings.Contains(p, "tija init") {
+		t.Errorf("preview lacks the init hint:\n%s", p)
+	}
+}
+
+func TestPRPlanErrorShowsError(t *testing.T) {
+	m := menuModel(t, 100)
+	m.screen, m.title = screenPRWorking, "Pull Request"
+	m = step(t, m, prPlanMsg{err: engine.ErrGHUnavailable})
+	if m.screen != screenResult || !hasSprite(m.View().Content, Error) {
+		t.Fatalf("plan error: screen = %v", m.screen)
+	}
+	if p := plainView(m); !strings.Contains(p, "GitHub CLI unavailable") {
+		t.Errorf("result lacks the error:\n%s", p)
+	}
+}
+
+func TestPRCreateResultShowsURL(t *testing.T) {
+	m := prModel(t, validPlan())
+	m = step(t, m, prCreatedMsg{rep: engine.CreateReport{URL: "https://github.com/o/r/pull/8"}})
+	if m.screen != screenResult || !hasSprite(m.View().Content, Success) {
+		t.Fatalf("create result: screen = %v", m.screen)
+	}
+	if p := plainView(m); !strings.Contains(p, "https://github.com/o/r/pull/8") {
+		t.Errorf("result lacks the URL:\n%s", p)
+	}
+}
+
+func TestSplitCommand(t *testing.T) {
+	got := splitCommand(`"C:/Program Files/Code/code.exe" --wait -n`)
+	want := []string{"C:/Program Files/Code/code.exe", "--wait", "-n"}
+	if !slices.Equal(got, want) {
+		t.Errorf("splitCommand = %q, want %q", got, want)
 	}
 }

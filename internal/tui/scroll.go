@@ -46,3 +46,27 @@ func wrapAndSliceResult(content string, width, height, offset int) (string, bool
 	sliced := strings.Join(lines[offset:end], "\n")
 	return sliced, true, maxOffset
 }
+
+// scroll moves the scroll offset for a scroll key over content shown in a
+// terminal of the given height, and reports whether k was a scroll key.
+func (m *model) scroll(k, content string, height int) bool {
+	visible := max(height-6, 1)
+	_, _, maxOffset := wrapAndSliceResult(content, m.width, height, 0)
+	switch k {
+	case "up", "k":
+		m.scrollOffset = max(0, m.scrollOffset-1)
+	case "down", "j":
+		m.scrollOffset = min(maxOffset, m.scrollOffset+1)
+	case "pgup":
+		m.scrollOffset = max(0, m.scrollOffset-visible)
+	case "pgdown":
+		m.scrollOffset = min(maxOffset, m.scrollOffset+visible)
+	case "home":
+		m.scrollOffset = 0
+	case "end":
+		m.scrollOffset = maxOffset
+	default:
+		return false
+	}
+	return true
+}

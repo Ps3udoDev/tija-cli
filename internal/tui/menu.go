@@ -13,6 +13,7 @@ type MenuItem struct {
 }
 
 const (
+	keyPR     = "pr"
 	keyCheck  = "check"
 	keyTests  = "tests"
 	keyInit   = "init"
@@ -21,6 +22,7 @@ const (
 )
 
 var (
+	itemPR     = MenuItem{Key: keyPR, Title: "Pull Request", Description: "Draft and open a pull request"}
 	itemCheck  = MenuItem{Key: keyCheck, Title: "Check", Description: "Lint, format and tests"}
 	itemTests  = MenuItem{Key: keyTests, Title: "Tests", Description: "Run the test suite"}
 	itemInit   = MenuItem{Key: keyInit, Title: "Init", Description: "Detect the stack and set up .tija/"}
@@ -32,9 +34,9 @@ var (
 // is initialized, then last.
 func MenuItems(initialized bool) []MenuItem {
 	if initialized {
-		return []MenuItem{itemCheck, itemTests, itemDoctor, itemStatus, itemInit}
+		return []MenuItem{itemPR, itemCheck, itemTests, itemDoctor, itemStatus, itemInit}
 	}
-	return []MenuItem{itemInit, itemCheck, itemTests, itemDoctor, itemStatus}
+	return []MenuItem{itemInit, itemPR, itemCheck, itemTests, itemDoctor, itemStatus}
 }
 
 // Menu row styles. The selected row is a bar on an Ink background.
