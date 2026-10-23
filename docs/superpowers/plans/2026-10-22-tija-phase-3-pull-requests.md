@@ -22,6 +22,7 @@
 - Todo lo de las fases 1 y 2 sigue vigente:
   - módulo `github.com/Ps3udoDev/tija-cli`;
   - UI en inglés, paleta C (`#F97316`, `#111827`, `#FFFFFF`, `#FED7AA`) y símbolos `✓ ✗ ! >`;
+  - **ampliación de la paleta (decisión del usuario, 2026-10-22):** se agrega `Green = "#22C55E"` solo para el símbolo `✓` en la salida coloreada (CLI y TUI), como en la imagen de marca. El resto de los colores sigue siendo la paleta C. La salida plana no cambia;
   - exit codes `0` ok, `1` fallo de validación, `2` uso o entorno;
   - sin TTY, o con `--json`, `--no-color` o `NO_COLOR`: sin colores ni TUI;
   - Windows es plataforma de primera clase.
@@ -577,7 +578,8 @@ Con problems, la penúltima línea es un `✗ <message>` por cada problem. `--js
 **Diagnóstico:**
 - **Gato y logo:** la startup usa el gato ASCII mínimo del draft (`/\_/\ ( o.o ) > ^ <`) y un "TIJA" de 4 letras en negrita. El concepto 06 tiene un **gato ASCII grande** con el prompt `>_` en la boca, al lado de un **logotipo en bloques naranjas**.
 - **Menú:** el ítem seleccionado solo cambia de color. En la marca hay una **barra de selección** de ancho completo.
-- **Mascota pixel:** compite con el menú en la columna derecha. En el concepto 06 la startup no la muestra; la mascota pixel es para los estados (sección 03).
+- **Mascota pixel:** se **mantiene** sobre el menú en la columna derecha (decisión del usuario), ahora con el sprite rediseñado de la Task 9 y su leyenda.
+- **Checks:** el `✓` usa naranja. La marca lo pinta en verde.
 - **Pie:** no tiene el remate de marca `Small cat. Big workflows.`
 
 **Files:**
@@ -612,13 +614,15 @@ Con problems, la penúltima línea es un `✗ <message>` por cada problem. `--js
   - `brandHeader` (el gato, dos espacios y el logo; 6 filas, el logo alineado abajo);
   - una línea en blanco y el tagline;
   - una línea en blanco y el checklist.
-- **Columna derecha:** `What do you want to do?` y el menú, **sin** la mascota pixel. Mientras se detecta, a la derecha va `Sprite(Scanning)` con su leyenda (Task 9).
+- **Columna derecha:** `Sprite(Idle)` con su leyenda, `What do you want to do?` y el menú (igual que hoy, con el sprite nuevo). Mientras se detecta, `Sprite(Scanning)` con su leyenda (Task 9).
+- **Verde para checks:** agregar `Green = "#22C55E"` en `internal/render/palette.go` y usarlo en `okStyle` de `render` y de `tui` (solo el símbolo `✓`).
 - **Selección:** la fila seleccionada se pinta con fondo `Ink`, `>` en `Orange` y el título en `White` bold. El relleno con espacios llega hasta el ancho del título más el de la descripción, para que se vea como una barra. El resto de las filas: el título en `White` y la descripción en `mutedStyle`.
 - **Footer:** el help a la izquierda y `Small cat. Big workflows.` (en `mutedStyle`) alineado a la derecha, si caben con al menos 2 espacios. Si no, solo el help.
 - **Menos de 80 columnas:** se mantiene la lógica actual de layouts, con `brandHeader` degradado a `TIJA` en `logoStyle` y el gato pequeño anterior. Nada supera el ancho en 60 columnas.
 
 - [ ] **Step 1: Tests que fallan**
-  - `TestStartupViewContents`, actualizado: contiene `>_`, la primera fila de `logoBlock`, `What do you want to do?` y `Small cat. Big workflows.`. No contiene caracteres de media celda de la mascota (`▀`/`▄`) cuando `screen == screenMenu`.
+  - `TestStartupViewContents`, actualizado: contiene `>_`, la primera fila de `logoBlock`, `What do you want to do?` y `Small cat. Big workflows.`. Contiene la leyenda `Tija is ready.`.
+  - `TestOkStyleGreen`: `okStyle.Render("✓")` en `render` y en `tui` contiene la secuencia de color de `#22C55E`; la salida plain de `render` no tiene ANSI.
   - `TestStartupViewFitsWidth`: para anchos 60, 80, 100 y 140, todas las líneas de `ansi.Strip(view)` miden ≤ ancho.
   - `TestMenuSelectionBar`: la línea seleccionada de `renderMenu` contiene la secuencia de fondo de `Ink` (comparar con `lipgloss.NewStyle().Background(lipgloss.Color(render.Ink)).Render(" ")` sin el reset) y las demás no.
 - [ ] **Step 2:** `go test ./internal/tui` → FAIL.
