@@ -61,6 +61,7 @@ func execStream(ctx context.Context, dir string, out io.Writer, name string, arg
 	cmd.Dir = dir
 	cmd.Stdout = out
 	cmd.Stderr = out
+	setTreeKill(cmd)
 	cmd.WaitDelay = 2 * time.Second
 	err := cmd.Run()
 	if err == nil {
@@ -80,6 +81,7 @@ func execRunInput(ctx context.Context, dir, stdin, name string, args ...string) 
 	var out, errOut bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errOut
+	setTreeKill(cmd)
 	cmd.WaitDelay = 2 * time.Second
 	err := cmd.Run()
 	if err == nil {
