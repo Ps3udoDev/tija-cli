@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
@@ -454,4 +455,43 @@ func TestRenderQualityProgress(t *testing.T) {
 	if b.Len() != 0 {
 		t.Errorf("expected empty on EventStart, got %q", b.String())
 	}
+}
+
+func samplePRReport() engine.PRReport {
+	return engine.PRReport{
+		Branch: "fix/133-password-leak",
+		Target: "main",
+		Title:  "fix(password): evitar fuga de contraseña en logs",
+		Body:   "## Resumen\n...\n",
+		Source: "claude", Attempts: 1,
+		Commits: 2, Files: 5,
+		Tests: []quality.StepResult{{
+			Command: "dotnet test SampleService.sln",
+			Status:  quality.StatusPassed,
+			Tests:   &quality.TestCounts{Total: 74, Passed: 74},
+		}},
+		Warnings:  []string{"branch changes does not follow the convention (suggested: feat/short-description)"},
+		DraftPath: ".tija/session/pr.md",
+	}
+}
+
+func TestRenderPRPreparePlain(t *testing.T) {
+	golden(t, "pr_prepare_plain", renderPlain(func(p Printer) { PRPrepare(p, samplePRReport()) }))
+}
+
+func TestRenderPRPrepareProblemsPlain(t *testing.T) {
+	r := samplePRReport()
+	r.Problems = []prrules.Problem{
+		{Field: "title", Message: "title must follow type(scope): description"},
+		{Field: "body", Message: "missing section ## Pruebas"},
+	}
+	golden(t, "pr_prepare_problems_plain", renderPlain(func(p Printer) { PRPrepare(p, r) }))
+}
+
+func TestRenderPRCreatePlain(t *testing.T) {
+	plan := engine.CreatePlan{Report: samplePRReport(), Push: true, Assign: true}
+	created := engine.CreateReport{URL: "https://github.com/o/r/pull/7", Pushed: true, Assigned: true}
+	golden(t, "pr_create_plain", renderPlain(func(p Printer) { PRCreate(p, plan, created) }))
+	updated := engine.CreateReport{URL: "https://github.com/o/r/pull/7", Updated: true}
+	golden(t, "pr_create_updated_plain", renderPlain(func(p Printer) { PRCreate(p, plan, updated) }))
 }

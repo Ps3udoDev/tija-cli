@@ -123,6 +123,7 @@ func newRootCmd(deps Deps, in io.Reader) *cobra.Command {
 		newLintCmd(deps),
 		newFormatCmd(deps),
 		newTestCmd(deps),
+		newPRCmd(deps, in),
 	)
 	return root
 }

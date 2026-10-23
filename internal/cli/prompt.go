@@ -97,3 +97,18 @@ func (s *stdinPrompter) Choose(c engine.Choice) string {
 		s.p.Warn("unknown option: " + line)
 	}
 }
+
+// Yes asks a [y/N] question; end of input means no.
+func (s *stdinPrompter) Yes(question string) bool {
+	s.ask(question + " [y/N] ")
+	line, ok := s.readLine()
+	if !ok {
+		s.p.Line("")
+		return false
+	}
+	switch strings.ToLower(line) {
+	case "y", "yes":
+		return true
+	}
+	return false
+}

@@ -30,12 +30,12 @@ type CreateRequest struct {
 
 // CreatePlan is what ApplyCreatePR will do, shown before asking consent.
 type CreatePlan struct {
-	Report PRReport
+	Report PRReport `json:"report"`
 	// Push is true when the branch is not published or has unpushed commits.
-	Push bool
+	Push bool `json:"push"`
 	// Existing is the URL of an open pull request for the branch, or "".
-	Existing string
-	Assign   bool
+	Existing string `json:"existing"`
+	Assign   bool   `json:"assign"`
 }
 
 // CreateReport is the outcome of ApplyCreatePR.
