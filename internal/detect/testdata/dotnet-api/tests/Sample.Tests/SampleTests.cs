@@ -1,6 +1,6 @@
 using Xunit;
 
-public class ClaimTests
+public class SampleTests
 {
     [Fact]
     public void Creates() { }

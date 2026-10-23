@@ -25,6 +25,8 @@ Or download a binary for Windows, Linux or macOS from the [Releases](https://git
 | `tija lint` | Runs linter checks. Pass `--fix` to run lint + format in fix mode. |
 | `tija format` | Formats source code in fix mode. |
 | `tija test` | Runs the test suite and parses test result reports (TRX, Jest/Vitest JSON). |
+| `tija pr prepare` | Drafts the pull request title and body for the current branch (see Pull requests). |
+| `tija pr create` | Pushes the branch and opens or updates the pull request with `gh`. |
 
 Flags:
 
@@ -40,6 +42,39 @@ Exit codes:
 - `0`: All checks passed.
 - `1`: Check failure (e.g. linter error, failing tests, unformatted code).
 - `2`: Usage error or missing environment dependencies (e.g. unavailable tool, syntax error, not a git repository).
+
+## Pull requests
+
+| Command | What it does |
+|---|---|
+| `tija pr prepare` | Drafts the title and body for the current branch against its target and saves them to `.tija/session/pr.md`. Pushes nothing. |
+| `tija pr create` | Prepares (or reuses the saved draft for this commit), then pushes the branch and opens the pull request with `gh`, or updates the open one. |
+
+Flags (both commands):
+
+- `--agent <claude|codex|gemini|none>` picks the agent that writes the text (default: `agents.default` of the manifest). `--no-agent` is `--agent none`.
+- `--no-check` never runs `tija check` to collect test results.
+- `--agent-timeout 3m` and `--check-timeout 10m` bound each agent attempt and each check step.
+- `prepare --print-prompt` prints the prompt that would be sent to the agent and exits `0` without running an agent or check.
+- `create --draft` opens the pull request as a draft.
+- `create --edit` opens the saved draft in `git var GIT_EDITOR` and revalidates it before asking for confirmation (needs a terminal and an initialized repo).
+
+`create` asks `Push <branch> and open a pull request to <target>? [y/N]` (or `Update pull request <url>? [y/N]`). Without a terminal it needs `--yes`; otherwise it prints the preview and exits `2` with `confirmation required: rerun with --yes`.
+
+Agents (no API keys, only the installed CLIs; no permission-skipping flags are ever used):
+
+| Agent | CLI used |
+|---|---|
+| `claude` | `claude` (print mode) |
+| `codex` | `codex exec` |
+| `gemini` | `gemini` (or `agy`) |
+| `none` | no agent: deterministic draft built by Tija |
+
+If the agent is missing, hangs, or fails, Tija falls back to the deterministic draft with a warning. An invalid draft gets one retry with the list of problems; if it is still invalid the draft is saved anyway and the exit code is `1`.
+
+Anti-invention rule: Tija computes the branch, target, commits, diffstat, issue number and test results; the agent only writes prose. `## Pruebas` cites only results of `.tija/session/quality.json` for the current commit on a clean tree (or a `check` run made in the same execution); otherwise it says no verified results exist. `## Evidencias` is `N/A` unless you edit it.
+
+Exit codes: `0` ok; `1` the draft breaks a rule or the branch has no commits ahead of the target; `2` base branch, detached HEAD, missing target, `gh` unavailable, not a git repository, or confirmation required.
 
 ## Quality & Session
 

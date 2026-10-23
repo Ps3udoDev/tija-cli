@@ -64,3 +64,19 @@ func TestZeroPrinterIsPlain(t *testing.T) {
 		t.Fatal("ANSI from a zero-value Printer")
 	}
 }
+
+func TestOkStyleGreen(t *testing.T) {
+	if got := okStyle.Render("✓"); !strings.Contains(got, "38;2;34;197;94") {
+		t.Errorf("okStyle is not green: %q", got)
+	}
+	var b bytes.Buffer
+	Printer{W: &b, Mode: Styled}.Ok("x")
+	if !strings.Contains(b.String(), "38;2;34;197;94") {
+		t.Errorf("styled Ok is not green: %q", b.String())
+	}
+	b.Reset()
+	Printer{W: &b, Mode: Plain}.Ok("x")
+	if b.String() != "✓ x\n" {
+		t.Errorf("plain Ok = %q", b.String())
+	}
+}

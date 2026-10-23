@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
@@ -286,23 +287,23 @@ func sampleQualityCheck() engine.QualityReport {
 			{
 				Kinds:      []quality.Kind{quality.Build},
 				Provider:   "dotnet",
-				Command:    "dotnet build ClaimsService.sln --nologo",
+				Command:    "dotnet build SampleService.sln --nologo",
 				Status:     quality.StatusPassed,
 				DurationMs: 12400,
 			},
 			{
 				Kinds:      []quality.Kind{quality.Format},
 				Provider:   "dotnet-format",
-				Command:    "dotnet format ClaimsService.sln --verify-no-changes",
+				Command:    "dotnet format SampleService.sln --verify-no-changes",
 				Status:     quality.StatusFailed,
 				DurationMs: 3100,
-				Tail:       []string{"ClaimsService/Program.cs(12,1): error: formatting violated"},
+				Tail:       []string{"SampleService/Program.cs(12,1): error: formatting violated"},
 				Log:        ".tija/session/logs/format.log",
 			},
 			{
 				Kinds:    []quality.Kind{quality.Tests},
 				Provider: "dotnet-test",
-				Command:  "dotnet test ClaimsService.sln",
+				Command:  "dotnet test SampleService.sln",
 				Status:   quality.StatusSkipped,
 			},
 			{
@@ -427,13 +428,13 @@ func TestRenderQualityProgress(t *testing.T) {
 		Step: quality.StepResult{
 			Kinds:      []quality.Kind{quality.Build},
 			Provider:   "dotnet",
-			Command:    "dotnet build ClaimsService.sln --nologo",
+			Command:    "dotnet build SampleService.sln --nologo",
 			Status:     quality.StatusPassed,
 			DurationMs: 12400,
 		},
 	}
 	QualityProgress(p, ev)
-	want := "✓ build          dotnet build ClaimsService.sln --nologo                 12.4s\n"
+	want := "✓ build          dotnet build SampleService.sln --nologo                 12.4s\n"
 	if b.String() != want {
 		t.Errorf("got %q, want %q", b.String(), want)
 	}
@@ -454,4 +455,54 @@ func TestRenderQualityProgress(t *testing.T) {
 	if b.Len() != 0 {
 		t.Errorf("expected empty on EventStart, got %q", b.String())
 	}
+}
+
+func samplePRReport() engine.PRReport {
+	return engine.PRReport{
+		Branch: "fix/133-password-leak",
+		Target: "main",
+		Title:  "fix(password): evitar fuga de contraseña en logs",
+		Body:   "## Resumen\n...\n",
+		Source: "claude", Attempts: 1,
+		Commits: 2, Files: 5,
+		Tests: []quality.StepResult{{
+			Command: "dotnet test SampleService.sln",
+			Status:  quality.StatusPassed,
+			Tests:   &quality.TestCounts{Total: 74, Passed: 74},
+		}},
+		Warnings:  []string{"branch changes does not follow the convention (suggested: feat/short-description)"},
+		DraftPath: ".tija/session/pr.md",
+	}
+}
+
+func TestRenderPRPreparePlain(t *testing.T) {
+	golden(t, "pr_prepare_plain", renderPlain(func(p Printer) { PRPrepare(p, samplePRReport()) }))
+}
+
+func TestRenderPRPrepareProblemsPlain(t *testing.T) {
+	r := samplePRReport()
+	r.Problems = []prrules.Problem{
+		{Field: "title", Message: "title must follow type(scope): description"},
+		{Field: "body", Message: "missing section ## Pruebas"},
+	}
+	golden(t, "pr_prepare_problems_plain", renderPlain(func(p Printer) { PRPrepare(p, r) }))
+}
+
+func TestRenderPRCreatePlain(t *testing.T) {
+	plan := engine.CreatePlan{Report: samplePRReport(), Push: true, Assign: true}
+	created := engine.CreateReport{URL: "https://github.com/o/r/pull/7", Pushed: true, Assigned: true}
+	golden(t, "pr_create_plain", renderPlain(func(p Printer) { PRCreate(p, plan, created) }))
+	updated := engine.CreateReport{URL: "https://github.com/o/r/pull/7", Updated: true}
+	golden(t, "pr_create_updated_plain", renderPlain(func(p Printer) { PRCreate(p, plan, updated) }))
+}
+
+func TestRenderPRPrepareTestStatusesPlain(t *testing.T) {
+	r := samplePRReport()
+	r.Tests = []quality.StepResult{
+		{Command: "npm run lint", Status: quality.StatusPassed},
+		{Command: "npm test", Status: quality.StatusFailed, Tests: &quality.TestCounts{Total: 3, Passed: 2, Failed: 1}},
+		{Command: "npm run format", Status: quality.StatusSkipped},
+		{Command: "dotnet test", Status: quality.StatusUnavailable},
+	}
+	golden(t, "pr_prepare_statuses_plain", renderPlain(func(p Printer) { PRPrepare(p, r) }))
 }

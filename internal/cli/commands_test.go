@@ -328,7 +328,7 @@ func TestLintFixRunsFixMode(t *testing.T) {
 
 func TestTestCommandOnlyTests(t *testing.T) {
 	repo := testutil.NewRepo(t, fixture("dotnet-api"))
-	data := []byte("version: 1\nproject:\n  name: Claims\n  type: dotnet-api\nquality:\n  - kind: build\n    provider: dotnet\n  - kind: tests\n    provider: dotnet-test\n")
+	data := []byte("version: 1\nproject:\n  name: Sample\n  type: dotnet-api\nquality:\n  - kind: build\n    provider: dotnet\n  - kind: tests\n    provider: dotnet-test\n")
 	_ = os.MkdirAll(filepath.Join(repo, ".tija"), 0o755)
 	_ = os.WriteFile(filepath.Join(repo, ".tija", "manifest.yaml"), data, 0o644)
 

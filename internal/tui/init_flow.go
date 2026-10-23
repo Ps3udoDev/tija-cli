@@ -162,3 +162,11 @@ func (m model) consentView() string {
 	lines = append(lines, "", sandStyle.Render("Apply? y/n"))
 	return strings.Join(lines, "\n")
 }
+
+// consentBody is the consent screen of init or of the pull request flow.
+func (m model) consentBody() string {
+	if m.flow == nil && m.pr != nil {
+		return m.prConsentView()
+	}
+	return m.consentView()
+}

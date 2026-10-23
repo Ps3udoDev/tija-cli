@@ -88,3 +88,28 @@ func TestStreamCancel(t *testing.T) {
 		t.Fatalf("Stream cancellation took too long: %v (want < 5s)", duration)
 	}
 }
+
+func TestRunInputPassesStdin(t *testing.T) {
+	env := sys.Default()
+	out, _, code, err := env.RunInput(context.Background(), t.TempDir(), "hola\n", "git", "hash-object", "--stdin")
+	if err != nil || code != 0 {
+		t.Fatalf("err=%v code=%d", err, code)
+	}
+	if got := strings.TrimSpace(out); got != "5c1b14949828006ed75a3e8858957f86a2f7e2eb" {
+		t.Fatalf("hash = %q", got)
+	}
+}
+
+func TestRunInputCancelled(t *testing.T) {
+	env := sys.Default()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	_, _, code, err := env.RunInput(ctx, t.TempDir(), "x", "git", "hash-object", "--stdin")
+	if err == nil && code == 0 {
+		t.Fatal("want error or non-zero exit for a cancelled context")
+	}
+	if d := time.Since(start); d >= 5*time.Second {
+		t.Fatalf("took %v", d)
+	}
+}

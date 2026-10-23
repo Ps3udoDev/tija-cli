@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/Ps3udoDev/tija-cli/internal/render"
 )
 
 // MenuItem is one entry of the main menu. Key identifies the action.
@@ -12,6 +13,7 @@ type MenuItem struct {
 }
 
 const (
+	keyPR     = "pr"
 	keyCheck  = "check"
 	keyTests  = "tests"
 	keyInit   = "init"
@@ -20,6 +22,7 @@ const (
 )
 
 var (
+	itemPR     = MenuItem{Key: keyPR, Title: "Pull Request", Description: "Draft and open a pull request"}
 	itemCheck  = MenuItem{Key: keyCheck, Title: "Check", Description: "Lint, format and tests"}
 	itemTests  = MenuItem{Key: keyTests, Title: "Tests", Description: "Run the test suite"}
 	itemInit   = MenuItem{Key: keyInit, Title: "Init", Description: "Detect the stack and set up .tija/"}
@@ -31,27 +34,54 @@ var (
 // is initialized, then last.
 func MenuItems(initialized bool) []MenuItem {
 	if initialized {
-		return []MenuItem{itemCheck, itemTests, itemDoctor, itemStatus, itemInit}
+		return []MenuItem{itemPR, itemCheck, itemTests, itemDoctor, itemStatus, itemInit}
 	}
-	return []MenuItem{itemInit, itemCheck, itemTests, itemDoctor, itemStatus}
+	return []MenuItem{itemInit, itemPR, itemCheck, itemTests, itemDoctor, itemStatus}
 }
 
-// renderMenu lists items with "> " on the selected one. With withDesc each
-// title is followed by its description; otherwise only the selected
-// item's description is shown under the list.
+// Menu row styles. The selected row is a bar on an Ink background.
+var (
+	itemTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(render.White))
+	selBarStyle    = lipgloss.NewStyle().Background(lipgloss.Color(render.Ink))
+	selArrowStyle  = selBarStyle.Foreground(lipgloss.Color(render.Orange)).Bold(true)
+	selTitleStyle  = selBarStyle.Foreground(lipgloss.Color(render.White)).Bold(true)
+	selDescStyle   = selBarStyle.Foreground(lipgloss.Color(render.Sand))
+)
+
+// renderMenu lists items with "> " on the selected one, which is drawn as
+// a selection bar. With withDesc each title is followed by its
+// description and the bar spans the titles and the widest description;
+// otherwise only the selected item's description is shown under the list
+// and the bar is as wide as that description.
 func renderMenu(items []MenuItem, cursor int, withDesc bool) string {
-	titleW := 0
+	titleW, descW := 0, 0
 	for _, it := range items {
 		titleW = max(titleW, lipgloss.Width(it.Title))
+		descW = max(descW, lipgloss.Width(it.Description))
+	}
+	barW := max(2+titleW, compactDescWidth)
+	if withDesc {
+		barW = 2 + titleW + 3 + descW
 	}
 	var lines []string
 	for i, it := range items {
-		line, desc := "  "+it.Title, mutedStyle.Render(it.Description)
-		if i == cursor {
-			line, desc = selectedStyle.Render("> "+it.Title), sandStyle.Render(it.Description)
+		gap := strings.Repeat(" ", titleW-lipgloss.Width(it.Title)+3)
+		if i != cursor {
+			line := "  " + itemTitleStyle.Render(it.Title)
+			if withDesc {
+				line += gap + mutedStyle.Render(it.Description)
+			}
+			lines = append(lines, line)
+			continue
 		}
+		line := selArrowStyle.Render("> ") + selTitleStyle.Render(it.Title)
+		w := 2 + lipgloss.Width(it.Title)
 		if withDesc {
-			line += strings.Repeat(" ", titleW-lipgloss.Width(it.Title)+3) + desc
+			line += selBarStyle.Render(gap) + selDescStyle.Render(it.Description)
+			w += len(gap) + lipgloss.Width(it.Description)
+		}
+		if w < barW {
+			line += selBarStyle.Render(strings.Repeat(" ", barW-w))
 		}
 		lines = append(lines, line)
 	}

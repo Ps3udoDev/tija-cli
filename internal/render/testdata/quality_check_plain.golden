@@ -1,7 +1,7 @@
 Check
-✓ build          dotnet build ClaimsService.sln --nologo                 12.4s
-✗ format         dotnet format ClaimsService.sln --verify-no-changes      3.1s
-    ClaimsService/Program.cs(12,1): error: formatting violated
+✓ build          dotnet build SampleService.sln --nologo                 12.4s
+✗ format         dotnet format SampleService.sln --verify-no-changes      3.1s
+    SampleService/Program.cs(12,1): error: formatting violated
     log: .tija/session/logs/format.log
 - tests          skipped (format failed)
 ! lint           biome unavailable — run: bun install

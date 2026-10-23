@@ -2,10 +2,12 @@ package engine
 
 import (
 	"context"
+	"os"
 	"slices"
 
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
+	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 )
 
 // defaultTarget picks the PR target branch: origin's default branch, else
@@ -52,4 +54,38 @@ func targetChoice(ctx context.Context, repo gitx.Repo, def string) (Choice, bool
 		def = opts[0]
 	}
 	return Choice{ID: ChoiceTarget, Question: "Target branch for pull requests?", Options: opts, Default: def}, true
+}
+
+// loadValidManifest reads the repo manifest. ok is false when it is missing,
+// unreadable or invalid.
+func loadValidManifest(root string) (manifest.Manifest, bool) {
+	data, err := os.ReadFile(abs(root, manifest.Path))
+	if err != nil {
+		return manifest.Manifest{}, false
+	}
+	m, problem := parseValid(data)
+	return m, problem == ""
+}
+
+// branchRules builds the classification rules from the manifest (nil when
+// the repo has no valid one) plus the defaults: base branches always include
+// branch.DefaultBases and origin's default branch, and the target falls back
+// to defaultTarget.
+func branchRules(ctx context.Context, repo gitx.Repo, m *manifest.Manifest) branch.Rules {
+	bases := slices.Clone(branch.DefaultBases)
+	prefixes, target := branch.DefaultPrefixes, ""
+	if m != nil {
+		if len(m.Git.BranchPrefixes) > 0 {
+			prefixes = m.Git.BranchPrefixes
+		}
+		bases = append(bases, m.Git.BaseBranches...)
+		target = m.PullRequest.Target
+	}
+	if target == "" {
+		target = defaultTarget(ctx, repo)
+	}
+	if rb := repo.DefaultRemoteBranch(ctx); rb != "" && !slices.Contains(bases, rb) {
+		bases = append(bases, rb)
+	}
+	return branch.Rules{Prefixes: prefixes, Bases: bases, Target: target}
 }

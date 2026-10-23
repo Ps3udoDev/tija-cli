@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -24,7 +23,7 @@ var (
 	sandStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand))
 	mutedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand)).Faint(true)
 	separatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand)).Faint(true)
-	okStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange))
+	okStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Green))
 	failStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange)).Bold(true)
 	warnStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand))
 )
@@ -38,8 +37,10 @@ const (
 	screenRunning // an engine command is in flight
 	screenQuality // live quality check or tests running
 	screenChoice  // init: answering a Choice
-	screenConsent // init: approving an Action
+	screenConsent // init: approving an Action; pull request: approving the plan
 	screenResult
+	screenPRWorking // pull request: planning and drafting
+	screenPRPreview // pull request: draft and validation
 )
 
 // defaultWidth is assumed until the terminal reports its size.
@@ -63,9 +64,10 @@ type model struct {
 	title string    // title of the current command
 	flow  *initFlow // state of an interactive init
 
-	result string      // rendered report
-	ok     bool        // the command succeeded
-	mascot MascotState // mascot expression in result
+	result  string      // rendered report
+	ok      bool        // the command succeeded
+	mascot  MascotState // mascot expression in result
+	caption string      // overrides Caption(mascot) in result when set
 
 	// Scrolling
 	scrollOffset    int
@@ -76,6 +78,10 @@ type model struct {
 	qualitySteps  []qualityStepState
 	spinnerIndex  int
 	qualityEvents chan engine.QualityEvent
+
+	// Pull Request flow
+	pr       *prFlow
+	prEvents chan engine.PREvent
 }
 
 // resultMsg carries the rendered outcome of an engine command.
@@ -83,7 +89,9 @@ type resultMsg struct {
 	title  string
 	output string
 	mascot MascotState
-	ok     bool
+	// caption overrides Caption(mascot) when not empty.
+	caption string
+	ok      bool
 }
 
 func newModel(dir, version string, env sys.Env) model {
@@ -112,37 +120,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case planMsg:
 		return m.startFlow(msg)
 	case qualityEventMsg:
-		if msg.Total > len(m.qualitySteps) {
-			steps := make([]qualityStepState, msg.Total)
-			for i := range steps {
-				steps[i].status = "pending"
-			}
-			copy(steps, m.qualitySteps)
-			m.qualitySteps = steps
-		}
-		if msg.Index >= 0 && msg.Index < len(m.qualitySteps) {
-			st := &m.qualitySteps[msg.Index]
-			if msg.Step.Command != "" {
-				st.command = msg.Step.Command
-			}
-			if msg.Type == engine.EventStart {
-				st.status = "running"
-			} else if msg.Type == engine.EventDone {
-				st.status = string(msg.Step.Status)
-				st.duration = time.Duration(msg.Step.DurationMs) * time.Millisecond
-			}
-		}
+		m.applyQualityEvent(engine.QualityEvent(msg))
 		if m.qualityEvents != nil {
 			return m, waitForEvent(m.qualityEvents)
 		}
 	case spinnerTickMsg:
-		if m.screen == screenQuality {
+		if m.screen == screenQuality || m.screen == screenPRWorking {
 			m.spinnerIndex++
 			return m, tickSpinner()
 		}
+	case prEventMsg, prPlanMsg, prEditorMsg, prEditedMsg, prCreatedMsg:
+		return m.updatePR(msg)
 	case resultMsg:
 		m.title = msg.title
-		m.result, m.ok, m.mascot = msg.output, msg.ok, msg.mascot
+		m.result, m.ok, m.mascot, m.caption = msg.output, msg.ok, msg.mascot, msg.caption
 		if m.mascot == "" {
 			if m.ok {
 				m.mascot = Success
@@ -163,7 +154,7 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	switch m.screen {
-	case screenDetecting, screenRunning, screenQuality:
+	case screenDetecting, screenRunning, screenQuality, screenPRWorking:
 		if k == "q" && m.screen == screenDetecting {
 			return m, tea.Quit
 		}
@@ -181,26 +172,17 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 	case screenChoice:
 		return m.choiceKey(k)
 	case screenConsent:
-		return m.consentKey(k)
-	case screenResult:
-		visibleHeight := m.height - 6
-		if visibleHeight < 1 {
-			visibleHeight = 1
+		if m.flow == nil && m.pr != nil {
+			return m.prConsentKey(k)
 		}
-		_, _, maxOffset := wrapAndSliceResult(m.result, m.width, m.height, 0)
+		return m.consentKey(k)
+	case screenPRPreview:
+		return m.prPreviewKey(k)
+	case screenResult:
+		if m.scroll(k, m.result, m.height) {
+			return m, nil
+		}
 		switch k {
-		case "up", "k":
-			m.scrollOffset = max(0, m.scrollOffset-1)
-		case "down", "j":
-			m.scrollOffset = min(maxOffset, m.scrollOffset+1)
-		case "pgup":
-			m.scrollOffset = max(0, m.scrollOffset-visibleHeight)
-		case "pgdown":
-			m.scrollOffset = min(maxOffset, m.scrollOffset+visibleHeight)
-		case "home":
-			m.scrollOffset = 0
-		case "end":
-			m.scrollOffset = maxOffset
 		case "esc":
 			return m.backToMenu()
 		case "q":
@@ -213,7 +195,7 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 // backToMenu recomputes the startup info, since a command such as Init may
 // have changed the repository.
 func (m model) backToMenu() (model, tea.Cmd) {
-	m.flow, m.result = nil, ""
+	m.flow, m.pr, m.result = nil, nil, ""
 	m.screen = screenDetecting
 	return m, detectCmd(m.dir, m.env)
 }
@@ -222,6 +204,10 @@ func (m model) backToMenu() (model, tea.Cmd) {
 func (m model) run(item MenuItem) (model, tea.Cmd) {
 	dir, env := m.dir, m.env
 	switch item.Key {
+	case keyPR:
+		m.pr = nil
+		return m.startPR(false)
+
 	case keyCheck, keyTests:
 		m.screen = screenQuality
 		m.title = item.Title
@@ -262,7 +248,7 @@ func (m model) run(item MenuItem) (model, tea.Cmd) {
 		return m, func() tea.Msg {
 			rep, err := engine.Doctor(context.Background(), dir, env)
 			if err != nil {
-				return failed(item.Title, err)
+				return genericFailure(failed(item.Title, err))
 			}
 			mascot := Success
 			hasWarn := false
@@ -276,7 +262,7 @@ func (m model) run(item MenuItem) (model, tea.Cmd) {
 			} else if hasWarn {
 				mascot = Warning
 			}
-			return rendered(item.Title, mascot, func(p render.Printer) { render.Doctor(p, rep) })
+			return genericFailure(rendered(item.Title, mascot, func(p render.Printer) { render.Doctor(p, rep) }))
 		}
 
 	default: // status
@@ -284,13 +270,13 @@ func (m model) run(item MenuItem) (model, tea.Cmd) {
 		return m, func() tea.Msg {
 			rep, err := engine.Status(context.Background(), dir, env)
 			if err != nil {
-				return failed(item.Title, err)
+				return genericFailure(failed(item.Title, err))
 			}
 			mascot := Success
 			if rep.ExitCode(false) != 0 {
 				mascot = Error
 			}
-			return rendered(item.Title, mascot, func(p render.Printer) { render.Status(p, rep) })
+			return genericFailure(rendered(item.Title, mascot, func(p render.Printer) { render.Status(p, rep) }))
 		}
 	}
 }
@@ -311,34 +297,69 @@ func failed(title string, err error) resultMsg {
 	return rendered(title, Error, func(p render.Printer) { p.Fail(err.Error()) })
 }
 
+// genericFailureCaption replaces "Check failed." for commands that are not a
+// quality check, such as Doctor and Status.
+const genericFailureCaption = "Something failed."
+
+// genericFailure gives an Error result the generic failure caption.
+func genericFailure(msg resultMsg) resultMsg {
+	if msg.mascot == Error {
+		msg.caption = genericFailureCaption
+	}
+	return msg
+}
+
 func (m model) View() tea.View {
 	var s string
 	switch m.screen {
 	case screenDetecting, screenMenu:
 		s = m.startupView()
 	case screenRunning:
-		s = m.panel(Scanning, mutedStyle.Render("Running "+m.title+"..."))
+		s = m.panel(Scanning, "", mutedStyle.Render("Running "+m.title+"..."))
 	case screenQuality:
-		s = m.panel(Scanning, m.qualityView())
+		s = m.panel(Scanning, "", m.qualityView())
 	case screenChoice:
-		s = m.panel(Idle, m.choiceView())
+		s = m.panel(Idle, "", m.choiceView())
 	case screenConsent:
-		s = m.panel(Idle, m.consentView())
+		s = m.panel(Idle, "", m.consentBody())
+	case screenPRWorking:
+		state, body := m.prWorkingView()
+		s = m.panel(state, "", body)
+	case screenPRPreview:
+		state, caption, body := m.prPreviewView()
+		s = m.panel(state, caption, body)
 	case screenResult:
 		body, _, _ := wrapAndSliceResult(m.result, m.width, m.height, m.scrollOffset)
-		s = m.panel(m.mascot, body)
+		s = m.panel(m.mascot, m.caption, body)
 	}
 	v := tea.NewView(s)
 	v.AltScreen = true
 	return v
 }
 
+// mascotColumnWidth is the width of the panel column holding the mascot and
+// its caption: the widest caption ("Scanning repository...") is wider than
+// the 20-cell sprite. A fixed width keeps the body still between states.
+const mascotColumnWidth = 22
+
+// panelGap separates the mascot column from the body.
+const panelGap = "   "
+
+// panelBodyIndent is the column where the body of a panel starts.
+const panelBodyIndent = len(margin) + mascotColumnWidth + len(panelGap)
+
 // panel is the layout of every screen but the startup one: the top bar,
-// the mascot, a titled body and the key help.
-func (m model) panel(state MascotState, body string) string {
+// the mascot with its caption, a titled body and the key help. An empty
+// caption uses Caption(state).
+func (m model) panel(state MascotState, caption, body string) string {
+	if caption == "" {
+		caption = Caption(state)
+	}
+	mascot := lipgloss.NewStyle().Width(mascotColumnWidth).
+		Render(Sprite(state) + "\n\n" + mutedStyle.Render(caption))
 	content := headingStyle.Render(m.title) + "\n\n" + body
 	return topBar(displayPath(m.info.Root), m.version, m.width) + "\n\n" +
-		indent(lipgloss.JoinHorizontal(lipgloss.Top, Sprite(state), "   ", content)) +
+		indent(lipgloss.JoinHorizontal(lipgloss.Top, mascot, panelGap, content)) +
 		"\n\n" + m.footer()
 }
 
@@ -350,12 +371,17 @@ func (m model) footer() string {
 		help = "q quit"
 	case screenMenu:
 		help = "↑/↓ move · enter select · q quit"
-	case screenRunning, screenQuality:
+	case screenRunning, screenQuality, screenPRWorking:
 		help = "ctrl+c quit"
 	case screenChoice:
 		help = "↑/↓ move · enter confirm · esc cancel"
 	case screenConsent:
 		help = "y apply · n skip · esc cancel"
+		if m.flow == nil && m.pr != nil {
+			help = "y create · n back"
+		}
+	case screenPRPreview:
+		help = "↑/↓ scroll · e edit · r regenerate · enter create · esc back"
 	case screenResult:
 		_, needsScroll, _ := wrapAndSliceResult(m.result, m.width, m.height, 0)
 		if needsScroll {
@@ -363,6 +389,12 @@ func (m model) footer() string {
 		} else {
 			help = "esc back · q quit"
 		}
+	}
+	// The brand tagline sits at the right edge when it fits with a gap of
+	// at least two cells.
+	gap := m.width - len(margin) - lipgloss.Width(help) - lipgloss.Width(brandTagline)
+	if gap >= 2 {
+		return indent(mutedStyle.Render(help) + strings.Repeat(" ", gap) + mutedStyle.Render(brandTagline))
 	}
 	return indent(mutedStyle.Render(help))
 }

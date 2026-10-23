@@ -72,3 +72,29 @@ func (m model) qualityView() string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// applyQualityEvent records a quality event in the live step list.
+func (m *model) applyQualityEvent(ev engine.QualityEvent) {
+	if ev.Total > len(m.qualitySteps) {
+		steps := make([]qualityStepState, ev.Total)
+		for i := range steps {
+			steps[i].status = "pending"
+		}
+		copy(steps, m.qualitySteps)
+		m.qualitySteps = steps
+	}
+	if ev.Index < 0 || ev.Index >= len(m.qualitySteps) {
+		return
+	}
+	st := &m.qualitySteps[ev.Index]
+	if ev.Step.Command != "" {
+		st.command = ev.Step.Command
+	}
+	switch ev.Type {
+	case engine.EventStart:
+		st.status = "running"
+	case engine.EventDone:
+		st.status = string(ev.Step.Status)
+		st.duration = time.Duration(ev.Step.DurationMs) * time.Millisecond
+	}
+}

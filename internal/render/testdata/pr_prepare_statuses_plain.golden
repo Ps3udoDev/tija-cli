@@ -1,0 +1,16 @@
+Pull request  fix/133-password-leak → main
+✓ 2 commits, 5 files
+✓ tests: npm run lint
+✗ tests: npm test — 2 passed, 1 failed
+! tests: npm run format
+! tests: dotnet test
+! branch changes does not follow the convention (suggested: feat/short-description)
+✓ drafted by claude (1 attempt)
+
+fix(password): evitar fuga de contraseña en logs
+
+## Resumen
+...
+
+✓ title and sections pass pr-governance rules
+Draft: .tija/session/pr.md
