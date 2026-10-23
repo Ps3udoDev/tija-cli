@@ -1,5 +1,5 @@
-// Package agents detects which AI agent CLIs are installed. Phase 1 never
-// invokes them.
+// Package agents detects which AI agent CLIs are installed, invokes them
+// non-interactively with the prompt on stdin, and parses their drafts.
 package agents
 
 // providers lists the supported providers in preference order with the
