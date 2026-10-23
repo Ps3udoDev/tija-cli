@@ -1,0 +1,24 @@
+Tija app icon
+Generated with the built-in imagegen tool from:
+docs/reference/brand/brand-exploration-terminal.png
+
+Prompt:
+Create a single finished square app icon for Tija, matching icon C in the
+attached brand sheet. Only the icon, no sheet, no lettering. Friendly orange
+cat head with pointed ears, symmetrical large dark oval eyes with tiny white
+highlights, white cream muzzle with terminal >_ mark centered in dark ink.
+Thick clean ink outline, flat vector-like shapes. Orange #F97316, very dark
+navy #081823, cream white. Cat head centered and generously sized on dark
+navy rounded square tile. Crisp professional app mark, no gradients, no
+shadows, no extra symbols.
+
+Files:
+tija-icon.png: original generated image.
+tija.ico: 256px Windows icon derived from the PNG, using bicubic resampling.
+The release archives include both files for launchers and shortcuts.
+The icon is not embedded in the Go executable.
+
+TUI palette:
+Canvas #081823, selection #1E3A50, orange #F97316, white #FFFFFF,
+secondary text #A8B8C5, separator #354957, sand #FED7AA.
+Sprites use terminal half blocks; their six expressions follow live app states.

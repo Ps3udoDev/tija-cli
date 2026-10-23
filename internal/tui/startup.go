@@ -121,44 +121,44 @@ func plural(n int, word string) string {
 	return word + "s"
 }
 
-// startupView is the brand column on the left and the menu (or the
-// scanning mascot while detecting) on the right; stacked when narrow.
+// startupView keeps one colored mascot below the wordmark.
 func (m model) startupView() string {
-	leftParts := []string{
-		brandHeader(m.width),
-		"",
-		tagline,
+	state := Idle
+	if m.screen == screenDetecting {
+		state = Scanning
 	}
+	details := []string{mutedStyle.Render(Caption(state))}
 	if m.screen != screenDetecting {
-		leftParts = append(leftParts, "")
-		leftParts = append(leftParts, checklist(m.info)...)
+		details = append(details, "")
+		details = append(details, checklist(m.info)...)
 	}
-	left := strings.Join(leftParts, "\n")
-
-	right := func(withDesc bool) string {
+	left := brandHeader(m.width) + "\n" + "Repository engineering\nfor humans & agents." + "\n\n" + Sprite(state) + "\n" + strings.Join(details, "\n")
+	if m.width < wideLayout {
+		left = brandHeader(m.width) + "\n" + tagline + "\n\n" + lipgloss.JoinHorizontal(lipgloss.Top, Sprite(state), "  ", strings.Join(details, "\n"))
+	}
+	right := func(desc bool) string {
 		if m.screen == screenDetecting {
-			return Sprite(Scanning) + "\n\n" + mutedStyle.Render(Caption(Scanning))
+			return headingStyle.Render("Getting your repository ready") + "\n\n" + mutedStyle.Render("Detecting project, tools and tests...")
 		}
-		return Sprite(Idle) + "\n\n" + mutedStyle.Render(Caption(Idle)) + "\n\n" + headingStyle.Render("What do you want to do?") + "\n\n" +
-			renderMenu(m.items, m.cursor, withDesc)
+		menu := renderMenu(m.items, m.cursor, desc)
+		if desc && m.width >= wideLayout && m.height >= 26 {
+			menu = strings.ReplaceAll(menu, "\n", "\n\n")
+		}
+		return headingStyle.Render("What do you want to do?") + "\n\n" + menu
 	}
-
-	// Prefer columns, then descriptions beside every item; the last layout
-	// (stacked, selected description under the list) is the fallback.
 	var layouts []string
 	if m.width >= wideLayout {
 		layouts = append(layouts, columns(left, right(true)), columns(left, right(false)))
 	}
 	layouts = append(layouts, left+"\n\n"+right(true), left+"\n\n"+right(false))
 	body := layouts[len(layouts)-1]
-	for _, b := range layouts {
-		if lipgloss.Width(b)+len(margin) <= m.width {
-			body = b
+	for _, candidate := range layouts {
+		if lipgloss.Width(candidate)+len(margin) <= m.width {
+			body = candidate
 			break
 		}
 	}
-	return topBar(displayPath(m.info.Root), m.version, m.width) + "\n\n" +
-		indent(body) + "\n\n" + m.footer()
+	return topBar(displayPath(m.info.Root), m.version, m.width) + "\n\n" + indent(body) + "\n\n" + m.footer()
 }
 
 // columns joins left and right with a vertical separator.

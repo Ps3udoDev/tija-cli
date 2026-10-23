@@ -19,141 +19,164 @@ const (
 	Error    MascotState = "error"
 )
 
-// Pixel grids, 20 columns by 18 rows, drawn after the brand sheet: an orange
-// cat sitting three-quarters with a white muzzle, bib and front paws and a
-// tail curving up its right side. Two pixel rows make one terminal row
-// through half-block characters, so a sprite is 20x9 cells.
-//
-// Columns 0-13 hold the cat and columns 15-19 the prop of the state; column
-// 14 stays empty so the prop never touches the cat. Rows 10-17 (the body)
-// are the same in every state: states only change ears, eyes and mouth.
-// O orange, K ink, W white, S sand, '.' transparent.
+// A 20 x 24 pixel cat: broad white muzzle, highlighted eyes, white paws
+// and a curled tail. Accessories are font glyphs, not square sprite pixels.
 var sprites = map[MascotState][]string{
-	// Open eyes and an ellipsis.
 	Idle: {
-		".O.......O..........",
-		".OO.....OO..........",
-		".OSO...OSO..........",
-		"OOOOOOOOOOO.........",
-		"OOOKOOOKOOO.........",
-		"OOOKOOOKOOO.........",
-		"OOWWWKWWWOO.........",
-		".OWWWWWWWO.....S.S.S",
-		"..OOOOOOO...........",
-		"..OOWWWOO...O.......",
-		"..OOWWWOOO..OO......",
-		".OOWWWWOOOO..O......",
-		".OOWWWWOOOO..O......",
-		".OOOWWWOOOO.OO......",
-		".OOOWWOOOOOOO.......",
-		".OOOOWOOOOOO........",
-		"..WW.WW.OOO.........",
-		"..WW.WW.OOOO........",
+		"...O.......O........",
+		"...OO.....OO........",
+		"...OSO...OSO........",
+		"...OSOOOOOSO........",
+		"..OOOOOOOOOOO.......",
+		"..OOOOOOOOOOO.......",
+		"..OOKKOOOKKOO.......",
+		"..OOKWOOOKWOO.......",
+		"..OWKKWWWKKWO.......",
+		".OOWWWWSWWWWOO......",
+		"..WWWWWKWWWWW.......",
+		"...WWWWWWWWW........",
+		"....OOWWWOO.........",
+		"....OWWWWWOO....OOO.",
+		"...OOWWWWWOOO..OO.OO",
+		"...OOWWWWWOOO..O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWW.WWOOOOOO....",
+		"..OOOWW.WWOOOOO.....",
+		"..OOOWW.WWOOOO......",
+		"..WWWWW.WWWWWO......",
+		"...WWWW.WWWW........",
 	},
-	// Eyes to the right and a magnifier.
 	Scanning: {
-		".O.......O..........",
-		".OO.....OO..........",
-		".OSO...OSO.......SS.",
-		"OOOOOOOOOOO.....S..S",
-		"OOOOKOOOKOO.....S..S",
-		"OOOOKOOOKOO......SS.",
-		"OOWWWKWWWOO.....S...",
-		".OWWWWWWWO.....S....",
-		"..OOOOOOO...........",
-		"..OOWWWOO...O.......",
-		"..OOWWWOOO..OO......",
-		".OOWWWWOOOO..O......",
-		".OOWWWWOOOO..O......",
-		".OOOWWWOOOO.OO......",
-		".OOOWWOOOOOOO.......",
-		".OOOOWOOOOOO........",
-		"..WW.WW.OOO.........",
-		"..WW.WW.OOOO........",
+		"...O.......O........",
+		"...OO.....OO........",
+		"...OSO...OSO........",
+		"...OSOOOOOSO........",
+		"..OOOOOOOOOOO.......",
+		"..OOOOOOOOOOO.......",
+		"..OOKKOOOKKOO.......",
+		"..OOKWOOOKWOO.......",
+		"..OWKKWWWKKWO.......",
+		".OOWWWWSWWWWOO......",
+		"..WWWWWKWWWWW.......",
+		"...WWWWWWWWW........",
+		"....OOWWWOO.........",
+		"....OWWWWWOO....OOO.",
+		"...OOWWWWWOOO..OO.OO",
+		"...OOWWWWWOOO..O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWW.WWOOOOOO....",
+		"..OOOWW.WWOOOOO.....",
+		"..OOOWW.WWOOOO......",
+		"..WWWWW.WWWWWO......",
+		"...WWWW.WWWW........",
 	},
-	// Closed eyes and thought bubbles rising.
 	Thinking: {
-		".O.......O........SS",
-		".OO.....OO........SS",
-		".OSO...OSO..........",
-		"OOOOOOOOOOO.........",
-		"OOOOOOOOOOO.....SS..",
-		"OOKKOOOKKOO.....SS..",
-		"OOWWWKWWWOO.........",
-		".OWWWWWWWO.....S....",
-		"..OOOOOOO...........",
-		"..OOWWWOO...O.......",
-		"..OOWWWOOO..OO......",
-		".OOWWWWOOOO..O......",
-		".OOWWWWOOOO..O......",
-		".OOOWWWOOOO.OO......",
-		".OOOWWOOOOOOO.......",
-		".OOOOWOOOOOO........",
-		"..WW.WW.OOO.........",
-		"..WW.WW.OOOO........",
+		"...O.......O........",
+		"...OO.....OO........",
+		"...OSO...OSO........",
+		"...OSOOOOOSO........",
+		"..OOOOOOOOOOO.......",
+		"..OOOOOOOOOOO.......",
+		"..OOOOOOOOOOO.......",
+		"..OKKKOOKKKOO.......",
+		"..OWWWWWWWWWO.......",
+		".OOWWWWSWWWWOO......",
+		"..WWWWWKWWWWW.......",
+		"...WWWWWWWWW........",
+		"....OOWWWOO.........",
+		"....OWWWWWOO....OOO.",
+		"...OOWWWWWOOO..OO.OO",
+		"...OOWWWWWOOO..O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWW.WWOOOOOO....",
+		"..OOOWW.WWOOOOO.....",
+		"..OOOWW.WWOOOO......",
+		"..WWWWW.WWWWWO......",
+		"...WWWW.WWWW........",
 	},
-	// Happy ^ eyes and two sparkles.
 	Success: {
-		".O.......O..........",
-		".OO.....OO......S...",
-		".OSO...OSO.....SSS..",
-		"OOOOOOOOOOO.....S...",
-		"OOKOOOOOKOO.........",
-		"OKOKOOOKOKO.........",
-		"OOWWWKWWWOO.......S.",
-		".OWWWWWWWO.......SSS",
-		"..OOOOOOO.........S.",
-		"..OOWWWOO...O.......",
-		"..OOWWWOOO..OO......",
-		".OOWWWWOOOO..O......",
-		".OOWWWWOOOO..O......",
-		".OOOWWWOOOO.OO......",
-		".OOOWWOOOOOOO.......",
-		".OOOOWOOOOOO........",
-		"..WW.WW.OOO.........",
-		"..WW.WW.OOOO........",
+		"...O.......O........",
+		"...OO.....OO........",
+		"...OSO...OSO........",
+		"...OSOOOOOSO........",
+		"..OOOOOOOOOOO.......",
+		"..OOOOOOOOOOO.......",
+		"..OOKOOOOKOOO.......",
+		"..OKOKOOKOKOO.......",
+		"..OWWWWWWWWWO.......",
+		".OOWWWWSWWWWOO......",
+		"..WWWWWKWWWWW.......",
+		"...WWWWWWWWW........",
+		"....OOWWWOO.........",
+		"....OWWWWWOO....OOO.",
+		"...OOWWWWWOOO..OO.OO",
+		"...OOWWWWWOOO..O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWW.WWOOOOOO....",
+		"..OOOWW.WWOOOOO.....",
+		"..OOOWW.WWOOOO......",
+		"..WWWWW.WWWWWO......",
+		"...WWWW.WWWW........",
 	},
-	// Alert ears, open mouth and a warning sign.
 	Warning: {
-		"O.........O.........",
-		"OO.......OO......O..",
-		"OSO.....OSO......O..",
-		"OOOOOOOOOOO.....OKO.",
-		"OOOKOOOKOOO.....OKO.",
-		"OOOKOOOKOOO....OOOOO",
-		"OOWWWKWWWOO....OOKOO",
-		".OWWWKWWWO.....OOOOO",
-		"..OOOOOOO...........",
-		"..OOWWWOO...O.......",
-		"..OOWWWOOO..OO......",
-		".OOWWWWOOOO..O......",
-		".OOWWWWOOOO..O......",
-		".OOOWWWOOOO.OO......",
-		".OOOWWOOOOOOO.......",
-		".OOOOWOOOOOO........",
-		"..WW.WW.OOO.........",
-		"..WW.WW.OOOO........",
+		"...O.......O........",
+		"...OO.....OO........",
+		"...OSO...OSO........",
+		"...OSOOOOOSO........",
+		"..OOOOOOOOOOO.......",
+		"..OOOOOOOOOOO.......",
+		"..OOKKOOOKKOO.......",
+		"..OOKWOOOKWOO.......",
+		"..OWKKWWWKKWO.......",
+		".OOWWWWSWWWWOO......",
+		"..WWWWWKWWWWW.......",
+		"...WWWWKWWWW........",
+		"....OOWWWOO.........",
+		"....OWWWWWOO....OOO.",
+		"...OOWWWWWOOO..OO.OO",
+		"...OOWWWWWOOO..O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWW.WWOOOOOO....",
+		"..OOOWW.WWOOOOO.....",
+		"..OOOWW.WWOOOO......",
+		"..WWWWW.WWWWWO......",
+		"...WWWW.WWWW........",
 	},
-	// X eyes, flat ears and a cross mark.
 	Error: {
-		"....................",
-		"OOO.....OOO.........",
-		"OSOOOOOOOSO.....OOO.",
-		"OKOKOOOKOKO....OKOKO",
-		"OOKOOOOOKOO....OOKOO",
-		"OKOKOOOKOKO....OKOKO",
-		"OOWWWKWWWOO.....OOO.",
-		".OWWWWWWWO..........",
-		"..OOOOOOO...........",
-		"..OOWWWOO...O.......",
-		"..OOWWWOOO..OO......",
-		".OOWWWWOOOO..O......",
-		".OOWWWWOOOO..O......",
-		".OOOWWWOOOO.OO......",
-		".OOOWWOOOOOOO.......",
-		".OOOOWOOOOOO........",
-		"..WW.WW.OOO.........",
-		"..WW.WW.OOOO........",
+		"...O.......O........",
+		"...OO.....OO........",
+		"...OSO...OSO........",
+		"...OSOOOOOSO........",
+		"..OOOOOOOOOOO.......",
+		"..OOOOOOOOOOO.......",
+		"..OOOOOOOOOOO.......",
+		"..OKKKOOKKKOO.......",
+		"..OWWWWWWWWWO.......",
+		".OOWWWWSWWWWOO......",
+		"..WWWWWKWWWWW.......",
+		"...WWWKKKWWW........",
+		"....OOWWWOO.........",
+		"....OWWWWWOO....OOO.",
+		"...OOWWWWWOOO..OO.OO",
+		"...OOWWWWWOOO..O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWWWWWOOOO.O....",
+		"..OOOWW.WWOOOOOO....",
+		"..OOOWW.WWOOOOO.....",
+		"..OOOWW.WWOOOO......",
+		"..WWWWW.WWWWWO......",
+		"...WWWW.WWWW........",
 	},
 }
 
@@ -189,7 +212,9 @@ func Sprite(s MascotState) string {
 	grid, ok := sprites[s]
 	if !ok {
 		grid = sprites[Idle]
+		s = Idle
 	}
+	props := mascotAccessory(s)
 	var b strings.Builder
 	for y := 0; y < len(grid); y += 2 {
 		if y > 0 {
@@ -202,6 +227,7 @@ func Sprite(s MascotState) string {
 		for x := 0; x < len(top); x++ {
 			b.WriteString(cell(pixel(top, x), pixel(bottom, x)))
 		}
+		b.WriteString(" " + props[y/2])
 	}
 	return b.String()
 }
@@ -212,6 +238,36 @@ func pixel(row string, x int) string {
 	}
 	return spriteColors[row[x]]
 }
+
+// Accessories use rounded text glyphs. They occupy a fixed five-cell gutter
+// so changing states never shifts the report or menu beside the mascot.
+func mascotAccessory(state MascotState) []string {
+	lines := make([]string, 12)
+	for i := range lines {
+		lines[i] = "     "
+	}
+	put := func(row int, text string) { lines[row] = lipgloss.NewStyle().Width(5).Render(text) }
+	switch state {
+	case Scanning:
+		put(3, catAccessoryStyle.Render("╭─╮"))
+		put(4, catAccessoryStyle.Render("╰─╯"))
+		put(5, catAccessoryStyle.Render("   ╲"))
+	case Thinking:
+		put(0, catAccessoryStyle.Render("    ○"))
+		put(1, catAccessoryStyle.Render("  °"))
+		put(2, catAccessoryStyle.Render("·"))
+	case Success:
+		put(2, sandStyle.Render("✦"))
+		put(4, okStyle.Render("  ✓"))
+	case Warning:
+		put(3, selectedStyle.Render(" !"))
+	case Error:
+		put(3, failStyle.Render(" ×"))
+	}
+	return lines
+}
+
+var catAccessoryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(render.White))
 
 // cell draws two stacked pixels in one terminal cell.
 func cell(top, bottom string) string {

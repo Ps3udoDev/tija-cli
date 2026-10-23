@@ -15,14 +15,18 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 )
 
+const (
+	terminalBackground  = "#081823"
+	selectionBackground = "#1E3A50"
+)
+
 var (
 	logoStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange)).Bold(true)
-	catStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color(render.White))
 	headingStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(render.White)).Bold(true)
 	selectedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange)).Bold(true)
 	sandStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand))
-	mutedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand)).Faint(true)
-	separatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand)).Faint(true)
+	mutedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#A8B8C5"))
+	separatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#354957"))
 	okStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Green))
 	failStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Orange)).Bold(true)
 	warnStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(render.Sand))
@@ -333,14 +337,15 @@ func (m model) View() tea.View {
 		s = m.panel(m.mascot, m.caption, body)
 	}
 	v := tea.NewView(s)
+	v.BackgroundColor = lipgloss.Color(terminalBackground)
+	v.ForegroundColor = lipgloss.Color(render.White)
 	v.AltScreen = true
 	return v
 }
 
 // mascotColumnWidth is the width of the panel column holding the mascot and
-// its caption: the widest caption ("Scanning repository...") is wider than
-// the 20-cell sprite. A fixed width keeps the body still between states.
-const mascotColumnWidth = 22
+// its caption and accessory. A fixed width keeps the body still between states.
+const mascotColumnWidth = 26
 
 // panelGap separates the mascot column from the body.
 const panelGap = "   "
