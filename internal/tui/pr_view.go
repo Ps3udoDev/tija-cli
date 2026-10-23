@@ -2,7 +2,6 @@ package tui
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -188,16 +187,8 @@ func (m model) prConsentKey(k string) (model, tea.Cmd) {
 	return m, nil
 }
 
-// prQuestion is the consent question, worded as in tija pr create.
-func prQuestion(p engine.CreatePlan) string {
-	if p.Existing != "" {
-		return fmt.Sprintf("Update pull request %s?", p.Existing)
-	}
-	return fmt.Sprintf("Push %s and open a pull request to %s?", p.Report.Branch, p.Report.Target)
-}
-
 func (m model) prConsentView() string {
-	return headingStyle.Render(prQuestion(m.pr.plan)) + "\n\n" + sandStyle.Render("y/n")
+	return headingStyle.Render(m.pr.plan.Question()) + "\n\n" + sandStyle.Render("y/n")
 }
 
 // prWorkingView is the mascot state and body of the working screen.

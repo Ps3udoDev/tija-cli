@@ -38,6 +38,25 @@ type CreatePlan struct {
 	Assign   bool   `json:"assign"`
 }
 
+// Question is the consent question for p, shared by the CLI and the TUI:
+// it names the push only when there is one, the pull request to open or
+// update, and the assignment when there is one.
+func (p CreatePlan) Question() string {
+	var parts []string
+	if p.Push {
+		parts = append(parts, "push "+p.Report.Branch)
+	}
+	if p.Existing != "" {
+		parts = append(parts, "update pull request "+p.Existing)
+	} else {
+		parts = append(parts, "open a pull request to "+p.Report.Target)
+	}
+	if p.Assign {
+		parts = append(parts, "assign it to you")
+	}
+	return capitalize(strings.Join(parts, " and ")) + "?"
+}
+
 // CreateReport is the outcome of ApplyCreatePR.
 type CreateReport struct {
 	URL      string `json:"url"`

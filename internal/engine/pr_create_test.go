@@ -388,3 +388,24 @@ func TestCreatePRUninitializedUsesTempBody(t *testing.T) {
 		t.Error("temporary body file was not removed")
 	}
 }
+
+func TestCreatePlanQuestion(t *testing.T) {
+	rep := PRReport{Branch: "feat/x", Target: "main"}
+	url := "https://github.com/o/r/pull/3"
+	cases := []struct {
+		plan CreatePlan
+		want string
+	}{
+		{CreatePlan{Report: rep, Push: true, Assign: true}, "Push feat/x and open a pull request to main and assign it to you?"},
+		{CreatePlan{Report: rep, Push: true}, "Push feat/x and open a pull request to main?"},
+		{CreatePlan{Report: rep}, "Open a pull request to main?"},
+		{CreatePlan{Report: rep, Assign: true}, "Open a pull request to main and assign it to you?"},
+		{CreatePlan{Report: rep, Existing: url}, "Update pull request " + url + "?"},
+		{CreatePlan{Report: rep, Existing: url, Push: true, Assign: true}, "Push feat/x and update pull request " + url + " and assign it to you?"},
+	}
+	for _, c := range cases {
+		if got := c.plan.Question(); got != c.want {
+			t.Errorf("Question(%+v) = %q, want %q", c.plan, got, c.want)
+		}
+	}
+}

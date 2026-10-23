@@ -747,7 +747,7 @@ func TestPRPreviewKeys(t *testing.T) {
 	if m.screen != screenConsent {
 		t.Fatalf("after enter screen = %v, want consent", m.screen)
 	}
-	if p := plainView(m); !strings.Contains(p, "Push feat/login and open a pull request to main?") {
+	if p := plainView(m); !strings.Contains(p, "Open a pull request to main?") {
 		t.Errorf("consent lacks the plan question:\n%s", p)
 	}
 	m, _ = m.handleKey("n")
@@ -818,5 +818,22 @@ func TestPRCreateResultShowsURL(t *testing.T) {
 	}
 	if p := plainView(m); !strings.Contains(p, "https://github.com/o/r/pull/8") {
 		t.Errorf("result lacks the URL:\n%s", p)
+	}
+}
+
+func TestPRConsentYesStartsCreate(t *testing.T) {
+	plan := validPlan()
+	plan.Push, plan.Assign = true, true
+	m := prModel(t, plan)
+	if next, cmd := m.handleKey("y"); next.screen != screenPRPreview || cmd != nil {
+		t.Fatalf("y on preview: screen = %v, cmd = %v", next.screen, cmd != nil)
+	}
+	m, _ = m.handleKey("enter")
+	if p := plainView(m); !strings.Contains(p, "Push feat/login and open a pull request to main and assign it to you?") {
+		t.Errorf("consent lacks the plan question:\n%s", p)
+	}
+	m, cmd := m.handleKey("y")
+	if m.screen != screenRunning || cmd == nil {
+		t.Fatalf("y on consent: screen = %v, cmd = %v", m.screen, cmd != nil)
 	}
 }

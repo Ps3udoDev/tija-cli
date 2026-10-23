@@ -178,11 +178,7 @@ func runPRCreate(cmd *cobra.Command, deps Deps, in io.Reader) error {
 		}
 		render.PRPrepare(o.printer, plan.Report)
 		o.printer.Line("")
-		question := fmt.Sprintf("Push %s and open a pull request to %s?", plan.Report.Branch, plan.Report.Target)
-		if plan.Existing != "" {
-			question = fmt.Sprintf("Update pull request %s?", plan.Existing)
-		}
-		if !newStdinPrompter(in, o.printer).Yes(question) {
+		if !newStdinPrompter(in, o.printer).Yes(plan.Question()) {
 			o.printer.Line("Nothing done.")
 			return nil
 		}
