@@ -276,6 +276,8 @@ func draftPR(ctx context.Context, c PRContext, env sys.Env, req PRRequest, emit 
 		}
 		draft.Title = strings.TrimSpace(draft.Title)
 		draft.Body = prrules.Normalize(draft.Body)
+		// Anti-invention: ## Pruebas cites only what Tija verified.
+		draft.Body = prrules.Normalize(enforceVerifiedTests(draft.Body, c.Manifest.Content.Language, c.Tests))
 		if problems = validate(draft); len(problems) == 0 {
 			break
 		}

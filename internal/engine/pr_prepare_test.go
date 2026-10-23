@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
+	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/Ps3udoDev/tija-cli/internal/testutil"
@@ -381,5 +382,87 @@ func TestPreparePRNotARepo(t *testing.T) {
 	_, err := PreparePR(context.Background(), t.TempDir(), fakeEnv(), PRRequest{}, nil)
 	if !errors.Is(err, ErrNotARepo) {
 		t.Errorf("err = %v", err)
+	}
+}
+
+// claimingDraft is an agent draft whose ## Pruebas claims tests nobody ran.
+var claimingDraft = strings.Replace(validAgentDraft,
+	"- No se ejecutaron verificaciones automáticas para este commit.",
+	"- Todas las pruebas pasan correctamente en CI.", 1)
+
+func pruebas(t *testing.T, body string) string {
+	t.Helper()
+	content, ok := prrules.SectionContent(body, "Pruebas")
+	if !ok {
+		t.Fatalf("body lacks ## Pruebas:\n%s", body)
+	}
+	return content
+}
+
+func TestPreparePRAgentCannotClaimTests(t *testing.T) {
+	repo := prRepo(t)
+	env, _ := fakeAgentEnv(agentReply{out: claimingDraft})
+
+	r, _ := prepare(t, repo, env, PRRequest{Agent: "claude", NoCheck: true})
+	got := pruebas(t, r.Body)
+	if strings.Contains(got, "Todas las pruebas pasan") || got != "No se ejecutaron verificaciones automáticas para este commit." {
+		t.Errorf("Pruebas = %q", got)
+	}
+	if !strings.Contains(r.Body, "## Cambios realizados") || r.Source != "claude" || len(r.Problems) != 0 {
+		t.Errorf("source=%q problems=%+v body:\n%s", r.Source, r.Problems, r.Body)
+	}
+}
+
+func TestPreparePRAgentPruebasCitesFreshResult(t *testing.T) {
+	repo := prRepo(t)
+	head := testutil.Git(t, repo, "rev-parse", "HEAD")
+	s := quality.StepResult{Kinds: []quality.Kind{quality.Tests}, Provider: "vitest", Command: "vitest run", Status: quality.StatusPassed,
+		Commit: head, Tests: &quality.TestCounts{Total: 3, Passed: 3}}
+	if err := quality.SaveSession(repo, []quality.StepResult{s}); err != nil {
+		t.Fatal(err)
+	}
+	env, _ := fakeAgentEnv(agentReply{out: claimingDraft})
+
+	r, _ := prepare(t, repo, env, PRRequest{Agent: "claude", NoCheck: true})
+	got := pruebas(t, r.Body)
+	if got != "`vitest run`: 3 superadas, 0 fallidas." {
+		t.Errorf("Pruebas = %q", got)
+	}
+}
+
+func TestPreparePRAgentPruebasOtherLanguageAppends(t *testing.T) {
+	repo := prRepo(t)
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Content.Language = "en"
+	if err := manifest.Save(repo, m); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Git(t, repo, "commit", "-am", "chore: english content")
+	env, _ := fakeAgentEnv(agentReply{out: claimingDraft})
+
+	r, _ := prepare(t, repo, env, PRRequest{Agent: "claude", NoCheck: true})
+	want := "## Pruebas\n\n- Todas las pruebas pasan correctamente en CI.\n\n- No se ejecutaron verificaciones automáticas para este commit.\n"
+	if !strings.HasSuffix(r.Body, want) {
+		t.Errorf("body does not end with %q:\n%s", want, r.Body)
+	}
+}
+
+func TestReplaceSection(t *testing.T) {
+	body := "## Resumen\n\nuno\n\n## pruebas\n\nviejo\nmás\n\n## Evidencias\n\nN/A\n"
+	got := replaceSection(body, "Pruebas", func(string) string { return "- nuevo" })
+	want := "## Resumen\n\nuno\n\n## pruebas\n\n- nuevo\n\n## Evidencias\n\nN/A\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	last := replaceSection("## Pruebas\nviejo\n", "Pruebas", func(c string) string { return c + "\n\n- nuevo" })
+	if last != "## Pruebas\n\nviejo\n\n- nuevo\n" {
+		t.Errorf("last section = %q", last)
+	}
+	missing := "## Resumen\n\nuno\n"
+	if got := replaceSection(missing, "Pruebas", func(string) string { return "x" }); got != missing {
+		t.Errorf("missing section changed the body: %q", got)
 	}
 }

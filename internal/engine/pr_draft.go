@@ -319,6 +319,55 @@ func changesList(c PRContext) string {
 	return strings.Join(out, "\n")
 }
 
+// pruebasSection is the section that cites the verified checks.
+const pruebasSection = "Pruebas"
+
+// enforceVerifiedTests makes the ## Pruebas section of an agent body cite
+// what Tija verified, whatever the agent wrote: in Spanish (the language of
+// testsList) the section becomes the verified list; in any other language
+// the agent's text stays and the verified list follows it. A body without
+// the section is returned as is, so validation reports it.
+func enforceVerifiedTests(body, language string, tests []quality.StepResult) string {
+	verified := testsList(tests)
+	if language == "" || strings.EqualFold(language, "es") {
+		return replaceSection(body, pruebasSection, func(string) string { return verified })
+	}
+	return replaceSection(body, pruebasSection, func(content string) string {
+		if content == "" {
+			return verified
+		}
+		return content + "\n\n" + verified
+	})
+}
+
+// replaceSection replaces the content of the "## <title>" section of a
+// markdown body (heading matched case-insensitively, kept as written) with
+// edit(content), where content is the current text trimmed. A body without
+// the section is returned unchanged.
+func replaceSection(body, title string, edit func(content string) string) string {
+	body = strings.ReplaceAll(body, "\r\n", "\n")
+	head := regexp.MustCompile(`(?im)^##[ \t]+` + regexp.QuoteMeta(title) + `[ \t]*$`)
+	loc := head.FindStringIndex(body)
+	if loc == nil {
+		return body
+	}
+	rest := body[loc[1]:]
+	end := len(rest)
+	if n := regexp.MustCompile(`(?m)^##[ \t]+`).FindStringIndex(rest); n != nil {
+		end = n[0]
+	}
+	content := strings.TrimSpace(rest[:end])
+	after := rest[end:]
+	section := body[:loc[1]]
+	if c := strings.TrimSpace(edit(content)); c != "" {
+		section += "\n\n" + c
+	}
+	if after == "" {
+		return section + "\n"
+	}
+	return section + "\n\n" + after
+}
+
 // testsList cites only verified results that actually ran.
 func testsList(results []quality.StepResult) string {
 	var out []string
