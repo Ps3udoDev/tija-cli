@@ -39,10 +39,10 @@ func MenuItems(initialized bool) []MenuItem {
 	return []MenuItem{itemInit, itemPR, itemCheck, itemTests, itemDoctor, itemStatus}
 }
 
-// Menu row styles. The selected row is a bar on an Ink background.
+// Menu row styles. The blue selection stays visible against the ink canvas.
 var (
 	itemTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(render.White))
-	selBarStyle    = lipgloss.NewStyle().Background(lipgloss.Color(render.Ink))
+	selBarStyle    = lipgloss.NewStyle().Background(lipgloss.Color(selectionBackground))
 	selArrowStyle  = selBarStyle.Foreground(lipgloss.Color(render.Orange)).Bold(true)
 	selTitleStyle  = selBarStyle.Foreground(lipgloss.Color(render.White)).Bold(true)
 	selDescStyle   = selBarStyle.Foreground(lipgloss.Color(render.Sand))

@@ -14,7 +14,6 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
-	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/Ps3udoDev/tija-cli/internal/testutil"
 	"github.com/charmbracelet/x/ansi"
@@ -63,8 +62,8 @@ func TestSpritesDistinctAndBounded(t *testing.T) {
 		if !ok {
 			t.Fatalf("no grid for %s", s)
 		}
-		if len(grid) != 18 {
-			t.Errorf("%s grid has %d rows, want 18", s, len(grid))
+		if len(grid) != 24 {
+			t.Errorf("%s grid has %d rows, want 24", s, len(grid))
 		}
 		for y, row := range grid {
 			if len(row) != 20 {
@@ -76,11 +75,8 @@ func TestSpritesDistinctAndBounded(t *testing.T) {
 					t.Errorf("%s row %d col %d: invalid pixel %q", s, y, x, row[x])
 				}
 			}
-			if row[14] != '.' {
-				t.Errorf("%s row %d: column 14 is %q, want empty", s, y, row[14])
-			}
-			if y >= 10 && y < len(idle) && row[:14] != idle[y][:14] {
-				t.Errorf("%s row %d body %q differs from idle %q", s, y, row[:14], idle[y][:14])
+			if y >= 12 && row != idle[y] {
+				t.Errorf("%s body differs from idle on row %d", s, y)
 			}
 		}
 
@@ -89,11 +85,11 @@ func TestSpritesDistinctAndBounded(t *testing.T) {
 			t.Errorf("Sprite(%s) equals Sprite(%s)", s, prev)
 		}
 		seen[sp] = s
-		if w := lipgloss.Width(sp); w != 20 {
-			t.Errorf("Sprite(%s) width = %d, want 20", s, w)
+		if w := lipgloss.Width(sp); w != 26 {
+			t.Errorf("Sprite(%s) width = %d, want 26", s, w)
 		}
-		if h := lipgloss.Height(sp); h != 9 {
-			t.Errorf("Sprite(%s) height = %d, want 9", s, h)
+		if h := lipgloss.Height(sp); h != 12 {
+			t.Errorf("Sprite(%s) height = %d, want 12", s, h)
 		}
 	}
 	if Sprite("unknown") != Sprite(Idle) {
@@ -208,15 +204,15 @@ func TestStartupViewContents(t *testing.T) {
 	for _, width := range []int{120, 80, 60} {
 		v := plainView(menuModel(t, width))
 		want := []string{
-			"Repository engineering for humans & agents", "What do you want to do?",
+			"Repository engineering", "for humans & agents", "What do you want to do?",
 			"> Init", "Detect the stack", "Tija is ready.",
 			"✓ ClaimsAPI detected", "✓ .NET 8", "✓ GitHub", "✓ 74 tests",
 			"v0.1.0",
 		}
 		if width >= wideLayout {
-			want = append(want, ">_", logoTop, "Small cat. Big workflows.")
+			want = append(want, logoTop, "Small cat. Big workflows.")
 		} else {
-			want = append(want, "TIJA", "( o.o )")
+			want = append(want, "TIJA")
 		}
 		for _, w := range want {
 			if !strings.Contains(v, w) {
@@ -244,9 +240,9 @@ func detectingModel(t *testing.T, width int) model {
 	return step(t, m, tea.WindowSizeMsg{Width: width, Height: 30})
 }
 
-// inkBackground is the SGR sequence that opens the Ink background.
+// inkBackground is the SGR sequence that opens the selection background.
 func inkBackground() string {
-	s := lipgloss.NewStyle().Background(lipgloss.Color(render.Ink)).Render(" ")
+	s := lipgloss.NewStyle().Background(lipgloss.Color(selectionBackground)).Render(" ")
 	return s[:strings.Index(s, " ")]
 }
 
