@@ -15,8 +15,8 @@ import (
 // Problem is a single rule violation. Field is "title", "body" or
 // "section:<Name>".
 type Problem struct {
-	Field   string
-	Message string
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 // Types are the allowed conventional commit types.

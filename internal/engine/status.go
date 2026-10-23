@@ -3,9 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"slices"
 
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
@@ -54,32 +51,19 @@ func Status(ctx context.Context, dir string, env sys.Env) (StatusReport, error) 
 	repo := gitx.Repo{Dir: root, Run: env.Run}
 	rep := StatusReport{Root: root, HasCommits: repo.HasCommits(ctx)}
 
-	bases := append([]string{}, branch.DefaultBases...)
-	prefixes, target := branch.DefaultPrefixes, ""
-	if data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(manifest.Path))); err == nil {
-		if mm, problem := parseValid(data); problem == "" {
-			if len(mm.Git.BranchPrefixes) > 0 {
-				prefixes = mm.Git.BranchPrefixes
-			}
-			if len(mm.Git.BaseBranches) > 0 {
-				bases = append(bases, mm.Git.BaseBranches...)
-			}
-			target = mm.PullRequest.Target
-		}
+	var mp *manifest.Manifest
+	if m, ok := loadValidManifest(root); ok {
+		mp = &m
 	}
-	if target == "" {
-		target = defaultTarget(ctx, repo)
-	}
+	rules := branchRules(ctx, repo, mp)
+	target := rules.Target
 	rep.Target = target
 
 	name, detached, err := repo.CurrentBranch(ctx)
 	if err != nil {
 		return StatusReport{}, err
 	}
-	if rb := repo.DefaultRemoteBranch(ctx); rb != "" && !slices.Contains(bases, rb) {
-		bases = append(bases, rb)
-	}
-	rep.Branch = branch.Classify(name, detached, branch.Rules{Prefixes: prefixes, Bases: bases, Target: target})
+	rep.Branch = branch.Classify(name, detached, rules)
 
 	if rep.HasCommits {
 		rep.Ahead, rep.Behind, rep.TargetFound = repo.AheadBehind(ctx, target)
