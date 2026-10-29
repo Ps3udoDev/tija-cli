@@ -1,6 +1,7 @@
 # Tija — Diseño por fases
 
 > Fecha: 2026-10-22
+> Actualizado: 2026-10-29: se agrega la Fase 3a (skill packs, `clean comments`, workflows compuestos; spec en `2026-10-29-tija-phase-3a-skill-packs-design.md`) y la Fase 4 se apoya en las rúbricas de Thermos (Cursor, MIT)
 > Estado: borrador para aprobación
 > Fuentes (en `docs/reference/`): `product/technical-product-draft.md`, `brand/brand-exploration-terminal.png`, `pull-requests/PULL_REQUEST_TEMPLATE_GUIDE.md`, `pull-requests/PULL_REQUEST_TEMPLATE.md`, `pull-requests/pr-governance.yml`
 > Repo: https://github.com/Ps3udoDev/tija-cli
@@ -42,6 +43,7 @@ El camino se recorre en fases, de la más simple a la más laboriosa. La Fase 1 
 - Que la TUI estorbe la automatización: cualquier comando debe poder ejecutarse sin interacción y con salida legible por máquinas.
 - Que el menú o los comandos muestren funcionalidades que todavía no existen.
 - Que el producto quede acoplado a un proveedor de IA concreto.
+- Que Tija presente como propio material de terceros (rúbricas, skills, prompts). Todo lo que venga de otro proyecto lleva autor, repo, commit, licencia y nota de adaptación.
 
 ## 3. Decisiones tomadas
 
@@ -56,6 +58,9 @@ El camino se recorre en fases, de la más simple a la más laboriosa. La Fase 1 
 | Stack (del draft) | Go + Cobra (CLI) + Bubble Tea (TUI). MCP como pieza central más adelante. Qdrant solo en fase tardía |
 | Identidad visual | Nombre **Tija**, paleta C (`#F97316` Orange, `#111827` Ink, `#FFFFFF` White, `#FED7AA` Sand), logo vectorial + mascota pixel en la TUI, startup screen según el concepto 06 de la imagen de marca |
 | Estándar de PR | El de `PULL_REQUEST_TEMPLATE_GUIDE.md` + `PULL_REQUEST_TEMPLATE.md`, validado por `pr-governance.yml` |
+| Material de terceros (2026-10-29) | Se toma solo lo necesario de proyectos como anti-slop y Thermos, **siempre atribuido a su autor** y adaptado a Tija. Ver la sección 4.1 del spec de la Fase 3a |
+| Edición de código (2026-10-29) | Tija puede editar código fuente con la semántica de Biome: sin flag reporta, `--write` aplica lo seguro, `--write --unsafe` aplica también lo inseguro |
+| Fase 3a (2026-10-29) | Se inserta entre la Fase 3 y la Fase 4 |
 
 ### Decididas por Claude (revisables)
 | Tema | Decisión | Motivo |
@@ -80,12 +85,14 @@ El camino se recorre en fases, de la más simple a la más laboriosa. La Fase 1 
 1. **Un motor, tres interfaces.** La lógica vive en paquetes de engine. Cobra, Bubble Tea y MCP son capas finas que llaman al mismo engine. Ningún workflow se implementa dos veces.
 2. **Deterministic first.** Lo que se puede calcular (rama, status, commits, diff, detección de stack, ejecución de herramientas, validación de formato) nunca se delega al LLM. El agente solo redacta, resume e interpreta.
 3. **Modo no interactivo siempre disponible.** Todo comando acepta `--json` y `--yes` (o `--no-input`) cuando aplica. Si stdout no es una TTY, no se dibuja la mascota ni colores y la salida es texto plano estable. Exit codes: `0` ok, `1` fallo de validación/check, `2` error de uso/entorno.
-4. **No pisar nada.** Cualquier archivo existente que Tija quiera modificar se muestra como diff y requiere confirmación (o `--yes`). `init` es idempotente.
+4. **No pisar nada.** Cualquier archivo existente que Tija quiera modificar por iniciativa propia (configuración e infraestructura: `.gitignore`, templates, workflows) se muestra como diff y requiere confirmación (o `--yes`). `init` es idempotente. Las ediciones de código fuente que el usuario pide con un flag explícito de escritura (`tija lint --fix`, `tija clean comments --write`) quedan cubiertas por ese flag, como en Biome.
 5. **Repository native.** Versionado: `.tija/manifest.yaml`, `.tija/rules/`, `.tija/templates/`, `.tija/workflows/`, `.tija/handoffs/`. Ignorado (vía `.gitignore`): `.tija/cache/`, `.tija/index/`, `.tija/session/`, `.tija/tmp/`.
 6. **Agent agnostic.** Los workflows piden un *tier* (`fast` / `balanced` / `deep`), nunca un modelo concreto. Cada provider traduce el tier al flag de modelo de su CLI cuando ese CLI lo soporta; si no, ignora el tier.
 7. **Idioma.** Strings de UI en inglés. El idioma del contenido generado se define en el manifest (`content.language: es` por defecto en este usuario) y se pasa al agente en el prompt.
 8. **Multiplataforma real.** Windows es plataforma de primera clase (el autor desarrolla en Windows 11). Rutas, subprocesos y detección de binarios deben probarse en Windows.
 9. **Branding consistente.** Toda salida coloreada usa solo la paleta C. Símbolos: `✓` éxito, `✗` error, `!` warning, `>` selección.
+10. **Escritura en tres niveles.** Todo comando que pueda editar código sigue el contrato de Biome: sin flag solo reporta (exit 1 si hay cambios pendientes), `--write` aplica los cambios seguros y `--write --unsafe` también los que pueden cambiar el significado. Cuando la propuesta viene de un agente, Tija aplica los cambios y los verifica de forma determinista; el agente nunca escribe archivos.
+11. **Atribución de terceros.** Todo pack o fragmento de otro proyecto lleva frontmatter de origen (autor, repo, ruta, commit, licencia), una nota visible de adaptación y su `LICENSE` original al lado. `THIRD_PARTY_NOTICES.md` viaja en cada release. Tija nunca descarga packs en tiempo de ejecución.
 
 ## 5. Las fases
 
@@ -226,12 +233,28 @@ Los valores por defecto de `pullRequest.*` replican exactamente lo que valida `p
 **TUI:** opción `Pull Request`, estado `thinking` de la mascota y preview con el título y el cuerpo.
 **Salida:** en 5 PRs reales consecutivos, `pr-governance.yml` pasa a la primera y el autor no necesitó ChatGPT.
 
+### Fase 3a — Skill packs, limpieza de comentarios y workflows compuestos
+**Spec propio:** `2026-10-29-tija-phase-3a-skill-packs-design.md`.
+**Comandos:** `tija skills list|show`, `tija clean comments [rutas] [--write] [--unsafe] [--diff] [--all] [--no-agent]`, `tija run <workflow>` / `tija run --list`.
+**Skill packs:** rúbricas en `.tija/skills/<pack>/SKILL.md`, embebidas e instaladas por `init` con el mecanismo de `defaultsVersion` + hash. Los de terceros llevan origen, licencia y nota de adaptación (restricción 11). En esta fase se adaptan `antislop-code` (de anti-slop, Miqdad Badjuber, MIT) y `thermo-review` / `thermo-quality` (de Thermos, Cursor, MIT); los dos últimos se usan en la Fase 4. También `antislop-copywriting` (extracto) para el prompt de `pr prepare`.
+**Copy de los PR:** Tija quita de forma determinista las atribuciones de agentes (`🤖 Generated with …`, `Co-Authored-By: Claude …`) de los commits que entran al prompt y del cuerpo que devuelve el agente, y `prrules` las reporta si sobreviven.
+**Verificación de ediciones:** flujo de tokens sin comentarios (Go, siempre) + herramienta oficial del stack: Biome en JS/TS, `dotnet format` en .NET cuando se agregue C#. esbuild descartado por peso (+6.7 MB).
+**`clean comments`:** Tija extrae los comentarios con un lexer determinista, protege las directivas (`biome-ignore`, `@ts-*`, licencias, JSDoc de tipos), aplica reglas deterministas, pide al agente (tier `fast`) solo una clasificación JSON por comentario, planifica las ediciones y verifica que el flujo de tokens sin comentarios no cambió antes de escribir. Flags con la semántica de Biome (restricción 10).
+**Workflows compuestos:** `.tija/workflows/*.yaml` con pasos que solo pueden ser comandos de Tija (nunca shell). Por defecto, `pre-pr` = `clean comments --write` → `check` → `pr prepare`.
+**TUI:** opciones `Clean comments` y `Workflows`.
+**Salida:** en `src/pages/(features)/claims` del frontend de Team4soft, `--write` elimina los separadores y los banners, deja intactos los `biome-ignore` y los comentarios de reglas de negocio, y `tija check` y el build siguen pasando.
+
 ### Fase 4 — Review
-**Comando:** `tija review` → diff → análisis estático (Quality) → tests → reglas de arquitectura de `.tija/rules/` → agente (tier `balanced`).
-**Salida:** findings con archivo, línea, severidad (Critical/High/Medium/Low), regla, explicación y posible solución; resumen por severidad; `--json`. TUI con estado `warning / needs review`.
+**Comando:** `tija review` → diff → análisis estático (Quality) → tests → reglas de arquitectura de `.tija/rules/` → agente con un skill pack de Thermos.
+**Modos:**
+- `tija review`: pack `thermo-review` (bugs, cambios que rompen funcionalidad, seguridad, cambios que afectan al flujo local de los devs, fugas de feature flags), tier `balanced`.
+- `tija review --quality`: pack `thermo-quality` (mantenibilidad: simplificaciones, regla de las 1000 líneas, condicionales sueltos, límites de tipos, capa correcta), tier `balanced`.
+- `tija review --deep`: los dos en paralelo (goroutines, dos llamadas al provider) y una síntesis que deduplica por archivo, línea y regla, pondera más los hallazgos en los que coinciden ambos y resuelve los desacuerdos. Tier `deep`. La orquestación sigue la idea del skill `thermos` de Cursor, reimplementada en Go y atribuida.
+- Todos limitados al diff contra `pullRequest.target`. Si hay un PR abierto, los comentarios del PR se leen con `gh` **después** de la auditoría propia (regla de Thermos).
+**Salida:** findings con archivo, línea, severidad (Critical/High/Medium/Low), regla, explicación y posible solución; resumen por severidad; `--json`. Se conserva la regla de Thermos de no inflar severidades. `review` **no escribe** archivos en esta fase. TUI con estado `warning / needs review`. El workflow `pre-pr` agrega `review` antes de `pr prepare`.
 
 ### Fase 5 — MCP
-**Comando:** `tija mcp serve` (stdio). Expone el mismo engine como tools: `repo.status`, `repo.rules`, `repo.context`, `quality.check`, `quality.fix`, `tests.run`, `pr.prepare`, `pr.create`, `review.run`.
+**Comando:** `tija mcp serve` (stdio). Expone el mismo engine como tools: `repo.status`, `repo.rules`, `repo.context`, `quality.check`, `quality.fix`, `tests.run`, `comments.clean`, `skills.list`, `workflow.run`, `pr.prepare`, `pr.create`, `review.run`. Las tools que escriben reciben `write` y `unsafe` como parámetros explícitos, con la misma semántica que el CLI.
 **Salida:** Claude Code y Codex pueden preparar un PR válido a través de MCP con exactamente las mismas reglas que el CLI.
 
 ### Fase 6 — Test intelligence y E2E
@@ -259,9 +282,13 @@ internal/manifest   → schema, carga, validación, escritura
 internal/gitx       → operaciones git (vía binario git)
 internal/agents     → AgentProvider + adaptadores CLI (Fase 3)
 internal/quality    → QualityTool + adapters (Fase 2)
+internal/skills     → skill packs: carga, origen y licencia (Fase 3a)
+internal/comments   → lexer JS/TS/JSX, reglas deterministas, verificador (Fase 3a)
+internal/workflows  → workflows compuestos de .tija/workflows/ (Fase 3a)
 internal/tui        → Bubble Tea: startup screen, menú, mascota, vistas
 internal/render     → salida CLI (texto con paleta, plano, JSON)
-assets/             → reglas y templates por defecto embebidos (go:embed), sprites
+assets/             → reglas, templates, skill packs y workflows por defecto embebidos (go:embed), sprites
+THIRD_PARTY_NOTICES.md → atribución y licencias del material de terceros (Fase 3a)
 ```
 Esta estructura es orientativa: la organización interna exacta queda a criterio del implementador mientras se respete la regla de un único motor.
 
