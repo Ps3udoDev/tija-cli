@@ -1,0 +1,382 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #081823;
+      color: #ffffff;
+      font-family: "JetBrains Mono", monospace;
+      overflow: hidden;
+    }
+    #tu-stage {
+      position: absolute;
+      inset: 0;
+    }
+    #tu-top {
+      position: absolute;
+      left: 96px;
+      right: 96px;
+      top: 48px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 30px;
+      color: #a8b8c5;
+    }
+    #tu-top b {
+      color: #f97316;
+      font-weight: 700;
+      margin-right: 24px;
+    }
+    #tu-sep {
+      position: absolute;
+      left: 700px;
+      top: 130px;
+      width: 3px;
+      height: 830px;
+      background: #354957;
+    }
+    .tu-cat {
+      position: absolute;
+      left: 150px;
+      top: 150px;
+      width: 400px;
+      height: 480px;
+      image-rendering: pixelated;
+    }
+    #tu-acc {
+      position: absolute;
+      left: 560px;
+      top: 230px;
+      font-size: 48px;
+      font-weight: 700;
+      color: #fed7aa;
+    }
+    .tu-cap {
+      position: absolute;
+      left: 110px;
+      top: 660px;
+      font-size: 32px;
+      color: #a8b8c5;
+    }
+    #tu-detect {
+      position: absolute;
+      left: 110px;
+      top: 760px;
+      font-size: 30px;
+      line-height: 1.6;
+    }
+    .ok {
+      color: #22c55e;
+      font-weight: 700;
+    }
+    .bad {
+      color: #ef4444;
+      font-weight: 700;
+    }
+    .mut {
+      color: #a8b8c5;
+    }
+    .org {
+      color: #f97316;
+    }
+    #tu-bottom {
+      position: absolute;
+      left: 96px;
+      right: 96px;
+      top: 1000px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 28px;
+      color: #a8b8c5;
+    }
+    .tu-pane {
+      position: absolute;
+      left: 770px;
+      top: 140px;
+      width: 1060px;
+    }
+    .tu-h {
+      font-size: 54px;
+      font-weight: 700;
+      color: #f97316;
+      margin-bottom: 36px;
+    }
+    #tu-q {
+      font-size: 34px;
+      margin-bottom: 34px;
+    }
+    .tu-item {
+      position: relative;
+      display: flex;
+      font-size: 32px;
+      height: 74px;
+      align-items: center;
+      padding-left: 48px;
+    }
+    .tu-item span:first-child {
+      width: 300px;
+    }
+    .tu-item span:last-child {
+      color: #a8b8c5;
+    }
+    #tu-selbar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1060px;
+      height: 74px;
+      background: #1e3a50;
+    }
+    #tu-selarrow {
+      position: absolute;
+      left: 12px;
+      top: 14px;
+      font-size: 32px;
+      color: #f97316;
+    }
+    .tu-line {
+      font-size: 31px;
+      line-height: 1.75;
+      white-space: nowrap;
+    }
+    .tu-line.sub {
+      padding-left: 34px;
+    }
+    .tu-row {
+      display: grid;
+      grid-template-columns: 52px 150px 1fr 120px;
+      font-size: 29px;
+      line-height: 1;
+      height: 92px;
+      align-items: center;
+    }
+    .tu-row .cmd {
+      color: #a8b8c5;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .tu-row .dur {
+      text-align: right;
+      color: #a8b8c5;
+    }
+    .tu-ico {
+      position: relative;
+    }
+    .tu-ico span {
+      position: absolute;
+      left: 0;
+      top: -16px;
+    }
+    #tu-note {
+      margin-top: 30px;
+      font-size: 29px;
+      line-height: 1.5;
+    }
+    #tu-ctx {
+      position: absolute;
+      left: 0;
+      top: 120px;
+    }
+    #tu-preview {
+      position: absolute;
+      left: 0;
+      top: 120px;
+      width: 1060px;
+      border: 3px solid #354957;
+      padding: 30px 34px;
+    }
+    #tu-ptitle {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-bottom: 22px;
+    }
+    .tu-v {
+      font-size: 29px;
+      line-height: 1.7;
+    }
+    #tu-confirm {
+      position: absolute;
+      left: 0;
+      top: 640px;
+      width: 1060px;
+      font-size: 29px;
+      line-height: 1.5;
+    }
+    #tu-yes {
+      position: relative;
+      display: inline-block;
+      color: #fed7aa;
+      font-weight: 700;
+    }
+    #tu-init, #tu-check, #tu-pr, #tu-acc-warn, #tu-ok1, #tu-ok2, #tu-ok3, #tu-preview, #tu-confirm, #tu-yes, #tu-note,
+    .tu-spin, #tu-d1, #tu-d2, #tu-d3, #tu-tests, #tu-cat-scan, #tu-cat-warn, #tu-cat-think, #tu-cat-ok,
+    #tu-cap-scan, #tu-cap-warn, #tu-cap-think, #tu-cap-ok, #tu-iris {
+      opacity: 0;
+    }
+    #tu-iris {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 40px;
+      height: 40px;
+      margin: -20px 0 0 -20px;
+      border-radius: 50%;
+      background: #f97316;
+    }
+  </style>
+  <div id="root" data-composition-id="tui" data-width="1920" data-height="1080">
+    <div id="tu-stage">
+      <div id="tu-top"><div><b>tija</b>/projects/claims-api</div><div>v0.1.0</div></div>
+      <div id="tu-sep"></div>
+
+      <img class="tu-cat" id="tu-cat-idle" src="assets/img/cat-idle.svg" alt="" />
+      <img class="tu-cat" id="tu-cat-scan" src="assets/img/cat-scanning.svg" alt="" />
+      <img class="tu-cat" id="tu-cat-warn" src="assets/img/cat-warning.svg" alt="" />
+      <img class="tu-cat" id="tu-cat-think" src="assets/img/cat-thinking.svg" alt="" />
+      <img class="tu-cat" id="tu-cat-ok" src="assets/img/cat-success.svg" alt="" />
+      <div id="tu-acc"><span id="tu-acc-warn">!</span></div>
+
+      <div class="tu-cap" id="tu-cap-idle">Tija is ready.</div>
+      <div class="tu-cap" id="tu-cap-scan">Scanning repository...</div>
+      <div class="tu-cap" id="tu-cap-warn">Needs your review.</div>
+      <div class="tu-cap" id="tu-cap-think">Thinking...</div>
+      <div class="tu-cap" id="tu-cap-ok">All tasks completed!</div>
+
+      <div id="tu-detect">
+        <div><span class="ok">✓</span> ClaimsAPI detected</div>
+        <div><span class="ok">✓</span> .NET · ClaimsService.sln</div>
+        <div><span class="ok">✓</span> GitHub</div>
+      </div>
+
+      <div class="tu-pane" id="tu-menu">
+        <div id="tu-q">What do you want to do?</div>
+        <div id="tu-list" style="position: relative">
+          <div id="tu-selbar"><span id="tu-selarrow">&gt;</span></div>
+          <div class="tu-item"><span>Init</span><span>Detect the stack and set up .tija/</span></div>
+          <div class="tu-item"><span>Pull Request</span><span>Draft and open a pull request</span></div>
+          <div class="tu-item"><span>Check</span><span>Lint, format and tests</span></div>
+          <div class="tu-item"><span>Tests</span><span>Run the test suite</span></div>
+          <div class="tu-item"><span>Doctor</span><span>Check tools, manifest and agents</span></div>
+          <div class="tu-item"><span>Status</span><span>Branch, commits and working tree</span></div>
+        </div>
+      </div>
+
+      <div class="tu-pane" id="tu-init">
+        <div class="tu-h">tija init</div>
+        <div class="tu-line mut tu-il">Detected project</div>
+        <div class="tu-line sub tu-il"><span class="ok">✓</span> ClaimsAPI · dotnet-api</div>
+        <div class="tu-line sub tu-il"><span class="ok">✓</span> PR template · .github/PULL_REQUEST_TEMPLATE.md</div>
+        <div class="tu-line mut tu-il">Created</div>
+        <div class="tu-line sub tu-il"><span class="ok">✓</span> .tija/manifest.yaml</div>
+        <div class="tu-line sub tu-il"><span class="ok">✓</span> .tija/rules/pull-request.md</div>
+        <div class="tu-line sub tu-il"><span class="ok">✓</span> .tija/templates/pull-request.md</div>
+      </div>
+
+      <div class="tu-pane" id="tu-check">
+        <div class="tu-h">tija check</div>
+        <div class="tu-row" id="tu-r1">
+          <div class="tu-ico"><span class="org tu-spin" id="tu-sp1">⠋</span><span class="ok" id="tu-ok1">✓</span></div>
+          <div>build</div><div class="cmd">dotnet build ClaimsService.sln</div><div class="dur" id="tu-d1">7.8s</div>
+        </div>
+        <div class="tu-row" id="tu-r2">
+          <div class="tu-ico"><span class="org tu-spin" id="tu-sp2">⠋</span><span class="bad" id="tu-ok2">✗</span></div>
+          <div>format</div><div class="cmd">dotnet format --verify-no-changes</div><div class="dur" id="tu-d2">29.1s</div>
+        </div>
+        <div class="tu-row" id="tu-r3">
+          <div class="tu-ico"><span class="org tu-spin" id="tu-sp3">⠋</span><span class="ok" id="tu-ok3">✓</span></div>
+          <div>tests</div><div class="cmd">dotnet test · <span id="tu-tests" style="color:#fff">39 passed · 0 failed</span></div><div class="dur" id="tu-d3">7.0s</div>
+        </div>
+        <div id="tu-note"><span class="mut">saved</span> .tija/session/quality.json <span class="mut">@</span> 8a77911<br /><span style="color:#fed7aa">real results, tied to the commit</span></div>
+      </div>
+
+      <div class="tu-pane" id="tu-pr">
+        <div class="tu-h">tija pr create</div>
+        <div id="tu-ctx">
+          <div class="tu-line tu-cl"><span class="mut">branch </span> refactor/15-automapper-to-mapperly</div>
+          <div class="tu-line tu-cl"><span class="mut">target </span> dev</div>
+          <div class="tu-line tu-cl"><span class="mut">commits</span> 3 · 53 files · +1776 −1292</div>
+          <div class="tu-line tu-cl"><span class="mut">tests  </span> 39 passed · quality.json @ 8a77911</div>
+          <div class="tu-line tu-cl"><span class="mut">refs   </span> Closes #15</div>
+        </div>
+        <div id="tu-preview">
+          <div id="tu-ptitle">refactor(mappings): replace AutoMapper with Mapperly</div>
+          <div class="tu-v tu-vl"><span class="ok">✓</span> Conventional Commits with scope</div>
+          <div class="tu-v tu-vl"><span class="ok">✓</span> ## Resumen&nbsp;&nbsp;&nbsp;<span class="ok">✓</span> ## Objetivo</div>
+          <div class="tu-v tu-vl"><span class="ok">✓</span> ## Cambios realizados&nbsp;&nbsp;&nbsp;<span class="ok">✓</span> ## Pruebas</div>
+          <div class="tu-v tu-vl mut">saved .tija/session/pr.md</div>
+        </div>
+        <div id="tu-confirm">Push refactor/15-automapper-to-mapperly and open a pull request to dev? [y/N] <span id="tu-yes">y<span id="tu-iris" data-layout-allow-overflow></span></span></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const show = (sel, t) => tl.set(sel, { opacity: 1 }, t);
+    const hide = (sel, t) => tl.set(sel, { opacity: 0 }, t);
+    const cats = ["#tu-cat-idle", "#tu-cat-scan", "#tu-cat-warn", "#tu-cat-think", "#tu-cat-ok"];
+    const caps = ["#tu-cap-idle", "#tu-cap-scan", "#tu-cap-warn", "#tu-cap-think", "#tu-cap-ok"];
+    const mood = (i, t) => {
+      cats.forEach((c, j) => tl.set(c, { opacity: j === i ? 1 : 0 }, t));
+      caps.forEach((c, j) => tl.set(c, { opacity: j === i ? 1 : 0 }, t));
+    };
+
+    // The new screen comes in slightly large and settles.
+    tl.fromTo("#tu-stage", { scale: 1.05 }, { scale: 1, duration: 0.5, ease: "expo.out" }, 0);
+
+    // Menu: Init is selected, enter.
+    tl.fromTo("#tu-selbar", { backgroundColor: "#1e3a50" }, { backgroundColor: "#2b5574", duration: 0.12, yoyo: true, repeat: 1, ease: "none" }, 1.45);
+    tl.to("#tu-menu", { opacity: 0, filter: "blur(8px)", duration: 0.18, ease: "power3.in" }, 1.75);
+
+    // tija init
+    mood(1, 1.9);
+    tl.fromTo("#tu-init", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.15, ease: "power4.out" }, 1.95);
+    tl.fromTo("#tu-init .tu-il", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.24, ease: "expo.out" }, 2.15);
+    tl.to("#tu-init", { opacity: 0, filter: "blur(8px)", duration: 0.18, ease: "power3.in" }, 5.0);
+
+    // tija check: three steps with a live spinner.
+    tl.fromTo("#tu-check", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.15, ease: "power4.out" }, 5.2);
+    const frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+    const step = (sp, ok, dur, start, end) => {
+      show(sp, start);
+      const spin = { f: 0 };
+      tl.to(spin, {
+        f: Math.round((end - start) / 0.12),
+        duration: end - start,
+        ease: "none",
+        onUpdate: () => {
+          const el = document.querySelector(sp);
+          if (el) el.textContent = frames[Math.floor(spin.f) % frames.length];
+        },
+      }, start);
+      hide(sp, end);
+      tl.fromTo(ok, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, end);
+      show(dur, end);
+    };
+    step("#tu-sp1", "#tu-ok1", "#tu-d1", 5.5, 6.6);
+    step("#tu-sp2", "#tu-ok2", "#tu-d2", 6.6, 7.8);
+    step("#tu-sp3", "#tu-ok3", "#tu-d3", 7.8, 8.8);
+    show("#tu-tests", 8.8);
+    tl.fromTo("#tu-note", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 8.95);
+    mood(2, 8.9);
+    show("#tu-acc-warn", 8.9);
+    tl.to("#tu-check", { opacity: 0, filter: "blur(8px)", duration: 0.18, ease: "power3.in" }, 10.5);
+    hide("#tu-acc-warn", 10.6);
+
+    // tija pr create: context, thinking, preview, confirmation.
+    mood(3, 10.7);
+    tl.fromTo("#tu-pr", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.15, ease: "power4.out" }, 10.7);
+    tl.fromTo("#tu-ctx .tu-cl", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.24, ease: "expo.out" }, 10.85);
+    tl.to("#tu-ctx", { opacity: 0, filter: "blur(8px)", duration: 0.18, ease: "power3.in" }, 13.1);
+    tl.fromTo("#tu-preview", { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 13.3);
+    tl.fromTo(".tu-vl", { opacity: 0 }, { opacity: 1, duration: 0.2, stagger: 0.22, ease: "power2.out" }, 13.7);
+    mood(4, 14.3);
+    tl.fromTo("#tu-confirm", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 14.7);
+    show("#tu-yes", 16.6);
+
+    // The keystroke opens the next world.
+    show("#tu-iris", 17.15);
+    tl.fromTo("#tu-iris", { scale: 0.05 }, { scale: 130, duration: 0.75, ease: "power3.in" }, 17.15);
+    window.__timelines["tui"] = tl;
+  </script>
+</template>

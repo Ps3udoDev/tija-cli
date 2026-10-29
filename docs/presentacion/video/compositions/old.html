@@ -1,0 +1,157 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #f1f5f9;
+      color: #111827;
+      font-family: "Inter", sans-serif;
+      overflow: hidden;
+    }
+    #old-left {
+      position: absolute;
+      left: 120px;
+      top: 150px;
+      width: 820px;
+    }
+    #old-title {
+      font-size: 104px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    #old-try {
+      margin-top: 18px;
+      font-size: 40px;
+      font-weight: 700;
+      color: #ef4444;
+      height: 52px;
+    }
+    .old-step {
+      display: flex;
+      gap: 28px;
+      align-items: baseline;
+      font-size: 46px;
+      font-weight: 700;
+      margin-top: 34px;
+      letter-spacing: -0.01em;
+    }
+    .old-step b {
+      color: #c2410c;
+      font-weight: 900;
+      width: 40px;
+    }
+    #old-insight {
+      margin-top: 64px;
+      font-size: 38px;
+      font-weight: 400;
+      color: #475569;
+      line-height: 1.3;
+    }
+    #old-panel {
+      position: absolute;
+      left: 1010px;
+      top: 170px;
+      width: 790px;
+      background: #ffffff;
+      border: 3px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 40px 44px;
+      opacity: 0.35;
+      font-family: "JetBrains Mono", monospace;
+    }
+    #old-panel-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 32px;
+      font-weight: 700;
+      padding-bottom: 26px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    #old-panel-head span {
+      color: #ef4444;
+    }
+    .old-fail {
+      font-size: 30px;
+      margin-top: 30px;
+      line-height: 1.35;
+    }
+    .old-fail i {
+      font-style: normal;
+      color: #ef4444;
+      font-weight: 700;
+      margin-right: 14px;
+    }
+    .old-fail em {
+      display: block;
+      font-style: normal;
+      color: #64748b;
+      padding-left: 44px;
+    }
+    #old-note {
+      margin-top: 34px;
+      font-size: 28px;
+      color: #94a3b8;
+    }
+    #old-s1, #old-s2, #old-s3, #old-insight, #old-f1, #old-f2, #old-f3, #old-note, #old-try, #old-term {
+      opacity: 0;
+    }
+    #old-term {
+      position: absolute;
+      left: 880px;
+      top: 460px;
+      width: 160px;
+      height: 160px;
+      border-radius: 34px;
+      background: #081823;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700;
+      font-size: 64px;
+      color: #f97316;
+    }
+  </style>
+  <div id="root" data-composition-id="old" data-width="1920" data-height="1080">
+    <div id="old-left">
+      <h1 id="old-title">Abrir un PR, hoy</h1>
+      <div id="old-try">intento 3</div>
+      <div class="old-step" id="old-s1"><b>1</b>Escribir un resumen a mano</div>
+      <div class="old-step" id="old-s2"><b>2</b>Pegarlo en ChatGPT con la guía</div>
+      <div class="old-step" id="old-s3"><b>3</b>Copiar la respuesta a GitHub</div>
+      <p id="old-insight">El modelo sólo ve lo que pegaste:<br />ni el diff, ni los commits, ni las pruebas.</p>
+    </div>
+    <div id="old-panel">
+      <div id="old-panel-head">pr-governance.yml <span>✗ falló</span></div>
+      <div class="old-fail" id="old-f1"><i>✗</i>título sin scope<em>"Mapper changes"</em></div>
+      <div class="old-fail" id="old-f2"><i>✗</i>## Pruebas vacía<em>"pendiente"</em></div>
+      <div class="old-fail" id="old-f3"><i>✗</i>## Objetivo<em>menos de 10 caracteres</em></div>
+      <div id="old-note">ejemplo ilustrativo · reglas reales</div>
+    </div>
+    <div id="old-term">&gt;_</div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    ["#old-s1", "#old-s2", "#old-s3"].forEach((s, i) => {
+      tl.fromTo(s, { opacity: 0, x: -40, filter: "blur(8px)" }, { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0.3 + i);
+    });
+    tl.to("#old-panel", { opacity: 1, duration: 0.2, ease: "power2.out" }, 3.35);
+    tl.fromTo("#old-panel", { x: 24 }, { x: 0, duration: 0.5, ease: "expo.out" }, 3.35);
+    ["#old-f1", "#old-f2", "#old-f3", "#old-note"].forEach((s, i) => {
+      tl.fromTo(s, { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.25, ease: "power4.out" }, 3.5 + i * 0.12);
+    });
+    tl.fromTo("#old-insight", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power4.out" }, 3.9);
+    // The loop: the steps flash again, a counter appears.
+    tl.fromTo("#old-try", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 6.0);
+    ["#old-s1", "#old-s2", "#old-s3"].forEach((s, i) => {
+      tl.to(s, { color: "#f97316", duration: 0.12, ease: "none" }, 6.1 + i * 0.25);
+      tl.to(s, { color: "#111827", duration: 0.2, ease: "none" }, 6.25 + i * 0.25);
+    });
+    // Everything clears except the terminal mark, which becomes the next world.
+    tl.to(["#old-left", "#old-panel"], { opacity: 0, filter: "blur(10px)", duration: 0.3, ease: "power3.in" }, 7.4);
+    tl.fromTo("#old-term", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 7.55);
+    tl.to("#old-term", { scale: 16, borderRadius: 0, color: "#081823", duration: 0.75, ease: "power3.in" }, 8.15);
+    window.__timelines["old"] = tl;
+  </script>
+</template>
