@@ -1,0 +1,9 @@
+# HyperFrames caches and review artifacts
+video/.hyperframes/
+video/.media/
+video/renders/
+video/node_modules/
+
+# Archify review captures and receipts
+.archify/visual-*/
+diagramas/*.json

@@ -1,0 +1,46 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "tija pr create: del commit al pull request",
+    "locale": "es",
+    "output": "diagramas/flujo-pr.html",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "dev", "label": "Desarrollador" },
+    { "id": "tija", "label": "Tija (determinista)" },
+    { "id": "agent", "label": "Agente (sólo redacta)" },
+    { "id": "gh", "label": "Git + GitHub" }
+  ],
+  "phases": [
+    { "id": "contexto", "label": "Contexto real", "fromCol": 0, "toCol": 2 },
+    { "id": "borrador", "label": "Borrador + validación", "fromCol": 3, "toCol": 4, "variant": "emphasis" },
+    { "id": "publicar", "label": "Publicar", "fromCol": 5, "toCol": 5 }
+  ],
+  "mainPath": ["start", "ctx", "tests", "draft", "validate", "confirm", "pr"],
+  "nodes": [
+    { "id": "start", "lane": "dev", "col": 0, "type": "external", "label": "tija pr create", "sublabel": "en su rama" },
+    { "id": "ctx", "lane": "tija", "col": 1, "type": "backend", "label": "Contexto", "sublabel": "rama, commits, diff, issue" },
+    { "id": "tests", "lane": "tija", "col": 2, "type": "database", "label": "Pruebas", "sublabel": "quality.json del commit" },
+    { "id": "draft", "lane": "agent", "col": 3, "type": "backend", "label": "Título + cuerpo", "sublabel": "claude · codex · gemini", "tag": "tier fast" },
+    { "id": "fallback", "lane": "tija", "col": 3, "type": "backend", "label": "Borrador determinista", "sublabel": "sin agente o si falla" },
+    { "id": "validate", "lane": "tija", "col": 4, "type": "security", "label": "Validar reglas", "sublabel": "scope + secciones" },
+    { "id": "confirm", "lane": "dev", "col": 5, "type": "frontend", "label": "Confirmar [y/N]", "sublabel": "preview editable" },
+    { "id": "pr", "lane": "gh", "col": 5, "type": "cloud", "label": "gh pr create", "sublabel": "push + PR + assignee" }
+  ],
+  "edges": [
+    { "id": "start-ctx", "from": "start", "to": "ctx", "variant": "emphasis" },
+    { "id": "ctx-tests", "from": "ctx", "to": "tests" },
+    { "id": "tests-draft", "from": "tests", "to": "draft", "label": "prompt + reglas", "variant": "emphasis" },
+    { "id": "draft-validate", "from": "draft", "to": "validate", "variant": "emphasis" },
+    { "id": "draft-fallback", "from": "draft", "to": "fallback", "label": "falla", "variant": "security", "role": "error" },
+    { "id": "fallback-validate", "from": "fallback", "to": "validate" },
+    { "id": "validate-confirm", "from": "validate", "to": "confirm", "label": "válido", "variant": "emphasis" },
+    { "id": "confirm-pr", "from": "confirm", "to": "pr", "label": "y", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Anti-invención", "items": ["Tija calcula rama, target, commits, diffstat, issue y pruebas", "## Pruebas sólo cita quality.json del commit actual"] },
+    { "dot": "rose", "title": "Nunca bloquea", "items": ["Sin agente: borrador determinista", "Borrador inválido: 1 reintento con la lista de problemas"] }
+  ]
+}

@@ -1,0 +1,59 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #081823;
+      overflow: hidden;
+    }
+    #rv-cat {
+      position: absolute;
+      left: 230px;
+      top: 220px;
+      width: 520px;
+      height: 624px;
+      image-rendering: pixelated;
+    }
+    #rv-word-wrap {
+      position: absolute;
+      left: 860px;
+      top: 300px;
+      width: 860px;
+      height: 287px;
+    }
+    #rv-word {
+      width: 100%;
+      height: 100%;
+    }
+    #rv-tag {
+      position: absolute;
+      left: 860px;
+      top: 660px;
+      width: 900px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 44px;
+      line-height: 1.35;
+      color: #ffffff;
+    }
+    #rv-tag span {
+      display: inline-block;
+      margin-right: 0.5em;
+    }
+  </style>
+  <div id="root" data-composition-id="reveal" data-width="1920" data-height="1080">
+    <img id="rv-cat" src="assets/img/cat-idle.svg" alt="Tija" />
+    <div id="rv-word-wrap"><img id="rv-word" src="assets/img/tija-wordmark.svg" alt="TIJA" /></div>
+    <p id="rv-tag">
+      <span>Repository</span><span>engineering</span><span>for</span><span>humans</span><span>&amp;</span><span>agents.</span>
+    </p>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#rv-cat", { y: -760 }, { y: 0, duration: 0.7, ease: "back.out(1.4)" }, 0.05);
+    tl.fromTo("#rv-word-wrap", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.7, ease: "steps(21)" }, 0.75);
+    tl.fromTo("#rv-tag span", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.07, ease: "power4.out" }, 1.6);
+    // Push toward the cat: the TUI opens around it on the next cut.
+    tl.to("#root", { scale: 1.08, transformOrigin: "490px 530px", duration: 0.5, ease: "power3.in" }, 3.5);
+    window.__timelines["reveal"] = tl;
+  </script>
+</template>

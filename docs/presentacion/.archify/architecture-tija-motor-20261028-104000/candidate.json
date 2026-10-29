@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Tija: un motor, tres interfaces",
+    "locale": "es",
+    "output": "diagramas/arquitectura.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "dev", "type": "external", "label": "Desarrollador", "sublabel": "terminal", "pos": [40, 60], "size": [140, 64] },
+    { "id": "ci", "type": "external", "label": "Scripts / CI", "sublabel": "--json --yes", "pos": [40, 200], "size": [140, 64] },
+    { "id": "agentclient", "type": "external", "label": "Agente IA", "sublabel": "Claude Code · Codex", "pos": [40, 340], "size": [140, 64], "tag": "Fase 5" },
+    { "id": "tui", "type": "frontend", "label": "TUI", "sublabel": "Bubble Tea · mascota", "pos": [330, 60], "size": [150, 64] },
+    { "id": "cli", "type": "frontend", "label": "CLI", "sublabel": "Cobra · exit 0/1/2", "pos": [330, 200], "size": [150, 64] },
+    { "id": "mcp", "type": "frontend", "label": "MCP server", "sublabel": "tija mcp serve", "pos": [330, 340], "size": [150, 64], "tag": "planificado" },
+    { "id": "engine", "type": "backend", "label": "Engine", "sublabel": "init · doctor · status · quality · pr", "pos": [620, 60], "size": [170, 344], "tag": "un solo motor" },
+    { "id": "git", "type": "cloud", "label": "git + gh", "sublabel": "rama, diff, push, PR", "pos": [950, 60], "size": [180, 64] },
+    { "id": "quality", "type": "cloud", "label": "Herramientas del repo", "sublabel": "dotnet · biome · vitest", "pos": [950, 200], "size": [180, 64] },
+    { "id": "agents", "type": "cloud", "label": "CLIs de agentes", "sublabel": "claude · codex · gemini", "pos": [950, 340], "size": [180, 64], "tag": "sin API keys" },
+    { "id": "store", "type": "database", "label": ".tija/", "sublabel": "manifest · rules · session", "pos": [625, 500], "size": [160, 64] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Binario tija (Go)", "wraps": ["tui", "cli", "mcp", "engine"] }
+  ],
+  "connections": [
+    { "id": "dev-tui", "from": "dev", "to": "tui", "label": "tija", "variant": "emphasis" },
+    { "id": "ci-cli", "from": "ci", "to": "cli", "label": "tija check" },
+    { "id": "agent-mcp", "from": "agentclient", "to": "mcp", "label": "stdio", "variant": "dashed" },
+    { "id": "tui-engine", "from": "tui", "to": "engine", "variant": "emphasis" },
+    { "id": "cli-engine", "from": "cli", "to": "engine" },
+    { "id": "mcp-engine", "from": "mcp", "to": "engine", "variant": "dashed" },
+    { "id": "engine-git", "from": "engine", "to": "git", "label": "subproceso" },
+    { "id": "engine-quality", "from": "engine", "to": "quality", "label": "ejecuta + parsea" },
+    { "id": "engine-agents", "from": "engine", "to": "agents", "label": "prompt stdin" },
+    { "id": "engine-store", "from": "engine", "to": "store", "label": "lee / escribe", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Listo hoy (Fases 1-3)", "items": ["init, doctor, status", "check, lint, format, test", "pr prepare, pr create"] },
+    { "dot": "cyan", "title": "Deterministic first", "items": ["Tija calcula rama, diff, commits y pruebas", "El agente sólo redacta prosa"] },
+    { "dot": "amber", "title": "Siguiente", "items": ["Fase 4: tija review", "Fase 5: MCP con el mismo engine"] }
+  ]
+}
