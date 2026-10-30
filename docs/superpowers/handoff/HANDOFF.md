@@ -157,5 +157,44 @@ The final binary size is 6.85 MB, well below the 7.5 MB budget, confirming that 
 3. **Biome GitHub Reporter Formatting:**
    - Biome v2.4.4 prints `--reporter=github` cleanly without path escaping bugs. Should Biome adjust this format in future major versions, `ParseBiomeGithub` safely falls back to returning `ok = false`, causing Tija to report that post-check diagnostics were skipped rather than panicking or misreporting.
 
-### 5.3 Stoppers
+### 5.3 Stoppers (see section 6 for the review follow-up)
 - **None.** Phase 3a is complete, tested, and ready for review and merge into `main`.
+
+---
+
+## 6. Review and real-world validation (2026-10-30)
+
+### 6.1 Fixes after review
+
+| Commit | Fix |
+|---|---|
+| `4795fc9` | `clean comments` resolves paths from the working directory (`git ls-files --full-name`); a file restored after a Biome regression counts as failed (exit 1); `atomicWriteFile` keeps the original permission bits. |
+| `ca8e2db` | `gofmt` on phase 3a files. |
+| `27c9587` | Removing adjacent comment lines (separator, label, separator) between blank lines leaves a single blank line. |
+| `3579853` | Removing the first or last comment of a block or JSX element leaves no blank line next to the opening or closing bracket/tag. |
+| `df6c1b2` | A comment that is the only content of a block (`catch (_e) { // Fallback }`) is protected and never sent to the agent. Added to spec 6.2. |
+
+The last three were found by the validation on `claims`: Biome reported `format` regressions and Tija restored the files (5 → 4 → 1 → 0 across the fixes). The safety net held every time; the fixes make those files cleanable.
+
+### 6.2 Validation on Team4soft `claims` (plan Task 13, step 3)
+
+Run with the branch binary in a separate worktree (`../frontend-clean-claims`, branch `chore/clean-claims-comments` from `dev`); the user's `dev` working tree was not touched.
+
+| Step | Result |
+|---|---|
+| 1. `tija init` | Installs the 4 packs and `pre-pr.yaml`; `skills list` shows author, commit and license. |
+| 2. Report | Exit 1, 136 files, 0 skipped, 151 safe changes (≥ 54 required). |
+| 3. Diff review | The 41 agent-classified safe changes were reviewed by hand: comments that repeat the code. Debatable: group labels inside objects/schemas (`// Obligatorios`, `// Opcionales`). |
+| 4. `--write` | 19 files, 199 lines removed, 0 failed; `biome-ignore` still 3; the two business-rule comments remain; 0 `// ----` separators. |
+| 5. Biome + build | Same Biome diagnostics as before (per file and category); `tija check` and `vite build` pass. |
+| 7. No agent CLI | Warns and runs deterministic rules only, exit 0. |
+
+### 6.3 Pending for a future review
+
+- **Task 13 step 3.6:** `--write --unsafe` on a second copy of the branch, repeating the checks of steps 4 and 5.
+- **Task 13 step 4:** a real `tija pr prepare` on commits with `Co-Authored-By: Claude …`; the draft must have no agent attribution. Needs a local commit in the frontend worktree (no push).
+- **Task 13 step 5:** `goreleaser release --snapshot --clean`; the archive must contain `THIRD_PARTY_NOTICES.md`.
+- **Task 13 step 6:** `tija run pre-pr` and `tija run pre-pr --json` in the frontend.
+- **Diff scope:** without paths or `--all`, only committed changes (`base...HEAD`) and untracked files are in scope; modified uncommitted files are not. Decide whether they should be.
+- **`tija run <name>`:** when the workflow does not exist but another one fails to load, the error names the requested workflow with the other one's error.
+- The frontend worktree `../frontend-clean-claims` keeps the uncommitted `--write` result for review. Remove it from `frontend` with `git worktree remove --force ../frontend-clean-claims` and `git branch -D chore/clean-claims-comments`.
