@@ -515,7 +515,7 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
 - Consumes: `engine.CleanComments`, `CleanRequest`, `CleanReport` (Task 8).
 - Produces: `newCleanCmd(deps Deps) *cobra.Command`, con el subcomando `comments [paths...]` y los flags `--write --unsafe --diff --all --no-agent --force --concurrency int(2) --agent-timeout duration(3m)`. Además `render.CleanComments(p Printer, r engine.CleanReport)` y `render.CleanProgress(p Printer, ev engine.CleanEvent)`.
 
-- [ ] **Step 1: Tests.**
+- [x] **Step 1: Tests.**
   - Golden en texto plano:
     - encabezado con alcance, archivos y agente;
     - una línea por archivo con cambios: `✓ written`, `! pending`, `✗ failed`, `! restored`;
@@ -525,8 +525,8 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   - Golden JSON con la forma del spec 6.6.
   - `TestCleanCmdFlags`: `--unsafe` sin `--write` es válido (solo amplía el reporte); un `--concurrency 0` es exit 2.
   - `TestCleanCmdExitCodes` con el engine sobre el fixture.
-- [ ] **Step 2: Correr** `go test ./internal/cli/ ./internal/render/ -run 'Clean|Comments'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
-- [ ] **Step 3: Commit** `feat(cli): add tija clean comments`.
+- [x] **Step 2: Correr** `go test ./internal/cli/ ./internal/render/ -run 'Clean|Comments'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
+- [x] **Step 3: Commit** `feat(cli): add tija clean comments`.
 
 ### Task 11: Workflows compuestos — `tija run`
 

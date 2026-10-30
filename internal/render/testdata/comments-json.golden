@@ -1,0 +1,63 @@
+{
+  "scope": {
+    "mode": "paths",
+    "paths": [
+      "src/pages/(features)/claims"
+    ],
+    "files": 136
+  },
+  "agent": {
+    "provider": "claude",
+    "tier": "fast",
+    "batches": 12
+  },
+  "summary": {
+    "comments": 1420,
+    "protected": 9,
+    "keep": 610,
+    "safe": 640,
+    "unsafe": 161,
+    "unclassified": 0,
+    "skippedFiles": 0,
+    "failedFiles": 0
+  },
+  "files": [
+    {
+      "path": "src/pages/(features)/claims/Form.jsx",
+      "status": "pending",
+      "changes": [
+        {
+          "line": 120,
+          "action": "remove",
+          "class": "separator",
+          "safety": "safe",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "path": "src/pages/(features)/claims/Header.jsx",
+      "status": "written",
+      "changes": [
+        {
+          "line": 45,
+          "action": "remove",
+          "class": "separator",
+          "safety": "safe",
+          "source": "rule"
+        }
+      ]
+    },
+    {
+      "path": "src/pages/(features)/claims/broken.jsx",
+      "status": "failed",
+      "reason": "token verification failed"
+    },
+    {
+      "path": "src/pages/(features)/claims/Table.jsx",
+      "status": "restored",
+      "reason": "biome reports useExhaustiveDependencies after the edit"
+    }
+  ],
+  "written": false
+}

@@ -1,0 +1,9 @@
+Scope: paths (136 files) · Agent: claude (tier: fast, 12 batches)
+! src/pages/(features)/claims/Form.jsx
+  L120  remove  separator  safe  rule
+✓ src/pages/(features)/claims/Header.jsx
+  L45  remove  separator  safe  rule
+✗ src/pages/(features)/claims/broken.jsx (token verification failed)
+! src/pages/(features)/claims/Table.jsx (restored: biome reports useExhaustiveDependencies after the edit)
+Comments 1420 · protected 9 · keep 610 · safe 640 · unsafe 161
+run with --write to apply safe changes
