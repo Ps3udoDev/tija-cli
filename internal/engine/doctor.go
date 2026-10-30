@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"runtime"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
+	"github.com/Ps3udoDev/tija-cli/internal/skills"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 )
 
@@ -183,6 +185,18 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 		}
 		if !d.HasTests() {
 			rep.Checks = append(rep.Checks, Check{ID: "tests.none", Status: StatusWarn, Title: "no tests detected"})
+		}
+	}
+	if inRepo {
+		packs, _ := skills.List(root, m)
+		for _, pack := range packs {
+			for _, prob := range pack.Problems {
+				rep.Checks = append(rep.Checks, Check{
+					ID:     "skill." + pack.Name,
+					Status: StatusWarn,
+					Title:  fmt.Sprintf("skill %s: %s", pack.Name, prob),
+				})
+			}
 		}
 	}
 	return rep, nil

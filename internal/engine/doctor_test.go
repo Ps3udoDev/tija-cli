@@ -3,7 +3,9 @@ package engine
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -271,6 +273,33 @@ pullRequest:
 	}
 	if c.Status != StatusFail || c.Hint != "install bun" {
 		t.Errorf("tool.bun = %+v, want fail with 'install bun'", c)
+	}
+}
+
+func TestDoctorWarnsBrokenAttribution(t *testing.T) {
+	repo := initRepo(t, "react-vite")
+	licPath := filepath.Join(repo, ".tija", "skills", "antislop-code", "LICENSE")
+	if err := os.Remove(licPath); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := Doctor(context.Background(), repo, doctorEnv(0, "gh", "claude", "bun", "biome"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := false
+	for _, c := range r.Checks {
+		if c.Title == "skill antislop-code: missing LICENSE" {
+			found = true
+			if c.Status != StatusWarn {
+				t.Errorf("check status = %v, want StatusWarn", c.Status)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning 'skill antislop-code: missing LICENSE' in checks: %+v", r.Checks)
 	}
 }
 
