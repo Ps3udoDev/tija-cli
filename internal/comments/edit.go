@@ -274,9 +274,16 @@ func collapseBlankLines(src []byte, edits []Edit) []Edit {
 				e.Start = prevLineStart(src, e.Start)
 			}
 		default:
-			prevBlank := prevLineStart(src, e.Start) >= limitPrev && isBlankLine(src, prevLineStart(src, e.Start))
-			if prevBlank && e.End < limitNext && isBlankLine(src, e.End) && nextLineStart(src, e.End) <= limitNext {
+			prev := prevLineStart(src, e.Start)
+			prevIntact := prev >= limitPrev
+			nextBlank := e.End < limitNext && isBlankLine(src, e.End) && nextLineStart(src, e.End) <= limitNext
+			switch {
+			case prevIntact && nextBlank && (isBlankLine(src, prev) || opensBlock(lineText(src, prev))):
+				// Blank after blank, or right after an opening bracket or tag.
 				e.End = nextLineStart(src, e.End)
+			case prevIntact && isBlankLine(src, prev) && e.End < limitNext && closesBlock(lineText(src, e.End)):
+				// Blank right before a closing bracket or tag.
+				e.Start = prev
 			}
 		}
 	}
@@ -309,4 +316,35 @@ func isBlankLine(src []byte, i int) bool {
 	}
 	line := src[i:nextLineStart(src, i)]
 	return isWhitespaceOnly(bytes.TrimRight(line, "\r\n"))
+}
+
+// lineText returns the trimmed text of the line starting at i.
+func lineText(src []byte, i int) string {
+	return strings.TrimSpace(string(src[i:nextLineStart(src, i)]))
+}
+
+// opensBlock reports whether a line ends by opening a block or a JSX
+// element, where formatters drop a following blank line.
+func opensBlock(line string) bool {
+	if line == "" {
+		return false
+	}
+	switch line[len(line)-1] {
+	case '{', '(', '[':
+		return true
+	case '>':
+		if strings.HasSuffix(line, "/>") || strings.HasSuffix(line, "=>") {
+			return false
+		}
+		// An opening tag (<div ...>) or the ">" that closes a multi-line one.
+		return line == ">" || (strings.HasPrefix(line, "<") && !strings.HasPrefix(line, "</") && !strings.Contains(line, "</"))
+	}
+	return false
+}
+
+// closesBlock reports whether a line starts by closing a block or a JSX
+// element, where formatters drop a preceding blank line.
+func closesBlock(line string) bool {
+	return strings.HasPrefix(line, "}") || strings.HasPrefix(line, ")") ||
+		strings.HasPrefix(line, "]") || strings.HasPrefix(line, "</")
 }

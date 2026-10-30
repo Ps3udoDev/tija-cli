@@ -243,3 +243,64 @@ func TestApplyAdjacentRemovalsLeaveOneBlankLine(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyRemovalAtBlockEdgeLeavesNoBlankLine(t *testing.T) {
+	cases := []struct{ name, src, want string }{
+		{
+			"first jsx child before a blank line",
+			"const C = () => (\n\t<div>\n\t\t{/* ---- Fila 1 ---- */}\n\n\t\t<A />\n\t</div>\n);\n",
+			"const C = () => (\n\t<div>\n\t\t<A />\n\t</div>\n);\n",
+		},
+		{
+			"multi-line opening tag",
+			"const C = () => (\n\t<div\n\t\tclassName=\"x\"\n\t>\n\t\t{/* ---- Fila 1 ---- */}\n\n\t\t<A />\n\t</div>\n);\n",
+			"const C = () => (\n\t<div\n\t\tclassName=\"x\"\n\t>\n\t\t<A />\n\t</div>\n);\n",
+		},
+		{
+			"last jsx child after a blank line",
+			"const C = () => (\n\t<div>\n\t\t<A />\n\n\t\t{/* ---- fin ---- */}\n\t</div>\n);\n",
+			"const C = () => (\n\t<div>\n\t\t<A />\n\t</div>\n);\n",
+		},
+		{
+			"first statement in a function body",
+			"function f() {\n\t// ------------\n\n\treturn 1;\n}\n",
+			"function f() {\n\treturn 1;\n}\n",
+		},
+		{
+			"first statement in a function body CRLF",
+			"function f() {\r\n\t// ------------\r\n\r\n\treturn 1;\r\n}\r\n",
+			"function f() {\r\n\treturn 1;\r\n}\r\n",
+		},
+		{
+			"sibling self-closing tag keeps its blank line",
+			"const C = () => (\n\t<div>\n\t\t<A />\n\t\t{/* ---- Fila 2 ---- */}\n\n\t\t<B />\n\t</div>\n);\n",
+			"const C = () => (\n\t<div>\n\t\t<A />\n\n\t\t<B />\n\t</div>\n);\n",
+		},
+		{
+			"arrow function line keeps its blank line",
+			"const f = () =>\n\t// ------------\n\n\t1;\n",
+			"const f = () =>\n\n\t1;\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := []byte(tc.src)
+			lang, _ := comments.LangFor("x.jsx")
+			cs, err := comments.Extract("x.jsx", src, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var edits []comments.Edit
+			for _, c := range cs {
+				edits = append(edits, comments.PlanEdit(src, c, "remove", ""))
+			}
+			got, err := comments.Apply(src, edits)
+			if err != nil {
+				t.Fatalf("Apply: %v", err)
+			}
+			if string(got) != tc.want {
+				t.Errorf("got  %q\nwant %q", got, tc.want)
+			}
+		})
+	}
+}
