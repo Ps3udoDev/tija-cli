@@ -57,7 +57,7 @@ func TestFromDetectionFrontend(t *testing.T) {
 	if m.Agents.Default != "codex" {
 		t.Errorf("Agents.Default = %q", m.Agents.Default)
 	}
-	wantTasks := map[string]Task{"pullRequest": {Tier: "fast"}, "review": {Tier: "balanced"}, "architecture": {Tier: "deep"}}
+	wantTasks := map[string]Task{"pullRequest": {Tier: "fast"}, "review": {Tier: "balanced"}, "architecture": {Tier: "deep"}, "comments": {Tier: "fast"}}
 	if !reflect.DeepEqual(m.Agents.Tasks, wantTasks) {
 		t.Errorf("Tasks = %v", m.Agents.Tasks)
 	}
@@ -319,5 +319,79 @@ func TestValidateQuality(t *testing.T) {
 	mNone.Quality = map[string]QualityEntry{"tests": {Provider: "none"}}
 	if errs := mNone.Validate(); len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
+	}
+}
+
+
+func TestValidateRejectsBadRegex(t *testing.T) {
+	base := FromDetection(frontendDetection(t), nil, "main")
+
+	mBadComments := base
+	mBadComments.Comments.Protect = []string{"("}
+	errs := mBadComments.Validate()
+	if len(errs) == 0 || !strings.Contains(errs[0].Error(), "comments.protect") {
+		t.Errorf("expected error naming comments.protect, got %v", errs)
+	}
+
+	mBadAttribution := base
+	mBadAttribution.Content.AgentAttribution.Patterns = []string{"["}
+	errs = mBadAttribution.Validate()
+	if len(errs) == 0 || !strings.Contains(errs[0].Error(), "content.agentAttribution.patterns") {
+		t.Errorf("expected error naming content.agentAttribution.patterns, got %v", errs)
+	}
+}
+
+func TestFromDetectionAddsSkillsAndComments(t *testing.T) {
+	dReact := frontendDetection(t)
+	mReact := FromDetection(dReact, nil, "main")
+
+	wantSkills := map[string]SkillRef{
+		"antislop-code":        {Path: ".tija/skills/antislop-code/SKILL.md"},
+		"antislop-copywriting": {Path: ".tija/skills/antislop-copywriting/SKILL.md"},
+		"thermo-review":        {Path: ".tija/skills/thermo-review/SKILL.md"},
+		"thermo-quality":       {Path: ".tija/skills/thermo-quality/SKILL.md"},
+	}
+	if !reflect.DeepEqual(mReact.Skills, wantSkills) {
+		t.Errorf("mReact.Skills = %+v, want %+v", mReact.Skills, wantSkills)
+	}
+
+	wantComments := DefaultComments()
+	if !reflect.DeepEqual(mReact.Comments, wantComments) {
+		t.Errorf("mReact.Comments = %+v, want %+v", mReact.Comments, wantComments)
+	}
+
+	if tier := mReact.Agents.Tasks["comments"].Tier; tier != "fast" {
+		t.Errorf("agents.tasks.comments.tier = %q, want fast", tier)
+	}
+
+	dDotnet := detect.Detection{ProjectName: "api", Stack: detect.StackDotnetAPI}
+	mDotnet := FromDetection(dDotnet, nil, "main")
+	if !reflect.DeepEqual(mDotnet.Skills, wantSkills) {
+		t.Errorf("mDotnet.Skills = %+v, want %+v", mDotnet.Skills, wantSkills)
+	}
+	if !reflect.DeepEqual(mDotnet.Comments, Comments{}) {
+		t.Errorf("mDotnet.Comments = %+v, want empty Comments", mDotnet.Comments)
+	}
+	if tier := mDotnet.Agents.Tasks["comments"].Tier; tier != "fast" {
+		t.Errorf("agents.tasks.comments.tier = %q, want fast", tier)
+	}
+}
+
+func TestStripEnabledDefault(t *testing.T) {
+	var a AgentAttribution
+	if !a.StripEnabled() {
+		t.Errorf("nil Strip should be enabled")
+	}
+
+	f := false
+	a.Strip = &f
+	if a.StripEnabled() {
+		t.Errorf("explicit false should be disabled")
+	}
+
+	tr := true
+	a.Strip = &tr
+	if !a.StripEnabled() {
+		t.Errorf("explicit true should be enabled")
 	}
 }
