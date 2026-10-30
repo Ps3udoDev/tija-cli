@@ -9,10 +9,10 @@ import (
 )
 
 type Comment struct {
-	ID         string   // "<path>#<offset>" (offset is Start)
+	ID         string // "<path>#<offset>" (offset is Start)
 	Path       string
-	Kind       string   // "line" | "block" | "jsx"
-	Line, Col  int      // 1-based
+	Kind       string // "line" | "block" | "jsx"
+	Line, Col  int    // 1-based
 	Text       string
 	FullLine   bool     // only whitespace before and after on its line(s)
 	Before     []string // up to 3 lines of preceding context

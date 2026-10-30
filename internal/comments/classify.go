@@ -28,13 +28,13 @@ const (
 )
 
 // SafetyOf evaluates the safety of a classification:
-// - "keep" -> SafetyNone ("none")
-// - "rewrite" -> SafetyUnsafe ("unsafe")
-// - "remove" with Confidence != "high" -> SafetyUnsafe ("unsafe")
-// - "remove" with Confidence == "high" AND Class in:
-//   {"restates-obvious", "workflow-narration", "empty-label", "labeled-separator",
-//    "decorative-emoji", "end-marker", "line-by-line"} -> SafetySafe ("safe")
-// - any other "remove" -> SafetyUnsafe ("unsafe")
+//   - "keep" -> SafetyNone ("none")
+//   - "rewrite" -> SafetyUnsafe ("unsafe")
+//   - "remove" with Confidence != "high" -> SafetyUnsafe ("unsafe")
+//   - "remove" with Confidence == "high" AND Class in:
+//     {"restates-obvious", "workflow-narration", "empty-label", "labeled-separator",
+//     "decorative-emoji", "end-marker", "line-by-line"} -> SafetySafe ("safe")
+//   - any other "remove" -> SafetyUnsafe ("unsafe")
 func SafetyOf(c Classification) Safety {
 	switch c.Action {
 	case "keep":

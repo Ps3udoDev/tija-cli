@@ -682,7 +682,6 @@ func TestInitPRTemplateOfferWithoutManifestUpdate(t *testing.T) {
 	}
 }
 
-
 func TestInitInstallsSkillPacks(t *testing.T) {
 	repo := testutil.NewRepo(t, fixture("react-vite"))
 	p := plan(t, repo)

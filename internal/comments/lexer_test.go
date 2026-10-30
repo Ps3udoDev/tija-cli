@@ -14,9 +14,9 @@ import (
 
 func TestLangFor(t *testing.T) {
 	tests := []struct {
-		path    string
-		want    comments.Lang
-		wantOk  bool
+		path   string
+		want   comments.Lang
+		wantOk bool
 	}{
 		{"app.js", comments.Lang{TS: false, JSX: true}, true},
 		{"Component.jsx", comments.Lang{TS: false, JSX: true}, true},
@@ -51,10 +51,10 @@ func TestLangFor(t *testing.T) {
 func TestLexTrickyFixtures(t *testing.T) {
 	// Table of inline tricky fixtures as specified
 	inlineTests := []struct {
-		name         string
-		src          string
-		lang         comments.Lang
-		wantComments []string
+		name          string
+		src           string
+		lang          comments.Lang
+		wantComments  []string
 		checkJSXChild bool
 	}{
 		{
@@ -94,10 +94,10 @@ func TestLexTrickyFixtures(t *testing.T) {
 			wantComments: nil,
 		},
 		{
-			name:         "jsx text and comment",
-			src:          `<p>// no {/* si */}</p>`,
-			lang:         comments.Lang{TS: false, JSX: true},
-			wantComments: []string{"/* si */"},
+			name:          "jsx text and comment",
+			src:           `<p>// no {/* si */}</p>`,
+			lang:          comments.Lang{TS: false, JSX: true},
+			wantComments:  []string{"/* si */"},
 			checkJSXChild: true,
 		},
 		{
@@ -107,15 +107,15 @@ func TestLexTrickyFixtures(t *testing.T) {
 			wantComments: []string{"// c"},
 		},
 		{
-			name: "multi-line contiguous line comments",
-			src: "// line 1\n// line 2\n// line 3",
-			lang: comments.Lang{TS: false, JSX: true},
+			name:         "multi-line contiguous line comments",
+			src:          "// line 1\n// line 2\n// line 3",
+			lang:         comments.Lang{TS: false, JSX: true},
 			wantComments: []string{"// line 1", "// line 2", "// line 3"},
 		},
 		{
-			name: "crlf line endings",
-			src: "const a = 1;\r\n// crlf comment\r\nconst b = 2;\r\n",
-			lang: comments.Lang{TS: false, JSX: true},
+			name:         "crlf line endings",
+			src:          "const a = 1;\r\n// crlf comment\r\nconst b = 2;\r\n",
+			lang:         comments.Lang{TS: false, JSX: true},
 			wantComments: []string{"// crlf comment"},
 		},
 	}

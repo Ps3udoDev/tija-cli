@@ -483,7 +483,6 @@ func TestPreparePRDirtySkipsCheck(t *testing.T) {
 	}
 }
 
-
 func TestPRPromptStripsCommitAttribution(t *testing.T) {
 	repo := initRepo(t, "react-vite")
 	testutil.Git(t, repo, "add", "-A")

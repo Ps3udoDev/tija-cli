@@ -139,7 +139,7 @@ func TestRegressions(t *testing.T) {
 			},
 			after: quality.DiagCounts{
 				"src/a.ts": {
-					"lint/correctness/noUnusedVariables":        2,
+					"lint/correctness/noUnusedVariables":         2,
 					"lint/correctness/useExhaustiveDependencies": 1,
 				},
 			},
@@ -171,7 +171,7 @@ func TestRegressions(t *testing.T) {
 			},
 		},
 		{
-			name: "nil before handles all after as regressions",
+			name:   "nil before handles all after as regressions",
 			before: nil,
 			after: quality.DiagCounts{
 				"src/a.ts": {"syntax": 1},

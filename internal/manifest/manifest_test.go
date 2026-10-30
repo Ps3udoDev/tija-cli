@@ -322,7 +322,6 @@ func TestValidateQuality(t *testing.T) {
 	}
 }
 
-
 func TestValidateRejectsBadRegex(t *testing.T) {
 	base := FromDetection(frontendDetection(t), nil, "main")
 
