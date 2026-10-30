@@ -3,7 +3,6 @@ package comments
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -65,7 +64,8 @@ func Extract(path string, src []byte, lang Lang) ([]Comment, error) {
 		return string(lineBytes)
 	}
 
-	slashPath := filepath.ToSlash(path)
+	// IDs always use "/": filepath.ToSlash only converts "\" on Windows.
+	slashPath := strings.ReplaceAll(path, `\`, "/")
 	var result []Comment
 
 	for _, t := range tokens {
