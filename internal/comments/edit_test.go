@@ -192,3 +192,54 @@ func TestApplyRejectsOverlap(t *testing.T) {
 		t.Errorf("Apply on overlapping edits should return error, got nil")
 	}
 }
+
+func TestApplyAdjacentRemovalsLeaveOneBlankLine(t *testing.T) {
+	cases := []struct{ name, src, want string }{
+		{
+			"banner between blank lines",
+			"const a = 1;\n\n// ------------\n// Section\n// ------------\n\nconst b = 2;\n",
+			"const a = 1;\n\nconst b = 2;\n",
+		},
+		{
+			"banner between blank lines CRLF",
+			"const a = 1;\r\n\r\n// ------------\r\n// Section\r\n// ------------\r\n\r\nconst b = 2;\r\n",
+			"const a = 1;\r\n\r\nconst b = 2;\r\n",
+		},
+		{
+			"jsx rows between blank lines",
+			"const C = () => (\n\t<div>\n\t\t<A />\n\n\t\t{/* ---- Fila 1 ---- */}\n\t\t{/* ---- Fila 2 ---- */}\n\n\t\t<B />\n\t</div>\n);\n",
+			"const C = () => (\n\t<div>\n\t\t<A />\n\n\t\t<B />\n\t</div>\n);\n",
+		},
+		{
+			"banner at start of file",
+			"// ------------\n// Section\n// ------------\n\nconst b = 2;\n",
+			"const b = 2;\n",
+		},
+		{
+			"banner at end of file",
+			"const a = 1;\n\n// ------------\n// end\n",
+			"const a = 1;\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := []byte(tc.src)
+			lang, _ := comments.LangFor("x.jsx")
+			cs, err := comments.Extract("x.jsx", src, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var edits []comments.Edit
+			for _, c := range cs {
+				edits = append(edits, comments.PlanEdit(src, c, "remove", ""))
+			}
+			got, err := comments.Apply(src, edits)
+			if err != nil {
+				t.Fatalf("Apply: %v", err)
+			}
+			if string(got) != tc.want {
+				t.Errorf("got  %q\nwant %q", got, tc.want)
+			}
+		})
+	}
+}

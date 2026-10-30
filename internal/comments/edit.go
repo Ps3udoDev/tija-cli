@@ -216,6 +216,8 @@ func Apply(src []byte, edits []Edit) ([]byte, error) {
 		}
 	}
 
+	sorted = collapseBlankLines(src, mergeAdjacentRemovals(sorted))
+
 	var buf bytes.Buffer
 	buf.Grow(len(src))
 
@@ -228,4 +230,83 @@ func Apply(src []byte, edits []Edit) ([]byte, error) {
 	buf.Write(src[last:])
 
 	return buf.Bytes(), nil
+}
+
+// mergeAdjacentRemovals joins removals that touch, so a banner made of
+// several comment lines is treated as one block when checking blank lines.
+func mergeAdjacentRemovals(edits []Edit) []Edit {
+	var out []Edit
+	for _, e := range edits {
+		if n := len(out); n > 0 && out[n-1].Replacement == "" && e.Replacement == "" && out[n-1].End == e.Start {
+			out[n-1].End = e.End
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// collapseBlankLines widens full-line removals so they leave no run of
+// blank lines, no leading blank line and no trailing blank line, which
+// formatters such as Biome would report. planRemove only sees the
+// original neighbours of a single comment; this runs on merged blocks.
+func collapseBlankLines(src []byte, edits []Edit) []Edit {
+	for k := range edits {
+		e := &edits[k]
+		if e.Replacement != "" || e.Start == e.End || !isLineStart(src, e.Start) ||
+			(e.End < len(src) && src[e.End-1] != '\n') {
+			continue
+		}
+		limitPrev, limitNext := 0, len(src)
+		if k > 0 {
+			limitPrev = edits[k-1].End
+		}
+		if k+1 < len(edits) {
+			limitNext = edits[k+1].Start
+		}
+		switch {
+		case e.Start == 0:
+			for e.End < limitNext && isBlankLine(src, e.End) && nextLineStart(src, e.End) <= limitNext {
+				e.End = nextLineStart(src, e.End)
+			}
+		case e.End == len(src):
+			for e.Start > 0 && prevLineStart(src, e.Start) >= limitPrev && isBlankLine(src, prevLineStart(src, e.Start)) {
+				e.Start = prevLineStart(src, e.Start)
+			}
+		default:
+			prevBlank := prevLineStart(src, e.Start) >= limitPrev && isBlankLine(src, prevLineStart(src, e.Start))
+			if prevBlank && e.End < limitNext && isBlankLine(src, e.End) && nextLineStart(src, e.End) <= limitNext {
+				e.End = nextLineStart(src, e.End)
+			}
+		}
+	}
+	return edits
+}
+
+func isLineStart(src []byte, i int) bool {
+	return i == 0 || src[i-1] == '\n'
+}
+
+// nextLineStart returns the offset after the newline that ends the line at i.
+func nextLineStart(src []byte, i int) int {
+	if j := bytes.IndexByte(src[i:], '\n'); j >= 0 {
+		return i + j + 1
+	}
+	return len(src)
+}
+
+// prevLineStart returns the start of the line before the one starting at i (i > 0).
+func prevLineStart(src []byte, i int) int {
+	if j := bytes.LastIndexByte(src[:i-1], '\n'); j >= 0 {
+		return j + 1
+	}
+	return 0
+}
+
+func isBlankLine(src []byte, i int) bool {
+	if i >= len(src) {
+		return false
+	}
+	line := src[i:nextLineStart(src, i)]
+	return isWhitespaceOnly(bytes.TrimRight(line, "\r\n"))
 }
