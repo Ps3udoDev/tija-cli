@@ -13,30 +13,47 @@ type MenuItem struct {
 }
 
 const (
-	keyPR     = "pr"
-	keyCheck  = "check"
-	keyTests  = "tests"
-	keyInit   = "init"
-	keyDoctor = "doctor"
-	keyStatus = "status"
+	keyPR        = "pr"
+	keyComments  = "comments"
+	keyCheck     = "check"
+	keyTests     = "tests"
+	keyWorkflows = "workflows"
+	keyInit      = "init"
+	keyDoctor    = "doctor"
+	keyStatus    = "status"
 )
 
 var (
-	itemPR     = MenuItem{Key: keyPR, Title: "Pull Request", Description: "Draft and open a pull request"}
-	itemCheck  = MenuItem{Key: keyCheck, Title: "Check", Description: "Lint, format and tests"}
-	itemTests  = MenuItem{Key: keyTests, Title: "Tests", Description: "Run the test suite"}
-	itemInit   = MenuItem{Key: keyInit, Title: "Init", Description: "Detect the stack and set up .tija/"}
-	itemDoctor = MenuItem{Key: keyDoctor, Title: "Doctor", Description: "Check tools, manifest and agents"}
-	itemStatus = MenuItem{Key: keyStatus, Title: "Status", Description: "Branch, commits and working tree"}
+	itemPR        = MenuItem{Key: keyPR, Title: "Pull Request", Description: "Draft and open a pull request"}
+	itemComments  = MenuItem{Key: keyComments, Title: "Clean comments", Description: "Remove AI-slop comments, keep the useful ones"}
+	itemCheck     = MenuItem{Key: keyCheck, Title: "Check", Description: "Lint, format and tests"}
+	itemTests     = MenuItem{Key: keyTests, Title: "Tests", Description: "Run the test suite"}
+	itemWorkflows = MenuItem{Key: keyWorkflows, Title: "Workflows", Description: "Run a composed sequence of commands"}
+	itemInit      = MenuItem{Key: keyInit, Title: "Init", Description: "Detect the stack and set up .tija/"}
+	itemDoctor    = MenuItem{Key: keyDoctor, Title: "Doctor", Description: "Check tools, manifest and agents"}
+	itemStatus    = MenuItem{Key: keyStatus, Title: "Status", Description: "Branch, commits and working tree"}
 )
 
 // MenuItems returns the menu items. Init comes first until the repository
 // is initialized, then last.
-func MenuItems(initialized bool) []MenuItem {
-	if initialized {
-		return []MenuItem{itemPR, itemCheck, itemTests, itemDoctor, itemStatus, itemInit}
+func MenuItems(initialized, hasJS, hasWorkflows bool) []MenuItem {
+	var items []MenuItem
+	if !initialized {
+		items = append(items, itemInit)
 	}
-	return []MenuItem{itemInit, itemPR, itemCheck, itemTests, itemDoctor, itemStatus}
+	items = append(items, itemPR)
+	if hasJS {
+		items = append(items, itemComments)
+	}
+	items = append(items, itemCheck, itemTests)
+	if hasWorkflows {
+		items = append(items, itemWorkflows)
+	}
+	items = append(items, itemDoctor, itemStatus)
+	if initialized {
+		items = append(items, itemInit)
+	}
+	return items
 }
 
 // Menu row styles. The blue selection stays visible against the ink canvas.

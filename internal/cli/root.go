@@ -9,9 +9,11 @@ import (
 	"os"
 	"slices"
 
+	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/Ps3udoDev/tija-cli/internal/tui"
+	"github.com/Ps3udoDev/tija-cli/internal/workflows"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
 )
@@ -54,7 +56,32 @@ func ExecuteWith(deps Deps, args []string, in io.Reader, out, errOut io.Writer) 
 func ExecuteWithContext(ctx context.Context, deps Deps, args []string, in io.Reader, out, errOut io.Writer) int {
 	if deps.RunTUI == nil {
 		env := deps.Env
-		deps.RunTUI = func(dir string) error { return tui.Run(dir, currentVersion(), env) }
+		deps.RunTUI = func(dir string) error {
+			runner := func(name string, onStep func(i int, s tui.WorkflowStep)) int {
+				root, ok, _ := gitx.FindRoot(ctx, env.Run, dir)
+				if !ok {
+					root = dir
+				}
+				wfs, _ := workflows.Load(root)
+				var target *workflows.Workflow
+				for i := range wfs {
+					if wfs[i].Name == name {
+						target = &wfs[i]
+						break
+					}
+				}
+				if target == nil {
+					return 1
+				}
+				rep := RunWorkflow(ctx, deps, in, *target, false, true, io.Discard, func(i int, r StepResult) {
+					if onStep != nil {
+						onStep(i, tui.WorkflowStep{Run: r.Run, Exit: r.Exit})
+					}
+				})
+				return rep.Exit
+			}
+			return tui.RunWithOptions(dir, currentVersion(), env, tui.WithWorkflowRunner(runner))
+		}
 	}
 	root := NewRoot(deps, in)
 	root.SetArgs(args)

@@ -28,27 +28,108 @@ func titles(items []MenuItem) []string {
 }
 
 func TestMenuItemsPhase3(t *testing.T) {
-	if got, want := titles(MenuItems(false)), []string{"Init", "Pull Request", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
+	if got, want := titles(MenuItems(false, false, false)), []string{"Init", "Pull Request", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(false) = %v, want %v", got, want)
 	}
-	if got, want := titles(MenuItems(true)), []string{"Pull Request", "Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
+	if got, want := titles(MenuItems(true, false, false)), []string{"Pull Request", "Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(true) = %v, want %v", got, want)
 	}
-	if k := MenuItems(true)[0].Key; k != "pr" {
+	if k := MenuItems(true, false, false)[0].Key; k != "pr" {
 		t.Errorf("Pull Request key = %q, want pr", k)
 	}
 	desc := map[string]string{
-		"Pull Request": "Draft and open a pull request",
-		"Check":        "Lint, format and tests",
-		"Tests":        "Run the test suite",
-		"Init":         "Detect the stack and set up .tija/",
-		"Doctor":       "Check tools, manifest and agents",
-		"Status":       "Branch, commits and working tree",
+		"Pull Request":   "Draft and open a pull request",
+		"Clean comments": "Remove AI-slop comments, keep the useful ones",
+		"Check":          "Lint, format and tests",
+		"Tests":          "Run the test suite",
+		"Workflows":      "Run a composed sequence of commands",
+		"Init":           "Detect the stack and set up .tija/",
+		"Doctor":         "Check tools, manifest and agents",
+		"Status":         "Branch, commits and working tree",
 	}
-	for _, it := range MenuItems(false) {
+	for _, it := range MenuItems(false, true, true) {
 		if it.Description != desc[it.Title] {
 			t.Errorf("%s description = %q, want %q", it.Title, it.Description, desc[it.Title])
 		}
+	}
+}
+
+func TestMenuOrderWithNewItems(t *testing.T) {
+	tests := []struct {
+		name         string
+		initialized  bool
+		hasJS        bool
+		hasWorkflows bool
+		want         []string
+	}{
+		{
+			name:         "uninit no-js no-wf",
+			initialized:  false,
+			hasJS:        false,
+			hasWorkflows: false,
+			want:         []string{"Init", "Pull Request", "Check", "Tests", "Doctor", "Status"},
+		},
+		{
+			name:         "uninit with-js no-wf",
+			initialized:  false,
+			hasJS:        true,
+			hasWorkflows: false,
+			want:         []string{"Init", "Pull Request", "Clean comments", "Check", "Tests", "Doctor", "Status"},
+		},
+		{
+			name:         "uninit no-js with-wf",
+			initialized:  false,
+			hasJS:        false,
+			hasWorkflows: true,
+			want:         []string{"Init", "Pull Request", "Check", "Tests", "Workflows", "Doctor", "Status"},
+		},
+		{
+			name:         "uninit with-js with-wf",
+			initialized:  false,
+			hasJS:        true,
+			hasWorkflows: true,
+			want:         []string{"Init", "Pull Request", "Clean comments", "Check", "Tests", "Workflows", "Doctor", "Status"},
+		},
+		{
+			name:         "init no-js no-wf",
+			initialized:  true,
+			hasJS:        false,
+			hasWorkflows: false,
+			want:         []string{"Pull Request", "Check", "Tests", "Doctor", "Status", "Init"},
+		},
+		{
+			name:         "init with-js no-wf",
+			initialized:  true,
+			hasJS:        true,
+			hasWorkflows: false,
+			want:         []string{"Pull Request", "Clean comments", "Check", "Tests", "Doctor", "Status", "Init"},
+		},
+		{
+			name:         "init no-js with-wf",
+			initialized:  true,
+			hasJS:        false,
+			hasWorkflows: true,
+			want:         []string{"Pull Request", "Check", "Tests", "Workflows", "Doctor", "Status", "Init"},
+		},
+		{
+			name:         "init with-js with-wf",
+			initialized:  true,
+			hasJS:        true,
+			hasWorkflows: true,
+			want:         []string{"Pull Request", "Clean comments", "Check", "Tests", "Workflows", "Doctor", "Status", "Init"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := titles(MenuItems(tt.initialized, tt.hasJS, tt.hasWorkflows))
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("MenuItems(%v, %v, %v) = %v, want %v", tt.initialized, tt.hasJS, tt.hasWorkflows, got, tt.want)
+			}
+			if slices.Contains(got, "Review") {
+				t.Errorf("MenuItems should never contain 'Review'")
+			}
+		})
 	}
 }
 
@@ -251,7 +332,7 @@ func TestMenuSelectionBar(t *testing.T) {
 	if bg == "" {
 		t.Fatal("no background sequence")
 	}
-	items := MenuItems(false)
+	items := MenuItems(false, false, false)
 	for _, withDesc := range []bool{true, false} {
 		lines := strings.Split(renderMenu(items, 1, withDesc), "\n")
 		for i := range items {
@@ -485,8 +566,8 @@ func TestInitFlowConsent(t *testing.T) {
 	// Back to the menu: the repository is now initialized.
 	m, cmd = m.handleKey("esc")
 	m = drive(t, m, cmd)
-	if got := titles(m.items); !slices.Equal(got, titles(MenuItems(true))) {
-		t.Errorf("menu after init = %v, want %v", got, titles(MenuItems(true)))
+	if got := titles(m.items); !slices.Equal(got, titles(MenuItems(true, true, true))) {
+		t.Errorf("menu after init = %v, want %v", got, titles(MenuItems(true, true, true)))
 	}
 }
 
@@ -831,5 +912,161 @@ func TestPRConsentYesStartsCreate(t *testing.T) {
 	m, cmd := m.handleKey("y")
 	if m.screen != screenRunning || cmd == nil {
 		t.Fatalf("y on consent: screen = %v, cmd = %v", m.screen, cmd != nil)
+	}
+}
+
+func TestCommentsViewKeys(t *testing.T) {
+	sampleReport := engine.CleanReport{
+		Summary: engine.CleanSummary{
+			Comments:  10,
+			Protected: 2,
+			Keep:      3,
+			Safe:      4,
+			Unsafe:    1,
+		},
+		Files: []engine.CleanFile{
+			{
+				Path:   "src/sample.js",
+				Status: "pending",
+				Changes: []engine.CleanChange{
+					{Line: 5, Action: "remove", Class: "comment", Safety: "safe", Source: "rule"},
+				},
+				Diff: "- // safe comment\n",
+			},
+		},
+	}
+	sampleReport.Scope.Mode = "diff"
+	sampleReport.Scope.Files = 1
+
+	m := newModel("/tmp/test", "0.1.0", sys.Env{})
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.screen = screenComments
+	m.title = "Clean comments"
+	m.comments = &commentsFlow{
+		working: false,
+		report:  &sampleReport,
+	}
+
+	// 1. Initial report mode: contains summary counts and diff
+	v := plainView(m)
+	for _, want := range []string{"safe 4", "unsafe 1", "protected 2", "keep 3", "- // safe comment"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view missing %q:\n%s", want, v)
+		}
+	}
+
+	// 2. Press "u" asks for confirmation
+	m, _ = m.handleKey("u")
+	if !m.comments.confirmUnsafe {
+		t.Fatalf("expected confirmUnsafe to be true")
+	}
+	v = plainView(m)
+	if !strings.Contains(v, "Apply unsafe changes too? (y/n)") {
+		t.Errorf("view missing confirmation prompt:\n%s", v)
+	}
+
+	// 3. Press "n" cancels confirmation without writing
+	m, _ = m.handleKey("n")
+	if m.comments.confirmUnsafe {
+		t.Fatalf("expected confirmUnsafe to be false after 'n'")
+	}
+	v = plainView(m)
+	if strings.Contains(v, "Apply unsafe changes too? (y/n)") {
+		t.Errorf("confirmation prompt still present after 'n'")
+	}
+
+	// 4. Press "u" then "y" writes unsafe
+	m, _ = m.handleKey("u")
+	m, cmd := m.handleKey("y")
+	if cmd == nil {
+		t.Fatalf("expected cmd when applying unsafe changes")
+	}
+	if !m.comments.working {
+		t.Fatalf("expected comments.working to be true")
+	}
+
+	// 5. Press "w" writes safe
+	m.comments.working = false
+	m.comments.confirmUnsafe = false
+	m, cmd = m.handleKey("w")
+	if cmd == nil {
+		t.Fatalf("expected cmd when pressing 'w'")
+	}
+	if !m.comments.working {
+		t.Fatalf("expected comments.working to be true")
+	}
+
+	// 6. Press "q" returns to menu without writing
+	m.comments.working = false
+	m, _ = m.handleKey("q")
+	if m.screen != screenDetecting && m.screen != screenMenu {
+		t.Fatalf("screen after 'q' = %v, want detecting or menu", m.screen)
+	}
+}
+
+func TestCommentsViewMascotStates(t *testing.T) {
+	m := newModel("/tmp/test", "0.1.0", sys.Env{})
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.screen = screenComments
+	m.title = "Clean comments"
+	m.comments = &commentsFlow{working: true}
+
+	m = step(t, m, commentsEventMsg(engine.CleanEvent{Type: "extract"}))
+	if m.mascot != Scanning {
+		t.Errorf("mascot after extract = %v, want Scanning", m.mascot)
+	}
+
+	m = step(t, m, commentsEventMsg(engine.CleanEvent{Type: "classify"}))
+	if m.mascot != Thinking {
+		t.Errorf("mascot after classify = %v, want Thinking", m.mascot)
+	}
+
+	// When write completes, mascot becomes Success
+	m = step(t, m, commentsReportMsg{write: true})
+	if m.mascot != Success {
+		t.Errorf("mascot after write completion = %v, want Success", m.mascot)
+	}
+}
+
+func TestWorkflowViewProgress(t *testing.T) {
+	m := newModel("/tmp/test", "0.1.0", sys.Env{})
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.screen = screenWorkflow
+	m.title = "Workflows"
+	m.workflow = &workflowFlow{
+		state: workflowRunningState,
+		steps: []WorkflowStep{
+			{Run: "check", Exit: -1},
+			{Run: "tests", Exit: -1},
+		},
+	}
+
+	// Step 0 passes
+	m = step(t, m, workflowStepMsg{index: 0, step: WorkflowStep{Run: "check", Exit: 0}})
+	v := plainView(m)
+	if !strings.Contains(v, "✓ check") {
+		t.Errorf("view missing '✓ check':\n%s", v)
+	}
+
+	// Step 1 fails
+	m = step(t, m, workflowStepMsg{index: 1, step: WorkflowStep{Run: "tests", Exit: 1}})
+	v = plainView(m)
+	if !strings.Contains(v, "✓ check") {
+		t.Errorf("view missing '✓ check' after second step:\n%s", v)
+	}
+	if !strings.Contains(v, "✗ tests") {
+		t.Errorf("view missing '✗ tests':\n%s", v)
+	}
+
+	// Workflow completes with error -> Mascot Error
+	m = step(t, m, workflowDoneMsg{exit: 1})
+	if m.mascot != Error {
+		t.Errorf("mascot after workflow failure = %v, want Error", m.mascot)
+	}
+
+	// Workflow completes with 0 -> Mascot Success
+	m = step(t, m, workflowDoneMsg{exit: 0})
+	if m.mascot != Success {
+		t.Errorf("mascot after workflow success = %v, want Success", m.mascot)
 	}
 }

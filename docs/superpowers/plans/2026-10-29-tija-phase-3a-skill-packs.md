@@ -582,13 +582,13 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   - `MenuItems(initialized, hasJS, hasWorkflows bool) []MenuItem` con `itemComments{Key:"comments", Title:"Clean comments", Description:"Remove AI-slop comments, keep the useful ones"}` e `itemWorkflows{Key:"workflows", Title:"Workflows", Description:"Run a composed sequence of commands"}`;
   - `hasJS` = `project.type == "react-vite"`, o detección con `package.json`.
 
-- [ ] **Step 1: Tests.**
+- [x] **Step 1: Tests.**
   - `TestMenuOrderWithNewItems`: el orden es el de Global Constraints y los ítems se ocultan sin JS o sin workflows.
   - `TestCommentsViewKeys`: el reporte inicial corre en modo reporte; `w` corre con `Write`; `u` muestra la confirmación `Apply unsafe changes too? (y/n)` y solo con `y` corre con `Write+Unsafe`; `q` vuelve al menú sin escribir.
   - `TestCommentsViewMascotStates`: `scanning` durante `extract` y `thinking` durante `classify`.
   - `TestWorkflowViewProgress`: muestra `✓`/`✗` por paso a medida que llegan.
-- [ ] **Step 2: Correr** `go test ./internal/tui/ -run 'Menu|CommentsView|WorkflowView'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
-- [ ] **Step 3: Commit** `feat(tui): add clean comments and workflows screens`.
+- [x] **Step 2: Correr** `go test ./internal/tui/ -run 'Menu|CommentsView|WorkflowView'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
+- [x] **Step 3: Commit** `feat(tui): add clean comments and workflows screens`.
 
 ### Task 13: Verificación de salida de la fase
 
