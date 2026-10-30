@@ -384,7 +384,7 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   - `remove` con clase en {`restates-obvious`, `workflow-narration`, `empty-label`, `labeled-separator`, `decorative-emoji`, `end-marker`, `line-by-line`} → `safe`;
   - cualquier otro `remove` → `unsafe`.
 
-- [ ] **Step 1: Tests.**
+- [x] **Step 1: Tests.**
   - **`TestBuildPromptContents`**: el prompt incluye el cuerpo del pack, el idioma (`Spanish` para `es`), cada id con su texto y su contexto, y la instrucción literal `Answer with a JSON array only.`. `languageName` de `engine/pr_prompt.go` se mueve a `manifest.LanguageName(code string) string` para que lo usen `engine` y `comments` sin ciclo de imports.
   - **`TestParseClassificationsTolerant`**:
     - JSON dentro de un fence ```` ```json ```` con prosa antes y después → OK;
@@ -395,8 +395,8 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
     - JSON inválido → error.
   - **`TestSafetyOf`**: tabla con todas las combinaciones.
   - **`TestBatches`**: 3 archivos de 60 comentarios con max 150 dan 2 lotes; un archivo de 400 da 3 lotes.
-- [ ] **Step 2: Correr** `go test ./internal/comments/ -run 'Prompt|Classifications|Safety|Batches'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
-- [ ] **Step 3: Commit** `feat(comments): classify comments through the agent as JSON`.
+- [x] **Step 2: Correr** `go test ./internal/comments/ -run 'Prompt|Classifications|Safety|Batches'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
+- [x] **Step 3: Commit** `feat(comments): classify comments through the agent as JSON`.
 
 ### Task 8: `engine.CleanComments`
 
@@ -446,7 +446,7 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   4. Ante una regresión, se restaura el original desde memoria y el archivo queda `restored` con su razón.
   5. Por último se guarda `.tija/session/comments.json` (el `CleanReport` más `Commit` = HEAD).
 
-- [ ] **Step 1: Tests**, con `testutil.NewRepo` sobre el fixture y el `fakeAgentEnv` de `pr_prepare_test.go` (extraído a un helper compartido del paquete):
+- [x] **Step 1: Tests**, con `testutil.NewRepo` sobre el fixture y el `fakeAgentEnv` de `pr_prepare_test.go` (extraído a un helper compartido del paquete):
   - `TestCleanReportOnlyDoesNotWrite`: el contenido no cambia y el exit es 1.
   - `TestCleanWriteAppliesSafeOnly`: los separadores y los `labeled-separator` de confianza alta desaparecen; `commented-out-code` y los `rewrite` siguen; `biome-ignore` y el comentario de regla de negocio siguen.
   - `TestCleanWriteUnsafeAppliesAll`: el `rewrite` se aplica y `biome-ignore` sigue.
@@ -457,10 +457,10 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   - `TestCleanBiomeRegressionRestores`: con un `env.Run` falso que devuelve un `useExhaustiveDependencies` nuevo después, el archivo queda `restored` y su contenido es el original.
   - `TestCleanDefaultScopeIsDiff`: solo procesa los archivos cambiados contra el target.
   - `TestCleanSavesSession`.
-- [ ] **Step 2: Correr** `go test ./internal/engine/ -run Clean`. Esperado: FAIL.
-- [ ] **Step 3: Implementar.** La clasificación por lotes va en un `errgroup` con un límite de `Concurrency`. Si un lote falla (timeout, JSON inválido dos veces), sus comentarios quedan `keep` con un aviso. Los errores del agente nunca abortan el comando.
-- [ ] **Step 4: Correr** `go test ./internal/engine/ -run Clean` y `go test ./...`. Esperado: PASS.
-- [ ] **Step 5: Commit** `feat(engine): clean comment slop with verified edits`.
+- [x] **Step 2: Correr** `go test ./internal/engine/ -run Clean`. Esperado: FAIL.
+- [x] **Step 3: Implementar.** La clasificación por lotes va en un `errgroup` con un límite de `Concurrency`. Si un lote falla (timeout, JSON inválido dos veces), sus comentarios quedan `keep` con un aviso. Los errores del agente nunca abortan el comando.
+- [x] **Step 4: Correr** `go test ./internal/engine/ -run Clean` y `go test ./...`. Esperado: PASS.
+- [x] **Step 5: Commit** `feat(engine): clean comment slop with verified edits`.
 
 ### Task 9: PRs sin atribuciones de agentes y con `antislop-copywriting`
 

@@ -1,0 +1,33 @@
+version: 1
+project:
+  name: comments-repo
+  type: react-vite
+content:
+  language: es
+git:
+  host: github
+  branchConvention: conventional
+  branchPrefixes: [feat, fix]
+pullRequest:
+  target: main
+  template: .github/PULL_REQUEST_TEMPLATE.md
+  rules: .tija/rules/pull-request.md
+  title:
+    types: [feat, fix]
+quality:
+  lint:
+    provider: biome
+    command: biome check src
+  format:
+    provider: biome
+    command: biome format src
+agents:
+  default: claude
+  tasks:
+    comments:
+      tier: fast
+comments:
+  include:
+    - "src/**/*.{js,jsx,ts,tsx}"
+  exclude:
+    - "**/*.min.js"
