@@ -301,7 +301,7 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   func Match(pattern, path string) bool // ** y {a,b}; path con /
   ```
 
-- [ ] **Step 1: Tests.**
+- [x] **Step 1: Tests.**
   - **`TestProtectedBuiltins`**, una fila por patrón del spec 6.2:
     - `biome-ignore`, `eslint-disable-next-line`, `prettier-ignore`, `@ts-expect-error`, `istanbul ignore`, `c8 ignore`, `v8 ignore`, `@vite-ignore`;
     - `webpackChunkName: "x"`, `#__PURE__`, `@jsxImportSource`, `@flow`;
@@ -329,10 +329,10 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   - **`TestVerifyDetectsCodeChange`**: un after con un `;` de menos devuelve un error que nombra la línea.
   - **`TestVerifyJSXWhitespaceNormalized`**: quitar `{/* x */}` en su propia línea entre dos hijos JSX es equivalente. `JSXText` se normaliza con la regla de React: se recortan las líneas, se descartan las vacías y se unen con un espacio.
   - **`TestMatchGlob`**: `src/**/*.{js,jsx}` contra `src/a/b/c.jsx` (sí) y `src/a.ts` (no); `dist/**` contra `dist/x/y.js` (sí).
-- [ ] **Step 2: Correr** `go test ./internal/comments/ -run 'Protected|Rule|Apply|Verify|Match'`. Esperado: FAIL.
-- [ ] **Step 3: Implementar.** `CodeTokens` usa `Lex`, descarta comentarios, devuelve el texto de cada token y normaliza `JSXText`. `VerifyTokens` compara los dos slices y reporta el primer índice distinto con su línea en `after`.
-- [ ] **Step 4: Correr los tests.** Esperado: PASS.
-- [ ] **Step 5: Commit** `feat(comments): extract, protect, plan and verify comment edits`.
+- [x] **Step 2: Correr** `go test ./internal/comments/ -run 'Protected|Rule|Apply|Verify|Match'`. Esperado: FAIL.
+- [x] **Step 3: Implementar.** `CodeTokens` usa `Lex`, descarta comentarios, devuelve el texto de cada token y normaliza `JSXText`. `VerifyTokens` compara los dos slices y reporta el primer índice distinto con su línea en `after`.
+- [x] **Step 4: Correr los tests.** Esperado: PASS.
+- [x] **Step 5: Commit** `feat(comments): extract, protect, plan and verify comment edits`.
 
 ### Task 6: Biome como segunda red
 
