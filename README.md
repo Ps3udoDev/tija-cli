@@ -2,7 +2,7 @@
 
 > Your repository. Your rules. Any agent.
 
-Tija is a CLI that prepares a repository to work with AI coding agents: it detects your stack, writes a versioned `.tija/` folder (manifest, rules, templates, workflows), verifies the health of your environment and branches, and provides deterministic quality commands (`check`, `lint`, `format`, `test`). Tija never installs tools automatically and never invokes AI agents; it operates deterministically with your local repo tools or binaries on `PATH`.
+Tija is a CLI that prepares a repository to work with AI coding agents: it detects your stack, writes a versioned `.tija/` folder (manifest, rules, templates, workflows, skill packs), verifies the health of your environment and branches, and provides deterministic quality commands (`check`, `lint`, `format`, `test`), safe comment cleaning (`clean comments`), and composed workflows (`run`). Tija never installs tools automatically; it operates deterministically with your local repo tools or binaries on `PATH`.
 
 *Nota: la interfaz está en inglés; el contenido generado usa `content.language` (por defecto `es`).*
 
@@ -18,13 +18,18 @@ Or download a binary for Windows, Linux or macOS from the [Releases](https://git
 
 | Command | What it does |
 |---|---|
-| `tija init` | Detects the stack and template, creates `.tija/` and updates `.gitignore`. Idempotent. |
-| `tija doctor` | Checks git, `gh` (and its login), the agent CLIs on `PATH`, the manifest, effective quality tools and the PR template. |
+| `tija init` | Detects the stack and template, creates `.tija/` (including default skill packs and workflows) and updates `.gitignore`. Idempotent. |
+| `tija doctor` | Checks git, `gh` (and its login), the agent CLIs on `PATH`, the manifest, effective quality tools, skill packs attribution, workflows, and PR template. |
 | `tija status` | Classifies the current branch against naming rules, shows ahead/behind against the PR target, the working tree and the remote. |
 | `tija check` | Runs all configured or detected quality checks (build, lint, format, tests). |
 | `tija lint` | Runs linter checks. Pass `--fix` to run lint + format in fix mode. |
 | `tija format` | Formats source code in fix mode. |
 | `tija test` | Runs the test suite and parses test result reports (TRX, Jest/Vitest JSON). |
+| `tija clean comments` | Cleans AI-slop comments in JS/TS/JSX with Biome flag semantics (`--write`, `--unsafe`). |
+| `tija skills list` | Lists installed and embedded skill packs with origin, license, author, and commit. |
+| `tija skills show <name>` | Displays a skill pack's content, origin, and attribution. |
+| `tija run <name>` | Runs a composed workflow defined in `.tija/workflows/*.yaml` in-process. |
+| `tija run --list` | Lists available workflows. |
 | `tija pr prepare` | Drafts the pull request title and body for the current branch (see Pull requests). |
 | `tija pr create` | Pushes the branch and opens or updates the pull request with `gh`. |
 
@@ -40,8 +45,50 @@ Flags:
 
 Exit codes:
 - `0`: All checks passed.
-- `1`: Check failure (e.g. linter error, failing tests, unformatted code).
+- `1`: Check failure (e.g. linter error, failing tests, unformatted code, pending changes in check/report mode).
 - `2`: Usage error or missing environment dependencies (e.g. unavailable tool, syntax error, not a git repository).
+
+## Clean Comments
+
+`tija clean comments [paths...]` detects and removes AI-generated boilerplate, decorative separators, and noisy narration comments while preserving business rules, architecture rationale, and tool directives (`biome-ignore`, `@ts-*`, licenses, JSDoc types).
+
+Flag semantics match Biome:
+- `tija clean comments [paths...]`: Report-only mode. Prints findings and exits `1` if safe changes are pending (`0` if clean).
+- `--diff`: Displays unified diffs of proposed changes.
+- `--write`: Applies only **safe** changes (decorative separators, empty labels, workflow narration, obvious end markers).
+- `--write --unsafe`: Applies both safe and **unsafe** changes (rewrites, commented-out code, low-confidence removals).
+- `--unsafe` (without `--write`): Expands report and `--diff` to include unsafe changes.
+- `--all`: Scans all files matching `comments.include` and `comments.exclude`. (Default scope without paths: files changed against PR target + untracked files).
+- `--no-agent`: Runs only deterministic rules without querying AI agent CLIs.
+- `--force`: Includes untracked git files (untracked files are skipped by default).
+- `--concurrency N`: Sets concurrent agent classification batches (default `2`).
+- `--agent-timeout`: Bounding duration for agent batches (default `3m`).
+
+Safety & Verification:
+- **Token Verification:** Before saving, Tija tokenizes original and edited source files (discarding comments and normalizing JSX whitespace) and verifies that AST code tokens are 100% identical. Any code change causes an immediate verification failure; the file is never written.
+- **Biome Diagnostics Post-check:** When Biome is configured for lint/format, Tija runs `biome check --reporter=github` before and after writes. If any new or increased diagnostics occur, the file is automatically restored to its original state.
+
+## Workflows
+
+Composed workflows automate multi-step procedures directly in-process without spawning subshells or subprocesses.
+
+- Stored in `.tija/workflows/*.yaml` (e.g. `pre-pr.yaml`).
+- Default `pre-pr` workflow:
+  1. `clean comments --write`
+  2. `check`
+  3. `pr prepare`
+- Only allowed Tija commands can be steps (`check`, `lint`, `format`, `test`, `status`, `doctor`, `clean comments`, `pr prepare`, `pr create`). Arbitrary shell commands and nested `run` invocations are strictly rejected.
+- Step execution stops on the first non-zero exit unless `continueOnError: true` is configured for that step.
+
+## Skill Packs & Third-Party Material
+
+Tija embeds and installs modular skill packs under `.tija/skills/<pack>/SKILL.md`:
+- `antislop-code`: Comment classification rubrics (adapted from [anti-slop](https://github.com/miqdadbadjuber/anti-slop)).
+- `antislop-copywriting`: PR technical writing style guidelines (adapted from [anti-slop](https://github.com/miqdadbadjuber/anti-slop)).
+- `thermo-review`: Correctness, bug hunting, and security review rubrics (adapted from [Cursor Thermos](https://github.com/cursor/plugins/tree/main/thermos)).
+- `thermo-quality`: Maintainability, code judo, and 1000-line limit rubrics (adapted from [Cursor Thermos](https://github.com/cursor/plugins/tree/main/thermos)).
+
+All third-party materials are licensed under the MIT License and fully attributed to their original authors with companion `LICENSE` files and frontmatter source references. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full notices and license texts.
 
 ## Pull requests
 
@@ -59,22 +106,10 @@ Flags (both commands):
 - `create --draft` opens the pull request as a draft.
 - `create --edit` opens the saved draft in `git var GIT_EDITOR` and revalidates it before asking for confirmation (needs a terminal and an initialized repo).
 
-`create` asks `Push <branch> and open a pull request to <target>? [y/N]` (or `Update pull request <url>? [y/N]`). Without a terminal it needs `--yes`; otherwise it prints the preview and exits `2` with `confirmation required: rerun with --yes`.
-
-Agents (no API keys, only the installed CLIs; no permission-skipping flags are ever used):
-
-| Agent | CLI used |
-|---|---|
-| `claude` | `claude` (print mode) |
-| `codex` | `codex exec` |
-| `gemini` | `gemini` (or `agy`) |
-| `none` | no agent: deterministic draft built by Tija |
-
-If the agent is missing, hangs, or fails, Tija falls back to the deterministic draft with a warning. An invalid draft gets one retry with the list of problems; if it is still invalid the draft is saved anyway and the exit code is `1`.
+Agent Attribution Stripping:
+- In `content.agentAttribution` (default enabled: `strip: true`), Tija automatically removes agent attribution signatures (e.g. `🤖 Generated with...`, `Co-Authored-By: Claude...`, `Made with Cursor`) from commit bodies entering the prompt and from generated draft bodies.
 
 Anti-invention rule: Tija computes the branch, target, commits, diffstat, issue number and test results; the agent only writes prose. `## Pruebas` cites only results of `.tija/session/quality.json` for the current commit on a clean tree (or a `check` run made in the same execution); otherwise it says no verified results exist. `## Evidencias` is `N/A` unless you edit it.
-
-Exit codes: `0` ok; `1` the draft breaks a rule or the branch has no commits ahead of the target; `2` base branch, detached HEAD, missing target, `gh` unavailable, not a git repository, or confirmation required.
 
 ## Quality & Session
 
@@ -104,13 +139,16 @@ Base branches are never classified as nonconforming, and renaming suggestions ne
 ## TUI
 
 Run `tija` with no arguments in a terminal to open the interactive terminal UI:
-- Menu options: `Check`, `Tests`, `Doctor`, `Status`, and `Init`.
-- Live progress screen (`screenQuality`) with real-time spinner (⠋⠙⠹⠸...), step status, and durations.
-- Expressive pixel cat mascot: `Idle`, `Scanning`, `Success`, `Warning` (!), and `Error`.
+- Menu options: `Pull Request`, `Clean comments` (JS/TS projects), `Check`, `Tests`, `Workflows` (when workflows exist), `Doctor`, `Status`, and `Init`.
+- Live progress screens with real-time spinner, step status, and live event updates.
+- Expressive pixel cat mascot: `Idle`, `Scanning`, `Thinking`, `Success`, `Warning` (!), and `Error`.
+- Clean comments interactive screen: review diffs and summaries, press `w` to apply safe fixes, `u` to confirm unsafe fixes, or `q` to exit without writing.
+- Workflows screen: select and trigger workflows with live step-by-step check/cross status indicators.
 - Scrollable results with automatic wrapping, supporting `↑`/`↓`, `PgUp`/`PgDn`, `Home`/`End`.
 
 ## Docs
 
 - Design: [docs/superpowers/specs/2026-10-22-tija-phases-design.md](docs/superpowers/specs/2026-10-22-tija-phases-design.md)
-- Phase 2 Plan: [docs/superpowers/plans/2026-10-22-tija-phase-2-quality.md](docs/superpowers/plans/2026-10-22-tija-phase-2-quality.md)
+- Phase 3a Design: [docs/superpowers/specs/2026-10-29-tija-phase-3a-skill-packs-design.md](docs/superpowers/specs/2026-10-29-tija-phase-3a-skill-packs-design.md)
+- Phase 3a Plan: [docs/superpowers/plans/2026-10-29-tija-phase-3a-skill-packs.md](docs/superpowers/plans/2026-10-29-tija-phase-3a-skill-packs.md)
 - Reference: [docs/reference/](docs/reference/)
