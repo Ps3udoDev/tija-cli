@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -634,5 +635,82 @@ func TestCleanSavesSession(t *testing.T) {
 	}
 	if sess.Summary.Comments != rep.Summary.Comments {
 		t.Errorf("session summary comments = %d, want %d", sess.Summary.Comments, rep.Summary.Comments)
+	}
+}
+
+func TestCleanPathsRelativeToWorkingDir(t *testing.T) {
+	repo := setupCommentsRepo(t)
+	env, _ := commentFakeEnv(dynamicCommentClassifications)
+
+	rep, err := CleanComments(context.Background(), filepath.Join(repo, "src"), env, CleanRequest{
+		Paths:   []string{"Component.jsx"},
+		NoAgent: true,
+	}, nil)
+	if err != nil {
+		t.Fatalf("CleanComments: %v", err)
+	}
+	if rep.Scope.Files != 1 {
+		t.Fatalf("Scope.Files = %d, want 1 (path relative to src/)", rep.Scope.Files)
+	}
+	if len(rep.Files) != 1 || rep.Files[0].Path != "src/Component.jsx" {
+		t.Errorf("files = %+v, want src/Component.jsx", rep.Files)
+	}
+}
+
+func TestCleanRestoredFileFailsExit(t *testing.T) {
+	repo := setupCommentsRepo(t)
+	env, _ := commentFakeEnv(dynamicCommentClassifications)
+	look := env.LookPath
+	env.LookPath = func(name string) (string, error) {
+		if name == "biome" {
+			return "/fake/bin/biome", nil
+		}
+		return look(name)
+	}
+	biomeRuns := 0
+	origRun := env.Run
+	env.Run = func(ctx context.Context, dir, name string, args ...string) (string, string, int, error) {
+		if strings.HasSuffix(name, "biome") {
+			biomeRuns++
+			if biomeRuns == 1 {
+				return "", "", 0, nil
+			}
+			return "::error title=suppressions/unused,file=src/Component.jsx,line=10,col=1::unused\n", "", 1, nil
+		}
+		return origRun(ctx, dir, name, args...)
+	}
+
+	rep, err := CleanComments(context.Background(), repo, env, CleanRequest{Write: true, All: true}, nil)
+	if err != nil {
+		t.Fatalf("CleanComments: %v", err)
+	}
+	if rep.Summary.FailedFiles != 1 {
+		t.Errorf("FailedFiles = %d, want 1 for the restored file", rep.Summary.FailedFiles)
+	}
+	if rep.ExitCode() != 1 {
+		t.Errorf("ExitCode = %d, want 1 when a file is restored", rep.ExitCode())
+	}
+}
+
+func TestAtomicWriteFileKeepsMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits")
+	}
+	p := filepath.Join(t.TempDir(), "bin.js")
+	if err := os.WriteFile(p, []byte("#!/usr/bin/env node\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(p, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWriteFile(p, []byte("#!/usr/bin/env node\nx\n")); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Errorf("mode = %v, want 0755", info.Mode().Perm())
 	}
 }

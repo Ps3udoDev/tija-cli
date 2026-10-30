@@ -58,14 +58,14 @@ type CleanFile struct {
 }
 
 type CleanSummary struct {
-	Comments      int `json:"comments"`
-	Protected     int `json:"protected"`
-	Keep          int `json:"keep"`
-	Safe          int `json:"safe"`
-	Unsafe        int `json:"unsafe"`
-	Unclassified  int `json:"unclassified"`
-	SkippedFiles  int `json:"skippedFiles"`
-	FailedFiles   int `json:"failedFiles"`
+	Comments     int `json:"comments"`
+	Protected    int `json:"protected"`
+	Keep         int `json:"keep"`
+	Safe         int `json:"safe"`
+	Unsafe       int `json:"unsafe"`
+	Unclassified int `json:"unclassified"`
+	SkippedFiles int `json:"skippedFiles"`
+	FailedFiles  int `json:"failedFiles"`
 }
 
 type CleanReport struct {
@@ -153,13 +153,20 @@ func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanReques
 		mode = "diff"
 	}
 
+	// Paths are relative to the working directory; --full-name keeps git's
+	// output relative to the repo root.
+	lsDir := root
+	if len(searchPaths) > 0 {
+		lsDir = dir
+	}
+
 	// Identify untracked files
-	untrackedCmd := []string{"ls-files", "-z", "--others", "--exclude-standard"}
+	untrackedCmd := []string{"ls-files", "-z", "--full-name", "--others", "--exclude-standard"}
 	if len(searchPaths) > 0 {
 		untrackedCmd = append(untrackedCmd, "--")
 		untrackedCmd = append(untrackedCmd, searchPaths...)
 	}
-	untrackedOut, _, _, _ := env.Run(ctx, root, "git", untrackedCmd...)
+	untrackedOut, _, _, _ := env.Run(ctx, lsDir, "git", untrackedCmd...)
 	untrackedSet := make(map[string]bool)
 	for _, p := range strings.Split(untrackedOut, "\x00") {
 		p = strings.TrimSpace(p)
@@ -187,12 +194,12 @@ func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanReques
 			candidateMap[p] = true
 		}
 	} else {
-		lsCmd := []string{"ls-files", "-z", "--cached", "--others", "--exclude-standard"}
+		lsCmd := []string{"ls-files", "-z", "--full-name", "--cached", "--others", "--exclude-standard"}
 		if len(searchPaths) > 0 {
 			lsCmd = append(lsCmd, "--")
 			lsCmd = append(lsCmd, searchPaths...)
 		}
-		lsOut, _, _, _ := env.Run(ctx, root, "git", lsCmd...)
+		lsOut, _, _, _ := env.Run(ctx, lsDir, "git", lsCmd...)
 		for _, p := range strings.Split(lsOut, "\x00") {
 			p = strings.TrimSpace(p)
 			if p != "" {
@@ -627,6 +634,7 @@ func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanReques
 						if cat, regressed := regMap[tf.relPath]; regressed {
 							_ = atomicWriteFile(tf.fullPath, tf.src)
 							tf.file.Status = "restored"
+							rep.Summary.FailedFiles++
 							tf.file.Reason = fmt.Sprintf("biome reports %s after the edit", cat)
 						}
 					}
@@ -689,6 +697,11 @@ func atomicWriteFile(target string, data []byte) error {
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
+	if info, err := os.Stat(target); err == nil {
+		_ = tmp.Chmod(info.Mode().Perm())
+	} else {
+		_ = tmp.Chmod(0o644)
+	}
 
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
