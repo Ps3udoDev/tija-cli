@@ -139,6 +139,12 @@ func PreparePR(ctx context.Context, dir string, env sys.Env, req PRRequest, onEv
 	draft, source, attempts, problems, agentWarnings := draftPR(ctx, c, env, req, emit)
 	warnings = append(warnings, agentWarnings...)
 
+	if pats, err := prrules.AttributionPatterns(c.Manifest.Content.AgentAttribution.Patterns); err == nil {
+		for _, p := range prrules.CheckAttribution(draft.Body, pats) {
+			warnings = append(warnings, p.Message)
+		}
+	}
+
 	rep := PRReport{
 		Root:     c.Root,
 		Branch:   c.Branch,
@@ -286,6 +292,11 @@ func draftPR(ctx context.Context, c PRContext, env sys.Env, req PRRequest, emit 
 			return d, SourceDeterministic, attempts, ps, []string{fmt.Sprintf("agent %s failed: %v — using deterministic draft", name, oneLine(err))}
 		}
 		draft.Title = strings.TrimSpace(draft.Title)
+		if c.Manifest.Content.AgentAttribution.StripEnabled() {
+			if pats, err := prrules.AttributionPatterns(c.Manifest.Content.AgentAttribution.Patterns); err == nil {
+				draft.Body, _ = prrules.StripAttribution(draft.Body, pats)
+			}
+		}
 		draft.Body = prrules.Normalize(draft.Body)
 		// Anti-invention: ## Pruebas cites only what Tija verified.
 		draft.Body = prrules.Normalize(enforceVerifiedTests(draft.Body, c.Manifest.Content.Language, c.Tests))

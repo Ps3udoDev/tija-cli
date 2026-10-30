@@ -15,6 +15,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
+	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 )
@@ -104,6 +105,13 @@ func CollectPRContext(ctx context.Context, dir string, env sys.Env) (PRContext, 
 	c.Commits = repo.Commits(ctx, base)
 	if len(c.Commits) == 0 {
 		return PRContext{}, fmt.Errorf("%w: %s..%s", ErrNoCommits, c.Target, name)
+	}
+	if c.Manifest.Content.AgentAttribution.StripEnabled() {
+		if pats, err := prrules.AttributionPatterns(c.Manifest.Content.AgentAttribution.Patterns); err == nil {
+			for i := range c.Commits {
+				c.Commits[i].Body, _ = prrules.StripAttribution(c.Commits[i].Body, pats)
+			}
+		}
 	}
 	c.Files = repo.DiffStat(ctx, base)
 	c.Diff, c.Truncated = buildDiff(ctx, repo, base, c.Files)
