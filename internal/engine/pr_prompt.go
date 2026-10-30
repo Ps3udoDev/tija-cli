@@ -2,32 +2,23 @@ package engine
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/Ps3udoDev/tija-cli/internal/assets"
+	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
+	"github.com/Ps3udoDev/tija-cli/internal/skills"
 )
-
-var languageNames = map[string]string{
-	"es": "Spanish", "en": "English", "pt": "Portuguese", "fr": "French", "de": "German", "it": "Italian",
-}
-
-func languageName(code string) string {
-	if code == "" {
-		code = "es"
-	}
-	if n, ok := languageNames[strings.ToLower(code)]; ok {
-		return n
-	}
-	return code
-}
 
 // BuildPRPrompt renders the agent prompt. Everything the agent needs is in
 // it: the agent only writes, it does not run tools. problems, when not
 // empty, are the checks the previous answer failed.
 func BuildPRPrompt(c PRContext, problems []prrules.Problem) string {
 	pr := c.Manifest.PullRequest
-	lang := languageName(c.Manifest.Content.Language)
+	lang := manifest.LanguageName(c.Manifest.Content.Language)
 	var b strings.Builder
 	section := func(title string) { fmt.Fprintf(&b, "\n# %s\n\n", title) }
 
@@ -119,6 +110,11 @@ func BuildPRPrompt(c PRContext, problems []prrules.Problem) string {
 		"- Write `N/A` in the `## Evidencias` section.\n" +
 		"- Do not use a generic title.\n")
 
+	if style := copywritingBody(c.Root); style != "" {
+		section("Writing style")
+		b.WriteString(strings.TrimSpace(style) + "\n")
+	}
+
 	section("Output format")
 	b.WriteString("Answer with exactly these two blocks and nothing else:\n\n" +
 		"<<<TITLE\ntype(scope): description\nTITLE>>>\n<<<BODY\n## ...\nBODY>>>\n")
@@ -132,6 +128,29 @@ func BuildPRPrompt(c PRContext, problems []prrules.Problem) string {
 		b.WriteString("Fix all of them in the new answer.\n")
 	}
 	return b.String()
+}
+
+func copywritingBody(root string) string {
+	var data []byte
+	if root != "" {
+		p := filepath.Join(root, ".tija", "skills", "antislop-copywriting", "SKILL.md")
+		if d, err := os.ReadFile(p); err == nil {
+			data = d
+		}
+	}
+	if len(data) == 0 {
+		if d, ok := assets.Skill("antislop-copywriting"); ok {
+			data = d
+		}
+	}
+	if len(data) == 0 {
+		return ""
+	}
+	pack, err := skills.Parse(data)
+	if err != nil {
+		return ""
+	}
+	return pack.Body
 }
 
 // diffFence returns a backtick fence longer than the longest run of

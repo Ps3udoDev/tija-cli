@@ -365,6 +365,59 @@ func TestTestCommandOnlyTests(t *testing.T) {
 	}
 }
 
+func TestSkillsListAndShow(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	deps := cmdDeps(false)
+	code, _, errOut := runIn(t, repo, deps, "", "init", "--yes")
+	if code != 0 {
+		t.Fatalf("init failed: %v", errOut)
+	}
+
+	// skills list
+	code, out, errOut := runIn(t, repo, deps, "", "skills", "list")
+	if code != 0 {
+		t.Fatalf("skills list failed: %v", errOut)
+	}
+	for _, want := range []string{"NAME", "ORIGIN", "AUTHOR", "LICENSE", "COMMIT", "EDITED", "antislop-code", "Miqdad Badjuber", "MIT", "3005235"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("skills list output lacks %q:\n%s", want, out)
+		}
+	}
+
+	// skills list --json
+	code, jsonOut, errOut := runIn(t, repo, deps, "", "skills", "list", "--json")
+	if code != 0 {
+		t.Fatalf("skills list --json failed: %v", errOut)
+	}
+	var listPacks []map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &listPacks); err != nil {
+		t.Fatalf("unmarshal json failed: %v\noutput: %s", err, jsonOut)
+	}
+	if len(listPacks) < 4 {
+		t.Errorf("len(listPacks) = %d, want >= 4", len(listPacks))
+	}
+
+	// skills show antislop-code
+	code, showOut, errOut := runIn(t, repo, deps, "", "skills", "show", "antislop-code")
+	if code != 0 {
+		t.Fatalf("skills show antislop-code failed: %v", errOut)
+	}
+	for _, want := range []string{"Skill:          antislop-code", "Origin:         third-party", "Author:         Miqdad Badjuber", "License:        MIT", "Commit:         3005235", "> Adaptado de anti-slop"} {
+		if !strings.Contains(showOut, want) {
+			t.Errorf("skills show output lacks %q:\n%s", want, showOut)
+		}
+	}
+
+	// skills show unknown
+	code, _, errOut = runIn(t, repo, deps, "", "skills", "show", "nonexistent-skill")
+	if code != 2 {
+		t.Errorf("skills show nonexistent code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut, `skill "nonexistent-skill" not found`) {
+		t.Errorf("expected skill not found error in stderr, got: %s", errOut)
+	}
+}
+
 func TestCheckTimeoutFlag(t *testing.T) {
 	code, _, _ := runIn(t, t.TempDir(), cmdDeps(false), "", "check", "--timeout", "x")
 	if code != 2 {

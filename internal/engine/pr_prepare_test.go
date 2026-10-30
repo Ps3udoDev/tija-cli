@@ -482,3 +482,112 @@ func TestPreparePRDirtySkipsCheck(t *testing.T) {
 		t.Errorf("warnings = %v", r.Warnings)
 	}
 }
+
+func TestPRPromptStripsCommitAttribution(t *testing.T) {
+	repo := initRepo(t, "react-vite")
+	testutil.Git(t, repo, "add", "-A")
+	testutil.Git(t, repo, "commit", "-m", "chore: init tija")
+	testutil.Git(t, repo, "checkout", "-b", "feat/auth-mask")
+	commitMsg := "feat(auth): mask passwords\n\nExplanation of commit.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nCo-Authored-By: Ana <ana@empresa.com>"
+	commitFile(t, repo, "src/auth/password.ts", "export const mask = (s: string) => '*'.repeat(s.length)\n", commitMsg)
+
+	env := fakeEnv()
+	prompt, err := PRPrompt(context.Background(), repo, env)
+	if err != nil {
+		t.Fatalf("PRPrompt failed: %v", err)
+	}
+
+	commitsIdx := strings.Index(prompt, "# Commits")
+	changedIdx := strings.Index(prompt, "# Changed files")
+	if commitsIdx == -1 || changedIdx == -1 {
+		t.Fatalf("missing sections in prompt: %s", prompt)
+	}
+	commitsSec := prompt[commitsIdx:changedIdx]
+
+	if strings.Contains(commitsSec, "Claude Opus") || strings.Contains(commitsSec, "noreply@anthropic.com") {
+		t.Errorf("commits section contains agent attribution: %s", commitsSec)
+	}
+	if !strings.Contains(commitsSec, "Co-Authored-By: Ana <ana@empresa.com>") {
+		t.Errorf("commits section stripped human co-author: %s", commitsSec)
+	}
+	if !strings.Contains(commitsSec, "Explanation of commit.") {
+		t.Errorf("commits section stripped commit explanation: %s", commitsSec)
+	}
+}
+
+func TestPRPromptIncludesCopywritingPack(t *testing.T) {
+	repo := prRepo(t)
+	env := fakeEnv()
+	prompt, err := PRPrompt(context.Background(), repo, env)
+	if err != nil {
+		t.Fatalf("PRPrompt failed: %v", err)
+	}
+
+	if !strings.Contains(prompt, "# Writing style") {
+		t.Errorf("prompt does not contain '# Writing style': %s", prompt)
+	}
+	if !strings.Contains(prompt, "antislop-copywriting") || !strings.Contains(prompt, "Empty AI Vocabulary") {
+		t.Errorf("prompt does not contain copywriting pack guidelines: %s", prompt)
+	}
+}
+
+func TestPreparePRStripsAgentFooter(t *testing.T) {
+	repo := prRepo(t)
+	agentDraftWithFooter := strings.Replace(
+		validAgentDraft,
+		"## Pruebas\n\n- No se ejecutaron verificaciones automáticas para este commit.",
+		"## Pruebas\n\n- No se ejecutaron verificaciones automáticas para este commit.\n\n## Referencias\n\n- N/A\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+		1,
+	)
+	env, _ := fakeAgentEnv(agentReply{out: agentDraftWithFooter})
+
+	r, _ := prepare(t, repo, env, PRRequest{Agent: "claude", NoCheck: true})
+	if r.ExitCode() != 0 {
+		t.Fatalf("ExitCode = %d, problems = %+v", r.ExitCode(), r.Problems)
+	}
+	if strings.Contains(r.Body, "Generated with [Claude Code]") || strings.Contains(r.Body, "🤖") {
+		t.Errorf("r.Body contains agent footer: %s", r.Body)
+	}
+	d, _, err := LoadDraft(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(d.Body, "Generated with [Claude Code]") || strings.Contains(d.Body, "🤖") {
+		t.Errorf("saved draft contains agent footer: %s", d.Body)
+	}
+}
+
+func TestPreparePRStripDisabled(t *testing.T) {
+	repo := prRepo(t)
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stripFalse := false
+	m.Content.AgentAttribution.Strip = &stripFalse
+	if err := manifest.Save(repo, m); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Git(t, repo, "add", "-A")
+	testutil.Git(t, repo, "commit", "-m", "chore: disable strip")
+
+	agentDraftWithFooter := strings.Replace(
+		validAgentDraft,
+		"## Pruebas\n\n- No se ejecutaron verificaciones automáticas para este commit.",
+		"## Pruebas\n\n- No se ejecutaron verificaciones automáticas para este commit.\n\n## Referencias\n\n- N/A\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+		1,
+	)
+	env, _ := fakeAgentEnv(agentReply{out: agentDraftWithFooter})
+
+	r, _ := prepare(t, repo, env, PRRequest{Agent: "claude", NoCheck: true})
+	if r.ExitCode() != 0 {
+		t.Fatalf("ExitCode = %d, want 0; problems = %+v", r.ExitCode(), r.Problems)
+	}
+	if !strings.Contains(r.Body, "🤖 Generated with [Claude Code]") {
+		t.Errorf("r.Body should have kept footer when strip is disabled: %s", r.Body)
+	}
+	if !hasWarning(r, "agent attribution") {
+		t.Errorf("expected warning for agent attribution, got warnings: %v", r.Warnings)
+	}
+}

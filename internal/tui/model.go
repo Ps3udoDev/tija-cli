@@ -45,6 +45,8 @@ const (
 	screenResult
 	screenPRWorking // pull request: planning and drafting
 	screenPRPreview // pull request: draft and validation
+	screenComments  // clean comments
+	screenWorkflow  // running composed workflows
 )
 
 // defaultWidth is assumed until the terminal reports its size.
@@ -86,6 +88,21 @@ type model struct {
 	// Pull Request flow
 	pr       *prFlow
 	prEvents chan engine.PREvent
+
+	// Workflow Runner & screen flows
+	workflowRunner WorkflowRunner
+	comments       *commentsFlow
+	workflow       *workflowFlow
+}
+
+// Option configures the TUI model.
+type Option func(*model)
+
+// WithWorkflowRunner injects a workflow runner for executing composite workflows.
+func WithWorkflowRunner(runner WorkflowRunner) Option {
+	return func(m *model) {
+		m.workflowRunner = runner
+	}
 }
 
 // resultMsg carries the rendered outcome of an engine command.
@@ -102,10 +119,19 @@ func newModel(dir, version string, env sys.Env) model {
 	return model{dir: dir, version: version, env: env, width: defaultWidth, screen: screenDetecting}
 }
 
+// RunWithOptions starts the TUI with custom options.
+func RunWithOptions(dir, version string, env sys.Env, opts ...Option) error {
+	m := newModel(dir, version, env)
+	for _, opt := range opts {
+		opt(&m)
+	}
+	_, err := tea.NewProgram(m).Run()
+	return err
+}
+
 // Run starts the TUI for the repository containing dir.
 func Run(dir, version string, env sys.Env) error {
-	_, err := tea.NewProgram(newModel(dir, version, env)).Run()
-	return err
+	return RunWithOptions(dir, version, env)
 }
 
 func (m model) Init() tea.Cmd { return detectCmd(m.dir, m.env) }
@@ -118,7 +144,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 	case startupMsg:
 		m.info = msg.info
-		m.items = MenuItems(msg.info.Initialized)
+		m.items = MenuItems(msg.info.Initialized, msg.info.HasJS, msg.info.HasWorkflows)
 		m.cursor = 0
 		m.screen = screenMenu
 	case planMsg:
@@ -127,6 +153,59 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyQualityEvent(engine.QualityEvent(msg))
 		if m.qualityEvents != nil {
 			return m, waitForEvent(m.qualityEvents)
+		}
+	case commentsEventMsg:
+		ev := engine.CleanEvent(msg)
+		if ev.Type == "extract" {
+			m.mascot = Scanning
+		} else if ev.Type == "classify" {
+			m.mascot = Thinking
+		}
+		if m.comments != nil && m.comments.events != nil {
+			return m, waitForCommentsEvent(m.comments.events)
+		}
+	case commentsReportMsg:
+		if m.comments == nil {
+			m.comments = &commentsFlow{}
+		}
+		m.comments.working = false
+		m.comments.report = &msg.report
+		m.comments.err = msg.err
+		if msg.err != nil {
+			m.mascot = Error
+		} else if msg.write {
+			m.mascot = Success
+		} else {
+			if msg.report.Summary.Safe > 0 {
+				m.mascot = Warning
+			} else {
+				m.mascot = Success
+			}
+		}
+	case workflowStepMsg:
+		if m.workflow == nil {
+			m.workflow = &workflowFlow{}
+		}
+		if msg.index >= 0 && msg.index < len(m.workflow.steps) {
+			m.workflow.steps[msg.index] = msg.step
+		} else {
+			for len(m.workflow.steps) < msg.index {
+				m.workflow.steps = append(m.workflow.steps, WorkflowStep{Exit: -1})
+			}
+			m.workflow.steps = append(m.workflow.steps, msg.step)
+		}
+		if m.workflow.events != nil {
+			return m, waitForWorkflowStep(m.workflow.events)
+		}
+	case workflowDoneMsg:
+		if m.workflow != nil {
+			m.workflow.state = workflowDone
+			m.workflow.exit = msg.exit
+			if msg.exit == 0 {
+				m.mascot = Success
+			} else {
+				m.mascot = Error
+			}
 		}
 	case spinnerTickMsg:
 		if m.screen == screenQuality || m.screen == screenPRWorking {
@@ -182,6 +261,10 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 		return m.consentKey(k)
 	case screenPRPreview:
 		return m.prPreviewKey(k)
+	case screenComments:
+		return m.commentsKey(k)
+	case screenWorkflow:
+		return m.workflowKey(k)
 	case screenResult:
 		if m.scroll(k, m.result, m.height) {
 			return m, nil
@@ -199,7 +282,7 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 // backToMenu recomputes the startup info, since a command such as Init may
 // have changed the repository.
 func (m model) backToMenu() (model, tea.Cmd) {
-	m.flow, m.pr, m.result = nil, nil, ""
+	m.flow, m.pr, m.comments, m.workflow, m.result = nil, nil, nil, nil, ""
 	m.screen = screenDetecting
 	return m, detectCmd(m.dir, m.env)
 }
@@ -211,6 +294,12 @@ func (m model) run(item MenuItem) (model, tea.Cmd) {
 	case keyPR:
 		m.pr = nil
 		return m.startPR(false)
+
+	case keyComments:
+		return m.startComments()
+
+	case keyWorkflows:
+		return m.startWorkflow()
 
 	case keyCheck, keyTests:
 		m.screen = screenQuality
@@ -332,6 +421,10 @@ func (m model) View() tea.View {
 	case screenPRPreview:
 		state, caption, body := m.prPreviewView()
 		s = m.panel(state, caption, body)
+	case screenComments:
+		s = m.panel(m.mascot, m.caption, m.commentsBody())
+	case screenWorkflow:
+		s = m.panel(m.mascot, m.caption, m.workflowBody())
 	case screenResult:
 		body, _, _ := wrapAndSliceResult(m.result, m.width, m.height, m.scrollOffset)
 		s = m.panel(m.mascot, m.caption, body)
@@ -387,6 +480,22 @@ func (m model) footer() string {
 		}
 	case screenPRPreview:
 		help = "↑/↓ scroll · e edit · r regenerate · enter create · esc back"
+	case screenComments:
+		if m.comments != nil && m.comments.working {
+			help = "ctrl+c quit"
+		} else if m.comments != nil && m.comments.confirmUnsafe {
+			help = "y apply unsafe · n cancel"
+		} else {
+			help = "w apply safe · u apply unsafe · esc/q back"
+		}
+	case screenWorkflow:
+		if m.workflow != nil && m.workflow.state == workflowSelecting {
+			help = "↑/↓ move · enter select · esc/q back"
+		} else if m.workflow != nil && m.workflow.state == workflowRunningState {
+			help = "ctrl+c quit"
+		} else {
+			help = "esc/q back"
+		}
 	case screenResult:
 		_, needsScroll, _ := wrapAndSliceResult(m.result, m.width, m.height, 0)
 		if needsScroll {

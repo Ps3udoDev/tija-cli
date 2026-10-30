@@ -13,15 +13,18 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
+	"github.com/Ps3udoDev/tija-cli/internal/workflows"
 )
 
 // startupInfo is what the startup screen shows about the repository.
 type startupInfo struct {
-	Root        string // repository root, or the working directory outside a repo
-	InRepo      bool
-	Detection   *detect.Detection // nil outside a repo or when detection failed
-	Initialized bool              // .tija/manifest.yaml exists at the root
-	Err         string            // real error if FindRoot failed
+	Root         string // repository root, or the working directory outside a repo
+	InRepo       bool
+	Detection    *detect.Detection // nil outside a repo or when detection failed
+	Initialized  bool              // .tija/manifest.yaml exists at the root
+	Err          string            // real error if FindRoot failed
+	HasJS        bool
+	HasWorkflows bool
 }
 
 // startupMsg delivers the result of loadStartup.
@@ -43,9 +46,25 @@ func loadStartup(dir string, env sys.Env) startupInfo {
 	remote := gitx.Repo{Dir: root, Run: env.Run}.RemoteURL(ctx)
 	if d, err := detect.Detect(root, remote); err == nil {
 		info.Detection = &d
+		if d.HasPackageJSON || d.Stack == detect.StackReactVite {
+			info.HasJS = true
+		}
 	}
-	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(manifest.Path))); err == nil {
+	if m, err := manifest.Load(root); err == nil {
 		info.Initialized = true
+		if m.Project.Type == "react-vite" {
+			info.HasJS = true
+		}
+	} else if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(manifest.Path))); err == nil {
+		info.Initialized = true
+	}
+	if wfs, _ := workflows.Load(root); len(wfs) > 0 {
+		for _, w := range wfs {
+			if len(workflows.Validate(w)) == 0 {
+				info.HasWorkflows = true
+				break
+			}
+		}
 	}
 	return info
 }

@@ -48,6 +48,7 @@ type Detection struct {
 	BranchPrefixes       []string `json:"branchPrefixes"`
 	HuskyBranchHook      bool     `json:"huskyBranchHook"`
 	CommitlintHeaderMax  int      `json:"commitlintHeaderMax"`
+	HasPackageJSON       bool     `json:"hasPackageJSON"`
 }
 
 // skipDirs are never descended into when scanning for sources.
@@ -82,10 +83,14 @@ func Detect(root, remoteURL string) (Detection, error) {
 	}
 	d.Solutions = sortedUnique(d.Solutions)
 
+	if fileExists(filepath.Join(abs, "package.json")) {
+		d.HasPackageJSON = true
+	}
+
 	switch {
 	case len(d.Solutions) > 0 || len(globRel(abs, "*.csproj")) > 0:
 		d.detectDotnet()
-	case fileExists(filepath.Join(abs, "package.json")):
+	case d.HasPackageJSON:
 		d.detectNode()
 	}
 	d.CI = globRel(abs, ".github/workflows/*.yml", ".github/workflows/*.yaml")

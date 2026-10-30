@@ -1,0 +1,59 @@
+[
+  {
+    "name": "antislop-code",
+    "path": ".tija/skills/antislop-code/SKILL.md",
+    "description": "Classify code comments as slop or valuable. Never touches code.",
+    "origin": "third-party",
+    "source": {
+      "project": "anti-slop",
+      "author": "Miqdad Badjuber",
+      "repo": "https://github.com/miqdadbadjuber/anti-slop",
+      "path": "skills/antislop-code/SKILL.md",
+      "commit": "3005235d030b4793146ad9afe8d01045efd90e1d",
+      "version": "3.2.24",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 Miqdad Badjuber (antislop)"
+    },
+    "edited": false
+  },
+  {
+    "name": "antislop-copywriting",
+    "path": ".tija/skills/antislop-copywriting/SKILL.md",
+    "description": "Clean slop from technical PR descriptions.",
+    "origin": "third-party",
+    "source": {
+      "project": "anti-slop",
+      "author": "Miqdad Badjuber",
+      "repo": "https://github.com/miqdadbadjuber/anti-slop",
+      "path": "skills/antislop-copywriting/SKILL.md",
+      "commit": "3005235d030b4793146ad9afe8d01045efd90e1d",
+      "version": "3.2.24",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 Miqdad Badjuber (antislop)"
+    },
+    "edited": false
+  },
+  {
+    "name": "custom-team-rules",
+    "path": ".tija/skills/custom-team-rules/SKILL.md",
+    "description": "Internal team guidelines.",
+    "origin": "repo",
+    "edited": true
+  },
+  {
+    "name": "thermo-quality",
+    "path": ".tija/skills/thermo-quality/SKILL.md",
+    "description": "Review code maintainability.",
+    "origin": "third-party",
+    "source": {
+      "project": "Thermos",
+      "author": "Cursor",
+      "repo": "https://github.com/cursor/plugins",
+      "path": "thermos/skills/thermo-nuclear-code-quality-review/SKILL.md",
+      "commit": "1ba91fc25c0977741dd0e267849e6234b037ed0a",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 Cursor"
+    },
+    "edited": false
+  }
+]

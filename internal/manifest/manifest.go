@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -50,6 +52,8 @@ type Manifest struct {
 	PullRequest PullRequest             `yaml:"pullRequest"`
 	Quality     map[string]QualityEntry `yaml:"quality"`
 	Agents      Agents                  `yaml:"agents"`
+	Skills      map[string]SkillRef     `yaml:"skills,omitempty"`
+	Comments    Comments                `yaml:"comments,omitempty"`
 	Tija        Meta                    `yaml:"tija"`
 }
 
@@ -60,7 +64,60 @@ type Project struct {
 }
 
 type Content struct {
-	Language string `yaml:"language"`
+	Language         string           `yaml:"language"`
+	AgentAttribution AgentAttribution `yaml:"agentAttribution,omitempty"`
+}
+
+var languageNames = map[string]string{
+	"es": "Spanish", "en": "English", "pt": "Portuguese", "fr": "French", "de": "German", "it": "Italian",
+}
+
+// LanguageName returns the English name of the given language code (e.g. "Spanish" for "es").
+func LanguageName(code string) string {
+	if code == "" {
+		code = "es"
+	}
+	if n, ok := languageNames[strings.ToLower(code)]; ok {
+		return n
+	}
+	return code
+}
+
+type SkillRef struct {
+	Path string `yaml:"path"`
+}
+
+type Comments struct {
+	Include []string `yaml:"include"`
+	Exclude []string `yaml:"exclude"`
+	Protect []string `yaml:"protect,omitempty"` // regex
+}
+
+func (c Comments) IsZero() bool {
+	return len(c.Include) == 0 && len(c.Exclude) == 0 && len(c.Protect) == 0
+}
+
+type AgentAttribution struct {
+	Strip    *bool    `yaml:"strip,omitempty"`    // nil = true
+	Patterns []string `yaml:"patterns,omitempty"` // regex extra
+}
+
+func (a AgentAttribution) IsZero() bool {
+	return a.Strip == nil && len(a.Patterns) == 0
+}
+
+func (a AgentAttribution) StripEnabled() bool {
+	if a.Strip == nil {
+		return true
+	}
+	return *a.Strip
+}
+
+func DefaultComments() Comments {
+	return Comments{
+		Include: []string{"src/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"},
+		Exclude: []string{"**/*.min.js", "dist/**", "build/**", "**/*.d.ts", "node_modules/**"},
+	}
 }
 
 type Git struct {
@@ -165,6 +222,19 @@ func FromDetection(d detect.Detection, agents []string, target string) Manifest 
 		def = agents[0]
 	}
 	yes, assign := true, true
+
+	skills := map[string]SkillRef{
+		"antislop-code":        {Path: ".tija/skills/antislop-code/SKILL.md"},
+		"antislop-copywriting": {Path: ".tija/skills/antislop-copywriting/SKILL.md"},
+		"thermo-review":        {Path: ".tija/skills/thermo-review/SKILL.md"},
+		"thermo-quality":       {Path: ".tija/skills/thermo-quality/SKILL.md"},
+	}
+
+	var comments Comments
+	if d.Stack == detect.StackReactVite || d.HasPackageJSON {
+		comments = DefaultComments()
+	}
+
 	return Manifest{
 		Version: version,
 		Project: Project{Name: d.ProjectName, Type: string(d.Stack), Solution: d.Solution},
@@ -185,7 +255,10 @@ func FromDetection(d detect.Detection, agents []string, target string) Manifest 
 			"pullRequest":  {Tier: "fast"},
 			"review":       {Tier: "balanced"},
 			"architecture": {Tier: "deep"},
+			"comments":     {Tier: "fast"},
 		}},
+		Skills:   skills,
+		Comments: comments,
 	}
 }
 
@@ -279,6 +352,18 @@ func (m Manifest) Validate() []error {
 		}
 		if entry.Provider == "script" && entry.Script == "" {
 			errs = append(errs, fmt.Errorf("quality.%s.script: required for provider \"script\"", k))
+		}
+	}
+
+	for _, pat := range m.Comments.Protect {
+		if _, err := regexp.Compile(pat); err != nil {
+			errs = append(errs, fmt.Errorf("comments.protect: invalid regex %q: %w", pat, err))
+		}
+	}
+
+	for _, pat := range m.Content.AgentAttribution.Patterns {
+		if _, err := regexp.Compile(pat); err != nil {
+			errs = append(errs, fmt.Errorf("content.agentAttribution.patterns: invalid regex %q: %w", pat, err))
 		}
 	}
 

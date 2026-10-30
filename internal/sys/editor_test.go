@@ -7,11 +7,11 @@ import (
 	"testing"
 )
 
-func TestSplitCommand(t *testing.T) {
-	got := splitCommand(`"C:/Program Files/Code/code.exe" --wait -n`)
+func TestSplitArgs(t *testing.T) {
+	got := SplitArgs(`"C:/Program Files/Code/code.exe" --wait -n`)
 	want := []string{"C:/Program Files/Code/code.exe", "--wait", "-n"}
 	if !slices.Equal(got, want) {
-		t.Errorf("splitCommand = %q, want %q", got, want)
+		t.Errorf("SplitArgs = %q, want %q", got, want)
 	}
 }
 

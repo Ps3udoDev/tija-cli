@@ -193,6 +193,11 @@ func TestInitBackendWithYes(t *testing.T) {
 		".tija/templates/pull-request.md":  sum(tpl),
 		".tija/workflows/.gitkeep":         sum(nil),
 	}
+	for p, data := range assets.Files() {
+		if p != assets.RulesPath && p != assets.TemplatePath && p != assets.WorkflowsKeep {
+			wantInstalled[p] = sum(data)
+		}
+	}
 	if m.Tija.DefaultsVersion != assets.DefaultsVersion || !reflect.DeepEqual(m.Tija.Installed, wantInstalled) {
 		t.Errorf("tija = %+v", m.Tija)
 	}
@@ -674,5 +679,150 @@ func TestInitPRTemplateOfferWithoutManifestUpdate(t *testing.T) {
 	wantGithubTemplate(t, repo)
 	if p4 := plan(t, repo); len(p4.Actions) != 0 {
 		t.Errorf("fourth run actions = %+v, want none", p4.Actions)
+	}
+}
+
+func TestInitInstallsSkillPacks(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	p := plan(t, repo)
+	apply(t, p, nil, approveAll(p))
+
+	expectedFiles := []string{
+		".tija/skills/antislop-code/SKILL.md",
+		".tija/skills/antislop-code/LICENSE",
+		".tija/skills/antislop-copywriting/SKILL.md",
+		".tija/skills/antislop-copywriting/LICENSE",
+		".tija/skills/thermo-quality/SKILL.md",
+		".tija/skills/thermo-quality/LICENSE",
+		".tija/skills/thermo-review/SKILL.md",
+		".tija/skills/thermo-review/LICENSE",
+		".tija/workflows/pre-pr.yaml",
+	}
+
+	for _, f := range expectedFiles {
+		if !exists(repo, f) {
+			t.Errorf("expected file %q to exist", f)
+		}
+	}
+
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range expectedFiles {
+		h, ok := m.Tija.Installed[f]
+		if !ok {
+			t.Errorf("tija.installed missing %q", f)
+			continue
+		}
+		data := readFile(t, repo, f)
+		if h != sum(data) {
+			t.Errorf("tija.installed[%q] = %q, want %q", f, h, sum(data))
+		}
+	}
+}
+
+func TestReinitOffersNewKeys(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	p := plan(t, repo)
+	apply(t, p, nil, approveAll(p))
+
+	// Simulate Phase 3 manifest: remove skills, comments, and agents.tasks.comments
+	m, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Skills = nil
+	m.Comments = manifest.Comments{}
+	delete(m.Agents.Tasks, "comments")
+	if err := manifest.Save(repo, m); err != nil {
+		t.Fatal(err)
+	}
+
+	savedData := readFile(t, repo, manifest.Path)
+
+	p2 := plan(t, repo)
+	a, ok := findAction(p2, "update:.tija/manifest.yaml")
+	if !ok || !a.NeedsConsent {
+		t.Fatalf("expected update:.tija/manifest.yaml action needing consent, got %+v, %v", a, ok)
+	}
+	if !strings.Contains(a.Reason, "skills") {
+		t.Errorf("action reason %q should mention skills", a.Reason)
+	}
+	if !strings.Contains(a.Reason, "comments") {
+		t.Errorf("action reason %q should mention comments", a.Reason)
+	}
+	if !strings.Contains(a.Reason, "agents.tasks.comments") {
+		t.Errorf("action reason %q should mention agents.tasks.comments", a.Reason)
+	}
+
+	// Without consent, manifest is left untouched
+	r := apply(t, p2, nil, nil)
+	if !bytes.Equal(readFile(t, repo, manifest.Path), savedData) {
+		t.Error("manifest modified without consent")
+	}
+	if !slices.Contains(pendingPaths(r), manifest.Path) {
+		t.Errorf("pending paths = %v, want manifest.yaml", pendingPaths(r))
+	}
+
+	// With consent, fields are added and rest is untouched
+	r = apply(t, p2, nil, approveAll(p2))
+	if !slices.Contains(r.Updated, manifest.Path) {
+		t.Errorf("Updated = %v, want manifest.yaml", r.Updated)
+	}
+	mUpdated, err := manifest.Load(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mUpdated.Skills) != 4 {
+		t.Errorf("Skills count = %d, want 4", len(mUpdated.Skills))
+	}
+	if len(mUpdated.Comments.Include) == 0 {
+		t.Errorf("Comments.Include is empty")
+	}
+	if mUpdated.Agents.Tasks["comments"].Tier != "fast" {
+		t.Errorf("Agents.Tasks[comments] = %+v", mUpdated.Agents.Tasks["comments"])
+	}
+	if mUpdated.Project.Name != m.Project.Name || mUpdated.Project.Type != m.Project.Type {
+		t.Errorf("project changed: %+v vs %+v", mUpdated.Project, m.Project)
+	}
+}
+
+func TestReinitKeepsEditedPack(t *testing.T) {
+	repo := testutil.NewRepo(t, fixture("react-vite"))
+	p := plan(t, repo)
+	apply(t, p, nil, approveAll(p))
+
+	skillPath := ".tija/skills/antislop-code/SKILL.md"
+	editedContent := []byte("# Edited antislop code by user\n")
+	putFile(t, repo, skillPath, editedContent)
+
+	// Simulate an older recorded hash (so it's not equal to current default v2 hash)
+	data, err := manifest.RecordInstalled(readFile(t, repo, manifest.Path), "1", map[string]string{
+		skillPath: sum([]byte("old-default-content")),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	putFile(t, repo, manifest.Path, data)
+
+	p2 := plan(t, repo)
+	a, ok := findAction(p2, "replace:"+skillPath)
+	if !ok || !a.NeedsConsent {
+		t.Fatalf("expected replace action needing consent for %s, got %+v, %v", skillPath, a, ok)
+	}
+	wantReason := "file differs from Tija default v" + assets.DefaultsVersion + " (edited?)"
+	if a.Reason != wantReason {
+		t.Errorf("action reason = %q, want %q", a.Reason, wantReason)
+	}
+
+	// Apply without consent: file remains untouched
+	r := apply(t, p2, nil, nil)
+	if got := readFile(t, repo, skillPath); !bytes.Equal(got, editedContent) {
+		t.Errorf("edited pack overwritten: %q", got)
+	}
+	if !slices.Contains(pendingPaths(r), skillPath) {
+		t.Errorf("pending paths = %v, want %s", pendingPaths(r), skillPath)
 	}
 }

@@ -179,14 +179,22 @@ func (p *InitPlan) planActions() error {
 
 	// Defaults are installed only where the repo lacks its own; files Tija
 	// installed before are kept up to date.
+	var defaultPaths []string
+	for path := range files {
+		defaultPaths = append(defaultPaths, path)
+	}
+	slices.Sort(defaultPaths)
+
 	var paths []string
-	if p.Detection.PRGuide == "" {
-		paths = append(paths, assets.RulesPath)
+	for _, path := range defaultPaths {
+		if path == assets.RulesPath && p.Detection.PRGuide != "" {
+			continue
+		}
+		if path == assets.TemplatePath && p.Detection.PRTemplate != "" {
+			continue
+		}
+		paths = append(paths, path)
 	}
-	if p.Detection.PRTemplate == "" {
-		paths = append(paths, assets.TemplatePath)
-	}
-	paths = append(paths, assets.WorkflowsKeep)
 	var extra []string
 	for path := range installed {
 		if _, ok := source(files, path); ok && !slices.Contains(paths, path) {
