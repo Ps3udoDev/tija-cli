@@ -4,30 +4,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 )
 
-var languageNames = map[string]string{
-	"es": "Spanish", "en": "English", "pt": "Portuguese", "fr": "French", "de": "German", "it": "Italian",
-}
-
-func languageName(code string) string {
-	if code == "" {
-		code = "es"
-	}
-	if n, ok := languageNames[strings.ToLower(code)]; ok {
-		return n
-	}
-	return code
-}
 
 // BuildPRPrompt renders the agent prompt. Everything the agent needs is in
 // it: the agent only writes, it does not run tools. problems, when not
 // empty, are the checks the previous answer failed.
 func BuildPRPrompt(c PRContext, problems []prrules.Problem) string {
 	pr := c.Manifest.PullRequest
-	lang := languageName(c.Manifest.Content.Language)
+	lang := manifest.LanguageName(c.Manifest.Content.Language)
 	var b strings.Builder
 	section := func(title string) { fmt.Fprintf(&b, "\n# %s\n\n", title) }
 

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -65,6 +66,21 @@ type Project struct {
 type Content struct {
 	Language         string           `yaml:"language"`
 	AgentAttribution AgentAttribution `yaml:"agentAttribution,omitempty"`
+}
+
+var languageNames = map[string]string{
+	"es": "Spanish", "en": "English", "pt": "Portuguese", "fr": "French", "de": "German", "it": "Italian",
+}
+
+// LanguageName returns the English name of the given language code (e.g. "Spanish" for "es").
+func LanguageName(code string) string {
+	if code == "" {
+		code = "es"
+	}
+	if n, ok := languageNames[strings.ToLower(code)]; ok {
+		return n
+	}
+	return code
 }
 
 type SkillRef struct {
