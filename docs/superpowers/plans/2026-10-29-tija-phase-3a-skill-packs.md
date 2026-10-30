@@ -251,7 +251,7 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
 - **Strings y templates sin cerrar, JSX desbalanceado o EOF dentro de un comentario de bloque:** `ErrUncertain`.
 - BOM inicial y shebang `#!` en la línea 1 son `Code`.
 
-- [ ] **Step 1: Fixtures y tests.**
+- [x] **Step 1: Fixtures y tests.**
   - `TestLexTrickyFixtures` (tabla). Cada fixture tiene un `.want` con los comentarios esperados (texto exacto). Casos:
     - `"http://x"`;
     - `'/* no */'`;
@@ -265,10 +265,10 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
     - CRLF.
   - `TestLexUncertainSkips`: un string sin cerrar, `<div>` sin cerrar en `.jsx` y `/*` sin cerrar devuelven `ErrUncertain`.
   - `TestLexConcatenationRoundTrip`: concatenar `src[t.Start:t.End]` de todos los tokens más el whitespace entre ellos reproduce el archivo byte a byte.
-- [ ] **Step 2: Correr** `go test ./internal/comments/ -run Lex`. Esperado: FAIL.
-- [ ] **Step 3: Implementar `Lex`** según las reglas de arriba.
-- [ ] **Step 4: Correr** `go test ./internal/comments/ -run Lex`. Esperado: PASS. Además, una corrida ad hoc sobre los 136 archivos de `claims` (ruta absoluta en `TIJA_LEX_CORPUS`, test con `t.Skip` si la variable no está): 0 `ErrUncertain`, o la lista de archivos para revisar a mano antes de seguir.
-- [ ] **Step 5: Commit** `feat(comments): add JS/TS/JSX lexer`.
+- [x] **Step 2: Correr** `go test ./internal/comments/ -run Lex`. Esperado: FAIL.
+- [x] **Step 3: Implementar `Lex`** según las reglas de arriba.
+- [x] **Step 4: Correr** `go test ./internal/comments/ -run Lex`. Esperado: PASS. Además, una corrida ad hoc sobre los 136 archivos de `claims` (ruta absoluta en `TIJA_LEX_CORPUS`, test con `t.Skip` si la variable no está): 0 `ErrUncertain`, o la lista de archivos para revisar a mano antes de seguir.
+- [x] **Step 5: Commit** `feat(comments): add JS/TS/JSX lexer`.
 
 ### Task 5: Extracción, protección, reglas deterministas, ediciones y verificación
 
