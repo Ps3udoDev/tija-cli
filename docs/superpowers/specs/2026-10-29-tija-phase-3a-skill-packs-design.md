@@ -231,6 +231,7 @@ Cada comentario extraído termina en una de cuatro categorías:
 - JSDoc con tipos en archivos `.js`/`.jsx` (`@type`, `@typedef`, `@param {…}`, `@returns {…}`, `@template`, `@satisfies`): TypeScript con `checkJs` y el editor los usan como tipos.
 - Triple-slash `/// <reference …>`.
 - Shebang `#!` en la primera línea.
+- Comentarios que son el único contenido de un bloque (`catch (_e) { // Fallback }`, una función vacía): indican que el bloque está vacío a propósito, y quitarlos cambia lo que Biome formatea y reporta (`noEmptyBlockStatements`).
 - Todo lo que coincida con `comments.protect` del manifest.
 
 **Seguro (se aplica con `--write`).**

@@ -261,3 +261,31 @@ func Protected(c Comment, ext string, extra []*regexp.Regexp) bool {
 
 	return false
 }
+
+// SoleBlockComments returns the IDs of comments that are the only content
+// of a block, such as an empty catch or function body. Such a comment says
+// the block is empty on purpose, and removing it changes what Biome
+// reports and formats, so it is never touched.
+func SoleBlockComments(cs []Comment, src []byte) map[string]bool {
+	out := map[string]bool{}
+	for i := 0; i < len(cs); {
+		// Group comments separated only by whitespace.
+		j := i
+		for j+1 < len(cs) && isSpaceOnly(src[cs[j].End:cs[j+1].Start]) {
+			j++
+		}
+		before := strings.TrimRight(string(src[:cs[i].Start]), " \t\r\n")
+		after := strings.TrimLeft(string(src[cs[j].End:]), " \t\r\n")
+		if cs[i].Kind != "jsx" && strings.HasSuffix(before, "{") && strings.HasPrefix(after, "}") {
+			for k := i; k <= j; k++ {
+				out[cs[k].ID] = true
+			}
+		}
+		i = j + 1
+	}
+	return out
+}
+
+func isSpaceOnly(b []byte) bool {
+	return len(strings.TrimSpace(string(b))) == 0
+}

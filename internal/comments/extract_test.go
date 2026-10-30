@@ -93,3 +93,42 @@ function App() {
 		t.Errorf("c3.FullLine = false, want true for JSX comment on its own line")
 	}
 }
+
+func TestSoleBlockComments(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want []string // texts expected to be marked
+	}{
+		{"empty catch", "try {\n\tf();\n} catch (_e) {\n\t// Fallback\n}\n", []string{"// Fallback"}},
+		{"empty function", "function noop() { /* nothing */ }\n", []string{"/* nothing */"}},
+		{"two comments in empty block", "if (x) {\n\t// a\n\t// b\n}\n", []string{"// a", "// b"}},
+		{"block with code", "if (x) {\n\t// a\n\tf();\n}\n", nil},
+		{"jsx comment between tags", "const C = () => (\n\t<div>\n\t\t{/* x */}\n\t</div>\n);\n", nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := []byte(tc.src)
+			lang, _ := comments.LangFor("x.jsx")
+			cs, err := comments.Extract("x.jsx", src, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sole := comments.SoleBlockComments(cs, src)
+			var got []string
+			for _, c := range cs {
+				if sole[c.ID] {
+					got = append(got, c.Text)
+				}
+			}
+			if len(got) != len(tc.want) {
+				t.Fatalf("marked %q, want %q", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("marked %q, want %q", got, tc.want)
+				}
+			}
+		})
+	}
+}

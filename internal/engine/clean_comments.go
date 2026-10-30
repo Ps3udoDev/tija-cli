@@ -325,10 +325,11 @@ func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanReques
 			lang:     lang,
 		}
 
+		sole := comments.SoleBlockComments(extracted, src)
 		for _, c := range extracted {
 			rep.Summary.Comments++
 
-			if comments.Protected(c, filepath.Ext(relPath), extraProtect) {
+			if sole[c.ID] || comments.Protected(c, filepath.Ext(relPath), extraProtect) {
 				rep.Summary.Protected++
 				continue
 			}

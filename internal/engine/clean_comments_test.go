@@ -714,3 +714,36 @@ func TestAtomicWriteFileKeepsMode(t *testing.T) {
 		t.Errorf("mode = %v, want 0755", info.Mode().Perm())
 	}
 }
+
+func TestCleanKeepsSoleCommentOfEmptyBlock(t *testing.T) {
+	repo := setupCommentsRepo(t)
+	p := filepath.Join(repo, "src", "load.js")
+	src := "export async function load(get) {\n\ttry {\n\t\treturn await get();\n\t} catch (_e) {\n\t\t// Fallback\n\t}\n}\n"
+	if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Git(t, repo, "add", "src/load.js")
+	testutil.Git(t, repo, "commit", "-m", "add load.js")
+
+	removeAll := func(stdin string) string {
+		var items []string
+		for _, m := range commentHeaderRx.FindAllStringSubmatch(stdin, -1) {
+			items = append(items, `{"id":"`+m[1]+`","action":"remove","class":"empty-label","confidence":"high","reason":"x"}`)
+		}
+		return "[" + strings.Join(items, ",") + "]"
+	}
+	env, calls := commentFakeEnv(removeAll)
+
+	if _, err := CleanComments(context.Background(), repo, env, CleanRequest{Paths: []string{"src/load.js"}, Write: true}, nil); err != nil {
+		t.Fatalf("CleanComments: %v", err)
+	}
+	got, _ := os.ReadFile(p)
+	if string(got) != src {
+		t.Errorf("load.js changed:\n%s", got)
+	}
+	for _, c := range *calls {
+		if strings.Contains(c.stdin, "Fallback") {
+			t.Errorf("sole block comment was sent to the agent")
+		}
+	}
+}
