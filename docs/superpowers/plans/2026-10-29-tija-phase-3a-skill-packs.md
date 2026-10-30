@@ -350,14 +350,14 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   ```
 - Invocación: el binario se resuelve con `LookupBin(root, "biome", runtime.GOOS, env.LookPath)` y se corre `biome check --reporter=github --max-diagnostics=none --colors=off <files…>` con `env.Run`. El exit code de Biome se ignora (es 1 cuando hay errores); el resultado sale del stdout.
 
-- [ ] **Step 1: Verificar en el frontend real** (`node_modules/.bin/biome`, v2.4.4) que `--max-diagnostics=none` es aceptado. Si no lo es, usar `--max-diagnostics=10000` y anotarlo en un comentario de una línea junto a la invocación.
-- [ ] **Step 2: Tests.**
+- [x] **Step 1: Verificar en el frontend real** (`node_modules/.bin/biome`, v2.4.4) que `--max-diagnostics=none` es aceptado. Si no lo es, usar `--max-diagnostics=10000` y anotarlo en un comentario de una línea junto a la invocación.
+- [x] **Step 2: Tests.**
   - `TestParseBiomeGithub`: usa como fixture la salida real capturada (líneas `::warning title=lint/correctness/noUnusedVariables,file=src\pages\(features)\claims\...,line=112,...::...`). Las rutas con `\` se normalizan a slash relativa.
   - `TestParseBiomeGithubUnrecognized`: texto arbitrario devuelve `ok=false`.
   - `TestRegressions`: una categoría nueva y un aumento cuentan como regresión; una disminución no.
   - `TestBiomeDiagnosticsArgs`: con un `env.Run` falso, verifica los argumentos y que los archivos se pasan como rutas relativas.
-- [ ] **Step 3: Correr** `go test ./internal/quality/ -run 'Biome|Regressions'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
-- [ ] **Step 4: Commit** `feat(quality): read per-file Biome diagnostics for post-edit checks`.
+- [x] **Step 3: Correr** `go test ./internal/quality/ -run 'Biome|Regressions'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
+- [x] **Step 4: Commit** `feat(quality): read per-file Biome diagnostics for post-edit checks`.
 
 ### Task 7: Clasificación con el agente — prompt, parser, seguridad y lotes
 

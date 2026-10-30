@@ -1,0 +1,7 @@
+::warning title=lint/correctness/noUnusedVariables,file=src\pages\(features)\claims\Form.jsx,line=112,col=7::This variable is unused.
+::warning title=lint/correctness/noUnusedVariables,file=src\pages\(features)\claims\Form.jsx,line=145,col=9::This variable is unused.
+::warning title=lint/a11y/useButtonType,file=src\pages\(features)\claims\Form.jsx,line=204,col=13::Provide an explicit type prop for the button element.
+::error title=lint/suspicious/noExplicitAny,file=src\components\Button.tsx,line=15,col=20::Unexpected any. Specify a different type.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
