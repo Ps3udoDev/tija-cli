@@ -558,7 +558,7 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
 - **Comandos:** `tija run <name>` y `tija run --list` (`--json`). Un nombre desconocido o un workflow inválido es exit 2.
 - **`doctor`:** emite `✗ workflow <name>: <error>` por cada workflow inválido y `✓ workflows: N valid` si todos lo son.
 
-- [ ] **Step 1: Tests.**
+- [x] **Step 1: Tests.**
   - `TestValidateRejectsShellAndNested`: `run: npm test` → `unknown command "npm"`; `run: run pre-pr` → `nested run is not allowed`.
   - `TestAllowedResolvesInCobra` (en `cli`): cada entrada de `Allowed` resuelve con `root.Find` a un comando distinto del root. Así `Allowed` y Cobra no se desincronizan.
   - `TestRunStopsAtFirstFailure`: un workflow `status --strict` (que falla en la rama del fixture) → `check`; el segundo paso no corre y el exit es 1.
@@ -566,8 +566,8 @@ internal/tui/         menu.go, comments_view.go, workflow_view.go, model.go
   - `TestRunJSONEmbedsStepOutput`: la salida es un único documento JSON válido con 2 pasos.
   - `TestRunList`.
   - `TestDoctorReportsInvalidWorkflow`.
-- [ ] **Step 2: Correr** `go test ./internal/workflows/ ./internal/cli/ ./internal/engine/ -run 'Workflow|Run|Allowed|Doctor.*Workflow'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
-- [ ] **Step 3: Commit** `feat(workflows): run composed Tija commands with tija run`.
+- [x] **Step 2: Correr** `go test ./internal/workflows/ ./internal/cli/ ./internal/engine/ -run 'Workflow|Run|Allowed|Doctor.*Workflow'`. Esperado: FAIL. **Implementar.** **Correr de nuevo.** Esperado: PASS.
+- [x] **Step 3: Commit** `feat(workflows): run composed Tija commands with tija run`.
 
 ### Task 12: TUI — `Clean comments` y `Workflows`
 

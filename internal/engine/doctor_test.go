@@ -317,3 +317,50 @@ func TestDoctorMissingBiomeHint(t *testing.T) {
 		t.Errorf("tool.biome = %+v, want fail with 'run: bun install'", c)
 	}
 }
+
+func TestDoctorReportsInvalidWorkflow(t *testing.T) {
+	repo := initRepo(t, "react-vite")
+	wfPath := filepath.Join(repo, ".tija", "workflows", "broken.yaml")
+	putFile(t, repo, ".tija/workflows/broken.yaml", []byte("name: broken\nsteps:\n  - run: npm test\n"))
+
+	r, err := Doctor(context.Background(), repo, doctorEnv(0, "gh", "claude", "bun", "biome"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundBroken := false
+	for _, c := range r.Checks {
+		if c.ID == "workflow.broken" {
+			foundBroken = true
+			if c.Status != StatusFail {
+				t.Errorf("status = %v, want StatusFail", c.Status)
+			}
+			if !strings.Contains(c.Title, `unknown command "npm"`) {
+				t.Errorf("title = %q, want unknown command \"npm\"", c.Title)
+			}
+			break
+		}
+	}
+	if !foundBroken {
+		t.Errorf("expected workflow.broken check in %+v", r.Checks)
+	}
+
+	// Clean up broken workflow and check valid report
+	if err := os.Remove(wfPath); err != nil {
+		t.Fatal(err)
+	}
+	r, err = Doctor(context.Background(), repo, doctorEnv(0, "gh", "claude", "bun", "biome"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, ok := checkByID(r, "workflows.valid")
+	if !ok {
+		t.Fatalf("expected workflows.valid check in %+v", r.Checks)
+	}
+	if c.Status != StatusOK {
+		t.Errorf("workflows.valid status = %v, want StatusOK", c.Status)
+	}
+	if !strings.Contains(c.Title, "workflows: 1 valid") {
+		t.Errorf("workflows.valid title = %q, want 'workflows: 1 valid'", c.Title)
+	}
+}

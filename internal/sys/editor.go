@@ -19,7 +19,7 @@ func EditorCommand(ctx context.Context, env Env, dir, path string) (*exec.Cmd, e
 	if code != 0 {
 		return nil, fmt.Errorf("git var GIT_EDITOR failed: %s", strings.TrimSpace(stderr))
 	}
-	argv := splitCommand(strings.TrimSpace(stdout))
+	argv := SplitArgs(strings.TrimSpace(stdout))
 	if len(argv) == 0 {
 		return nil, errors.New("no editor configured (set GIT_EDITOR or core.editor)")
 	}
@@ -28,8 +28,8 @@ func EditorCommand(ctx context.Context, env Env, dir, path string) (*exec.Cmd, e
 	return c, nil
 }
 
-// splitCommand splits a command line on blanks, honoring single and double quotes.
-func splitCommand(s string) []string {
+// SplitArgs splits a command line on blanks, honoring single and double quotes.
+func SplitArgs(s string) []string {
 	var out []string
 	var cur strings.Builder
 	var quote rune

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/skills"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
+	"github.com/Ps3udoDev/tija-cli/internal/workflows"
 )
 
 // CheckStatus is the outcome of one doctor check.
@@ -197,6 +199,40 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 					Title:  fmt.Sprintf("skill %s: %s", pack.Name, prob),
 				})
 			}
+		}
+		wfs, loadErrs := workflows.Load(root)
+		var invalidCount int
+		for _, err := range loadErrs {
+			invalidCount++
+			rep.Checks = append(rep.Checks, Check{
+				ID:     "workflow.load",
+				Status: StatusFail,
+				Title:  fmt.Sprintf("workflow: %s", err),
+			})
+		}
+		for _, wf := range wfs {
+			errs := workflows.Validate(wf)
+			if len(errs) > 0 {
+				invalidCount++
+				name := wf.Name
+				if name == "" {
+					name = filepath.Base(wf.Path)
+				}
+				for _, err := range errs {
+					rep.Checks = append(rep.Checks, Check{
+						ID:     "workflow." + name,
+						Status: StatusFail,
+						Title:  fmt.Sprintf("workflow %s: %s", name, err),
+					})
+				}
+			}
+		}
+		if invalidCount == 0 && len(wfs) > 0 {
+			rep.Checks = append(rep.Checks, Check{
+				ID:     "workflows.valid",
+				Status: StatusOK,
+				Title:  fmt.Sprintf("workflows: %d valid", len(wfs)),
+			})
 		}
 	}
 	return rep, nil

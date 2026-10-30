@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -46,17 +47,22 @@ func Execute(args []string, in io.Reader, out, errOut io.Writer) int {
 
 // ExecuteWith runs the CLI with the given dependencies and returns the exit code.
 func ExecuteWith(deps Deps, args []string, in io.Reader, out, errOut io.Writer) int {
+	return ExecuteWithContext(context.Background(), deps, args, in, out, errOut)
+}
+
+// ExecuteWithContext runs the CLI with a context, dependencies, and returns the exit code.
+func ExecuteWithContext(ctx context.Context, deps Deps, args []string, in io.Reader, out, errOut io.Writer) int {
 	if deps.RunTUI == nil {
 		env := deps.Env
 		deps.RunTUI = func(dir string) error { return tui.Run(dir, currentVersion(), env) }
 	}
-	root := newRootCmd(deps, in)
+	root := NewRoot(deps, in)
 	root.SetArgs(args)
 	root.SetIn(in)
 	root.SetOut(out)
 	root.SetErr(errOut)
 
-	err := root.Execute()
+	err := root.ExecuteContext(ctx)
 	if err == nil {
 		return 0
 	}
@@ -85,6 +91,11 @@ func ExecuteWith(deps Deps, args []string, in io.Reader, out, errOut io.Writer) 
 }
 
 func newRootCmd(deps Deps, in io.Reader) *cobra.Command {
+	return NewRoot(deps, in)
+}
+
+// NewRoot builds the root cobra command for Tija.
+func NewRoot(deps Deps, in io.Reader) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "tija",
 		Short:         "Tija, a repo-native engineering orchestrator",
@@ -126,6 +137,7 @@ func newRootCmd(deps Deps, in io.Reader) *cobra.Command {
 		newPRCmd(deps, in),
 		newSkillsCmd(deps),
 		newCleanCmd(deps),
+		newRunCmd(deps, in),
 	)
 	return root
 }
