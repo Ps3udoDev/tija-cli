@@ -1,0 +1,6 @@
+name: pre-pr
+description: Clean comment slop, run quality checks and prepare the PR
+steps:
+  - run: clean comments --write
+  - run: check
+  - run: pr prepare
