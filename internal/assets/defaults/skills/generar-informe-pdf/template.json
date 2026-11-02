@@ -1,0 +1,251 @@
+{
+  "_doc": "Plantilla de marca de los informes. Unidades en puntos (1 pt = 1/72 in). Coordenadas con origen ARRIBA-IZQUIERDA. Rutas relativas a la carpeta de la skill.",
+  "page": {
+    "size": "LETTER",
+    "width": 612,
+    "height": 792,
+    "margin_left": 55,
+    "margin_right": 55,
+    "content_top": 92,
+    "content_bottom": 722
+  },
+  "colors": {
+    "primary": "#12344D",
+    "accent": "#F97316",
+    "text": "#1F2933",
+    "heading2": "#52606D",
+    "muted": "#6B7785",
+    "footer_text": "#52606D",
+    "table_header_bg": "#12344D",
+    "table_header_text": "#FFFFFF",
+    "table_zebra_bg": "#F6F7F9",
+    "table_grid": "#D9DEE3",
+    "code_bg": "#F4F6F8",
+    "code_bar": "#12344D",
+    "note_bg": "#F6F7F9",
+    "note_bar": "#F97316",
+    "inline_code": "#12344D",
+    "bullet": "#F97316"
+  },
+  "fonts": {
+    "_doc": "Se busca el primer archivo existente (assets/fonts de la skill, fuentes del sistema). Si ninguno existe se usa la fuente PDF base indicada en 'builtin'.",
+    "sans": {
+      "regular": [
+        "arial.ttf",
+        "Arial.ttf",
+        "LiberationSans-Regular.ttf",
+        "DejaVuSans.ttf"
+      ],
+      "bold": [
+        "arialbd.ttf",
+        "Arial Bold.ttf",
+        "LiberationSans-Bold.ttf",
+        "DejaVuSans-Bold.ttf"
+      ],
+      "italic": [
+        "ariali.ttf",
+        "Arial Italic.ttf",
+        "LiberationSans-Italic.ttf",
+        "DejaVuSans-Oblique.ttf"
+      ],
+      "bolditalic": [
+        "arialbi.ttf",
+        "Arial Bold Italic.ttf",
+        "LiberationSans-BoldItalic.ttf",
+        "DejaVuSans-BoldOblique.ttf"
+      ],
+      "builtin": "Helvetica"
+    },
+    "mono": {
+      "regular": [
+        "consola.ttf",
+        "Consolas.ttf",
+        "LiberationMono-Regular.ttf",
+        "DejaVuSansMono.ttf"
+      ],
+      "bold": [
+        "consolab.ttf",
+        "Consolas Bold.ttf",
+        "LiberationMono-Bold.ttf",
+        "DejaVuSansMono-Bold.ttf"
+      ],
+      "builtin": "Courier"
+    }
+  },
+  "header": {
+    "_doc": "Se dibuja igual en todas las paginas. 'caption.text' admite un dato de la organizacion; vacio no se dibuja.",
+    "pattern": {
+      "src": "assets/branding/header-pattern.png",
+      "x": 0,
+      "y": 0,
+      "w": 612,
+      "h": 72
+    },
+    "logo": {
+      "src": "assets/branding/logo.png",
+      "x": 55,
+      "y": 24,
+      "w": 108,
+      "h": 35
+    },
+    "caption": {
+      "text": "",
+      "y": 62,
+      "size": 9,
+      "color": "muted",
+      "align": "center"
+    }
+  },
+  "footer": {
+    "rule": {
+      "y": 735.5,
+      "x1": 54,
+      "x2": 558,
+      "width": 1,
+      "color": "accent"
+    },
+    "text": "Documento generado con Tija",
+    "text_y": 747,
+    "size": 8,
+    "color": "footer_text",
+    "page_numbers": false,
+    "page_number_format": "Página {page} de {total}"
+  },
+  "styles": {
+    "title": {
+      "size": 18,
+      "leading": 24,
+      "bold": true,
+      "color": "primary",
+      "space_after": 6
+    },
+    "title_rule": {
+      "width": 2,
+      "color": "accent",
+      "space_after": 12
+    },
+    "subtitle": {
+      "size": 13,
+      "leading": 15,
+      "bold": true,
+      "color": "text",
+      "space_after": 12
+    },
+    "h1": {
+      "size": 13,
+      "leading": 16,
+      "bold": true,
+      "color": "text",
+      "space_before": 12,
+      "space_after": 3,
+      "numbered": true
+    },
+    "h2": {
+      "size": 11.5,
+      "leading": 14,
+      "bold": true,
+      "color": "heading2",
+      "space_before": 10,
+      "space_after": 2
+    },
+    "body": {
+      "size": 11,
+      "leading": 14,
+      "color": "text",
+      "space_after": 4
+    },
+    "list": {
+      "size": 11,
+      "leading": 14,
+      "indent": 20,
+      "nested_indent": 20,
+      "item_space": 1,
+      "number_color": "primary",
+      "bullet_l1": "●",
+      "bullet_l2": "○"
+    },
+    "code": {
+      "size": 8.5,
+      "leading": 10,
+      "padding": 7,
+      "bar_width": 3,
+      "space_before": 6,
+      "space_after": 10
+    },
+    "table": {
+      "size": 10,
+      "leading": 12.5,
+      "padding": 3,
+      "space_before": 4,
+      "space_after": 10
+    },
+    "note": {
+      "size": 10.6,
+      "leading": 14,
+      "padding": 7,
+      "bar_width": 3,
+      "space_before": 8,
+      "space_after": 12
+    },
+    "figure": {
+      "default_width_pct": 82,
+      "space_before": 6,
+      "space_after": 10
+    },
+    "caption": {
+      "size": 9,
+      "leading": 11,
+      "color": "heading2",
+      "prefix": "Figura {n}. "
+    }
+  },
+  "ficha_tecnica": {
+    "_doc": "Seccion 1. La genera el motor a partir de 'meta.ficha'. Se desactiva con enabled: false.",
+    "enabled": true,
+    "heading": "Ficha Técnica y Control del Documento",
+    "intro": "La siguiente tabla identifica el documento y su control de versiones.",
+    "columns": [
+      "Campo",
+      "Valor"
+    ],
+    "col_widths_pct": [
+      50,
+      50
+    ],
+    "fields": [
+      [
+        "codigo",
+        "Código de Documento"
+      ],
+      [
+        "nombre",
+        "Nombre del Documento / Proyecto"
+      ],
+      [
+        "modulo",
+        "Módulo"
+      ],
+      [
+        "area",
+        "Área Responsable / Proyecto"
+      ],
+      [
+        "estado",
+        "Estado"
+      ],
+      [
+        "version_fecha",
+        "Versión & Fecha de Emisión"
+      ],
+      [
+        "aprobadores",
+        "Aprobadores & Clasificación"
+      ]
+    ],
+    "placeholder": "*[por confirmar]*"
+  },
+  "naming": {
+    "_doc": "Nombre de archivo de salida sugerido.",
+    "pattern": "{cliente}_{nombre_corto}_{fecha:%Y%m%d}_v{version}.pdf"
+  }
+}

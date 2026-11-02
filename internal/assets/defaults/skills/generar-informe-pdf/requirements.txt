@@ -1,0 +1,4 @@
+reportlab>=4.0
+svglib>=1.5
+# Opcional: rasterizar SVG sin svglib y generar --preview
+# pymupdf>=1.23

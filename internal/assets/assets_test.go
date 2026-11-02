@@ -25,8 +25,8 @@ func TestDefaultsMatchReference(t *testing.T) {
 	if b, ok := files[WorkflowsKeep]; !ok || len(b) != 0 {
 		t.Errorf("%s = %q, %v", WorkflowsKeep, b, ok)
 	}
-	if len(files) != 12 {
-		t.Errorf("Files() has %d entries, want 12", len(files))
+	if len(files) != 27 {
+		t.Errorf("Files() has %d entries, want 27", len(files))
 	}
 	if _, ok := files[PrePRWorkflowPath]; !ok {
 		t.Errorf("Files() missing %s", PrePRWorkflowPath)
@@ -39,6 +39,31 @@ func TestDefaultsMatchReference(t *testing.T) {
 		}
 		if _, ok := files[license]; !ok {
 			t.Errorf("Files() missing %s", license)
+		}
+	}
+}
+
+func TestReportPacksAreComplete(t *testing.T) {
+	files := Files()
+	for _, path := range []string{
+		".tija/skills/generar-informe-pdf/SKILL.md",
+		".tija/skills/generar-informe-pdf/template.json",
+		".tija/skills/generar-informe-pdf/requirements.txt",
+		".tija/skills/generar-informe-pdf/assets/branding/header-pattern.png",
+		".tija/skills/generar-informe-pdf/assets/branding/logo.png",
+		".tija/skills/generar-informe-pdf/scripts/build_report.py",
+		".tija/skills/generar-informe-pdf/references/content-schema.md",
+		".tija/skills/generar-informe-pdf/references/figure-style.md",
+		".tija/skills/generar-informe-pdf/examples/informe-ejemplo/informe.json",
+		".tija/skills/generar-informe-pdf/examples/informe-ejemplo/figuras/fig1-flujo.svg",
+		".tija/skills/generar-reporte-actividades/SKILL.md",
+		".tija/skills/generar-reporte-actividades/activity-template.json",
+		".tija/skills/generar-reporte-actividades/references/report-schema.md",
+		".tija/skills/generar-reporte-actividades/scripts/build_activity_report.py",
+		".tija/skills/generar-reporte-actividades/scripts/collect_activity.py",
+	} {
+		if len(files[path]) == 0 {
+			t.Errorf("Files() missing or empty %s", path)
 		}
 	}
 }

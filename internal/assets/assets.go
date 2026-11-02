@@ -10,7 +10,7 @@ import (
 )
 
 // DefaultsVersion identifies the revision of the embedded defaults.
-const DefaultsVersion = "2"
+const DefaultsVersion = "3"
 
 // Repo-relative paths of the embedded defaults.
 const (

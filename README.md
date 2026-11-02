@@ -88,7 +88,34 @@ Tija embeds and installs modular skill packs under `.tija/skills/<pack>/SKILL.md
 - `thermo-review`: Correctness, bug hunting, and security review rubrics (adapted from [Cursor Thermos](https://github.com/cursor/plugins/tree/main/thermos)).
 - `thermo-quality`: Maintainability, code judo, and 1000-line limit rubrics (adapted from [Cursor Thermos](https://github.com/cursor/plugins/tree/main/thermos)).
 
+- `generar-informe-pdf`: Branded PDF reports from a JSON file (own pack; holds the branding assets).
+- `generar-reporte-actividades`: PDF activity reports from commits and pull requests over a period (own pack; reuses the assets of `generar-informe-pdf`).
+
 All third-party materials are licensed under the MIT License and fully attributed to their original authors with companion `LICENSE` files and frontmatter source references. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full notices and license texts.
+
+### Report packs
+
+Tija installs these two packs but does not run them: there is no `tija` command or TUI screen for them yet. An agent or a person follows the `SKILL.md` and runs the Python scripts. Ask your agent, for example: *"Follow `.tija/skills/generar-reporte-actividades/SKILL.md` and create the activity report for October"*. `tija skills show <name>` prints the instructions.
+
+Requirements: Python 3 (tested with 3.14) and `pip install -r .tija/skills/generar-informe-pdf/requirements.txt`. Tija does not install them. The activity collector also needs `git`, and `gh` to read pull requests. Previews with `--preview` need `pymupdf`.
+
+Generate a report from the bundled example:
+
+```sh
+python .tija/skills/generar-informe-pdf/scripts/build_report.py .tija/skills/generar-informe-pdf/examples/informe-ejemplo/informe.json -o informe.pdf
+```
+
+Generate an activity report (`manifest.json` and `reporte.json` are described in `references/report-schema.md`):
+
+```sh
+python .tija/skills/generar-reporte-actividades/scripts/collect_activity.py docs/reportes/octubre/manifest.json --fetch
+# Write docs/reportes/octubre/reporte.json from the generated actividad.md
+python .tija/skills/generar-reporte-actividades/scripts/build_activity_report.py docs/reportes/octubre/reporte.json
+```
+
+To use your own brand, replace the PNG files in `.tija/skills/generar-informe-pdf/assets/branding/` and edit `template.json` next to them (colors, header and footer text). The default logo sources are in `assets/brand/`.
+
+On Windows, use `py` if `python` opens the Microsoft Store. Keep both packs in the same folder: the activity report loads the engine, template and assets of `generar-informe-pdf`.
 
 ## Pull requests
 

@@ -195,7 +195,7 @@ func TestInitBackendWithYes(t *testing.T) {
 	}
 	for p, data := range assets.Files() {
 		if p != assets.RulesPath && p != assets.TemplatePath && p != assets.WorkflowsKeep {
-			wantInstalled[p] = sum(data)
+			wantInstalled[p] = hash(data)
 		}
 	}
 	if m.Tija.DefaultsVersion != assets.DefaultsVersion || !reflect.DeepEqual(m.Tija.Installed, wantInstalled) {
@@ -696,6 +696,11 @@ func TestInitInstallsSkillPacks(t *testing.T) {
 		".tija/skills/thermo-quality/LICENSE",
 		".tija/skills/thermo-review/SKILL.md",
 		".tija/skills/thermo-review/LICENSE",
+		".tija/skills/generar-informe-pdf/SKILL.md",
+		".tija/skills/generar-informe-pdf/assets/branding/logo.png",
+		".tija/skills/generar-informe-pdf/scripts/build_report.py",
+		".tija/skills/generar-reporte-actividades/SKILL.md",
+		".tija/skills/generar-reporte-actividades/scripts/build_activity_report.py",
 		".tija/workflows/pre-pr.yaml",
 	}
 
@@ -717,8 +722,8 @@ func TestInitInstallsSkillPacks(t *testing.T) {
 			continue
 		}
 		data := readFile(t, repo, f)
-		if h != sum(data) {
-			t.Errorf("tija.installed[%q] = %q, want %q", f, h, sum(data))
+		if h != hash(data) {
+			t.Errorf("tija.installed[%q] = %q, want %q", f, h, hash(data))
 		}
 	}
 }
@@ -775,8 +780,8 @@ func TestReinitOffersNewKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(mUpdated.Skills) != 4 {
-		t.Errorf("Skills count = %d, want 4", len(mUpdated.Skills))
+	if len(mUpdated.Skills) != 6 {
+		t.Errorf("Skills count = %d, want 6", len(mUpdated.Skills))
 	}
 	if len(mUpdated.Comments.Include) == 0 {
 		t.Errorf("Comments.Include is empty")
