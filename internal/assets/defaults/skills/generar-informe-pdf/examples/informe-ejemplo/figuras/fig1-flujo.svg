@@ -1,16 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="980" height="170" viewBox="0 0 980 170" font-family="Arial, Helvetica, sans-serif">
-  <defs>
-    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#292B2D"/></marker>
-  </defs>
   <rect width="980" height="170" fill="#FFFFFF"/>
   <text x="20" y="28" font-size="17" font-weight="bold" fill="#292B2D">Flujo de la migración</text>
   <line x1="20" y1="38" x2="960" y2="38" stroke="#F97316" stroke-width="2"/>
   <rect x="40" y="70" width="210" height="70" rx="8" fill="#EEF3F9" stroke="#12344D" stroke-width="1.4"/>
   <text x="145" y="111" font-size="15" text-anchor="middle" fill="#292B2D">Versión actual</text>
-  <line x1="250" y1="105" x2="380" y2="105" stroke="#292B2D" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="250" y1="105" x2="374" y2="105" stroke="#292B2D" stroke-width="1.4"/>
+  <polygon points="372,99 384,105 372,111" fill="#292B2D"/>
   <rect x="385" y="70" width="210" height="70" rx="8" fill="#FFF3CD" stroke="#D99A00" stroke-width="1.4"/>
   <text x="490" y="111" font-size="15" text-anchor="middle" fill="#292B2D">Pruebas en paralelo</text>
-  <line x1="595" y1="105" x2="725" y2="105" stroke="#292B2D" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="595" y1="105" x2="719" y2="105" stroke="#292B2D" stroke-width="1.4"/>
+  <polygon points="717,99 729,105 717,111" fill="#292B2D"/>
   <rect x="730" y="70" width="210" height="70" rx="8" fill="#EAF4D3" stroke="#6E8F12" stroke-width="1.4"/>
   <text x="835" y="111" font-size="15" text-anchor="middle" font-weight="bold" fill="#292B2D">Nueva versión</text>
 </svg>

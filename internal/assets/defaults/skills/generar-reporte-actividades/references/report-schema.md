@@ -16,7 +16,7 @@
 ```
 
 - `autores`: nombres y correos de git y login de GitHub; se comparan exactos, sin distinguir mayúsculas.
-  Si se omite, se usan `git config --global` y la cuenta de `gh`. Revisa `git shortlog -sne` si la
+  Si se omite, se usan `git config` del repo actual y la cuenta de `gh`. Revisa `git shortlog -sne` si la
   persona tiene varias identidades.
 - `desde`/`hasta` por repo sustituyen el periodo global para ese repo.
 

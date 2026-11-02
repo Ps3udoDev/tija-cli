@@ -28,6 +28,7 @@ Or download a binary for Windows, Linux or macOS from the [Releases](https://git
 | `tija clean comments` | Cleans AI-slop comments in JS/TS/JSX with Biome flag semantics (`--write`, `--unsafe`). |
 | `tija skills list` | Lists installed and embedded skill packs with origin, license, author, and commit. |
 | `tija skills show <name>` | Displays a skill pack's content, origin, and attribution. |
+| `tija report activity` | Generates the PDF activity report of a period (see Report packs). |
 | `tija run <name>` | Runs a composed workflow defined in `.tija/workflows/*.yaml` in-process. |
 | `tija run --list` | Lists available workflows. |
 | `tija pr prepare` | Drafts the pull request title and body for the current branch (see Pull requests). |
@@ -95,7 +96,17 @@ All third-party materials are licensed under the MIT License and fully attribute
 
 ### Report packs
 
-Tija installs these two packs but does not run them: there is no `tija` command or TUI screen for them yet. An agent or a person follows the `SKILL.md` and runs the Python scripts. Ask your agent, for example: *"Follow `.tija/skills/generar-reporte-actividades/SKILL.md` and create the activity report for October"*. `tija skills show <name>` prints the instructions.
+**Activity report from Tija.** Run `tija` and choose `Activity report`, then pick this month, last month, the last 7 days or a custom range. Or use the command:
+
+```sh
+tija report activity --since 2026-10-01 --until 2026-10-31
+```
+
+Tija collects the commits and pull requests of the period, the agent writes the content as text, and Tija saves it and generates the PDF in `docs/reportes/actividades-<since>_<until>/`. That folder also keeps `actividad.md` and `reporte.json`, and `docs/reportes/` is ignored by git because reports name clients and hours. Flags: `--agent <name>`, `--no-agent` (stops after collecting) and `--agent-timeout` (default `5m`). Without an agent CLI, Tija also stops after collecting. Hours are estimates from commit times, marked with `~` in the PDF: review them before delivering the report.
+
+By default the report covers the current repository and your `git` and `gh` identities. To group several repositories, create `docs/reportes/manifest.json` with the groups, repositories and authors described in `references/report-schema.md`; every report uses it and only replaces the period.
+
+**Other uses.** `generar-informe-pdf` has no command: an agent or a person follows its `SKILL.md` and runs the script. `tija skills show <name>` prints the instructions.
 
 Requirements: Python 3 (tested with 3.14) and `pip install -r .tija/skills/generar-informe-pdf/requirements.txt`. Tija does not install them. The activity collector also needs `git`, and `gh` to read pull requests. Previews with `--preview` need `pymupdf`.
 
@@ -105,7 +116,7 @@ Generate a report from the bundled example:
 python .tija/skills/generar-informe-pdf/scripts/build_report.py .tija/skills/generar-informe-pdf/examples/informe-ejemplo/informe.json -o informe.pdf
 ```
 
-Generate an activity report (`manifest.json` and `reporte.json` are described in `references/report-schema.md`):
+Generate an activity report by hand (`manifest.json` and `reporte.json` are described in `references/report-schema.md`):
 
 ```sh
 python .tija/skills/generar-reporte-actividades/scripts/collect_activity.py docs/reportes/octubre/manifest.json --fetch
@@ -166,11 +177,12 @@ Base branches are never classified as nonconforming, and renaming suggestions ne
 ## TUI
 
 Run `tija` with no arguments in a terminal to open the interactive terminal UI:
-- Menu options: `Pull Request`, `Clean comments` (JS/TS projects), `Check`, `Tests`, `Workflows` (when workflows exist), `Doctor`, `Status`, and `Init`.
+- Menu options: `Pull Request`, `Clean comments` (JS/TS projects), `Check`, `Tests`, `Workflows` (when workflows exist), `Activity report` (when the report packs are installed), `Doctor`, `Status`, and `Init`.
 - Live progress screens with real-time spinner, step status, and live event updates.
 - Expressive pixel cat mascot: `Idle`, `Scanning`, `Thinking`, `Success`, `Warning` (!), and `Error`.
 - Clean comments interactive screen: review diffs and summaries, press `w` to apply safe fixes, `u` to confirm unsafe fixes, or `q` to exit without writing.
 - Workflows screen: select and trigger workflows with live step-by-step check/cross status indicators.
+- Activity report screen: pick a period and follow each stage until the PDF is ready (shown when the report packs are installed).
 - Scrollable results with automatic wrapping, supporting `↑`/`↓`, `PgUp`/`PgDn`, `Home`/`End`.
 
 ## Docs

@@ -18,6 +18,7 @@ const (
 	keyCheck     = "check"
 	keyTests     = "tests"
 	keyWorkflows = "workflows"
+	keyReport    = "report"
 	keyInit      = "init"
 	keyDoctor    = "doctor"
 	keyStatus    = "status"
@@ -29,6 +30,7 @@ var (
 	itemCheck     = MenuItem{Key: keyCheck, Title: "Check", Description: "Lint, format and tests"}
 	itemTests     = MenuItem{Key: keyTests, Title: "Tests", Description: "Run the test suite"}
 	itemWorkflows = MenuItem{Key: keyWorkflows, Title: "Workflows", Description: "Run a composed sequence of commands"}
+	itemReport    = MenuItem{Key: keyReport, Title: "Activity report", Description: "Generate a PDF report for a period"}
 	itemInit      = MenuItem{Key: keyInit, Title: "Init", Description: "Detect the stack and set up .tija/"}
 	itemDoctor    = MenuItem{Key: keyDoctor, Title: "Doctor", Description: "Check tools, manifest and agents"}
 	itemStatus    = MenuItem{Key: keyStatus, Title: "Status", Description: "Branch, commits and working tree"}
@@ -36,7 +38,7 @@ var (
 
 // MenuItems returns the menu items. Init comes first until the repository
 // is initialized, then last.
-func MenuItems(initialized, hasJS, hasWorkflows bool) []MenuItem {
+func MenuItems(initialized, hasJS, hasWorkflows, hasReports bool) []MenuItem {
 	var items []MenuItem
 	if !initialized {
 		items = append(items, itemInit)
@@ -48,6 +50,9 @@ func MenuItems(initialized, hasJS, hasWorkflows bool) []MenuItem {
 	items = append(items, itemCheck, itemTests)
 	if hasWorkflows {
 		items = append(items, itemWorkflows)
+	}
+	if hasReports {
+		items = append(items, itemReport)
 	}
 	items = append(items, itemDoctor, itemStatus)
 	if initialized {

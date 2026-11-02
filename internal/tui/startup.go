@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
+	"github.com/Ps3udoDev/tija-cli/internal/engine"
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
@@ -25,6 +26,7 @@ type startupInfo struct {
 	Err          string            // real error if FindRoot failed
 	HasJS        bool
 	HasWorkflows bool
+	HasReports   bool // the activity report pack is installed
 }
 
 // startupMsg delivers the result of loadStartup.
@@ -58,6 +60,7 @@ func loadStartup(dir string, env sys.Env) startupInfo {
 	} else if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(manifest.Path))); err == nil {
 		info.Initialized = true
 	}
+	info.HasReports = engine.HasReportPacks(root)
 	if wfs, _ := workflows.Load(root); len(wfs) > 0 {
 		for _, w := range wfs {
 			if len(workflows.Validate(w)) == 0 {

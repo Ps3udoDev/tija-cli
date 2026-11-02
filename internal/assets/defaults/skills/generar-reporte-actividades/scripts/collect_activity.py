@@ -42,7 +42,7 @@ def default_identities() -> list[str]:
     """Identidades del usuario actual: git config + cuenta de gh."""
     ids = set()
     for key in ("user.name", "user.email"):
-        _, out = run(["git", "config", "--global", key])
+        _, out = run(["git", "config", key])
         if out.strip():
             ids.add(out.strip())
     code, out = run(["gh", "api", "user", "--jq", "[.login, .name] | @tsv"])
@@ -151,6 +151,8 @@ def collect_uncommitted(path: str, since: dt.date, until: dt.date) -> list[dict]
     listed = git(path, "ls-files", "--others", "--modified", "--exclude-standard").splitlines()
     folders: dict[str, list[dt.date]] = defaultdict(list)
     for rel in listed:
+        if rel.startswith(".tija/"):  # archivos de la herramienta, no trabajo del usuario
+            continue
         try:
             day = dt.date.fromtimestamp(os.path.getmtime(os.path.join(path, rel)))
         except OSError:

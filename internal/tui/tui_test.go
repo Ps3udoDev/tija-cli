@@ -28,13 +28,13 @@ func titles(items []MenuItem) []string {
 }
 
 func TestMenuItemsPhase3(t *testing.T) {
-	if got, want := titles(MenuItems(false, false, false)), []string{"Init", "Pull Request", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
+	if got, want := titles(MenuItems(false, false, false, false)), []string{"Init", "Pull Request", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(false) = %v, want %v", got, want)
 	}
-	if got, want := titles(MenuItems(true, false, false)), []string{"Pull Request", "Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
+	if got, want := titles(MenuItems(true, false, false, false)), []string{"Pull Request", "Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(true) = %v, want %v", got, want)
 	}
-	if k := MenuItems(true, false, false)[0].Key; k != "pr" {
+	if k := MenuItems(true, false, false, false)[0].Key; k != "pr" {
 		t.Errorf("Pull Request key = %q, want pr", k)
 	}
 	desc := map[string]string{
@@ -47,7 +47,7 @@ func TestMenuItemsPhase3(t *testing.T) {
 		"Doctor":         "Check tools, manifest and agents",
 		"Status":         "Branch, commits and working tree",
 	}
-	for _, it := range MenuItems(false, true, true) {
+	for _, it := range MenuItems(false, true, true, false) {
 		if it.Description != desc[it.Title] {
 			t.Errorf("%s description = %q, want %q", it.Title, it.Description, desc[it.Title])
 		}
@@ -122,7 +122,7 @@ func TestMenuOrderWithNewItems(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := titles(MenuItems(tt.initialized, tt.hasJS, tt.hasWorkflows))
+			got := titles(MenuItems(tt.initialized, tt.hasJS, tt.hasWorkflows, false))
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("MenuItems(%v, %v, %v) = %v, want %v", tt.initialized, tt.hasJS, tt.hasWorkflows, got, tt.want)
 			}
@@ -332,7 +332,7 @@ func TestMenuSelectionBar(t *testing.T) {
 	if bg == "" {
 		t.Fatal("no background sequence")
 	}
-	items := MenuItems(false, false, false)
+	items := MenuItems(false, false, false, false)
 	for _, withDesc := range []bool{true, false} {
 		lines := strings.Split(renderMenu(items, 1, withDesc), "\n")
 		for i := range items {
@@ -566,8 +566,8 @@ func TestInitFlowConsent(t *testing.T) {
 	// Back to the menu: the repository is now initialized.
 	m, cmd = m.handleKey("esc")
 	m = drive(t, m, cmd)
-	if got := titles(m.items); !slices.Equal(got, titles(MenuItems(true, true, true))) {
-		t.Errorf("menu after init = %v, want %v", got, titles(MenuItems(true, true, true)))
+	if got := titles(m.items); !slices.Equal(got, titles(MenuItems(true, true, true, true))) {
+		t.Errorf("menu after init = %v, want %v", got, titles(MenuItems(true, true, true, true)))
 	}
 }
 
