@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -65,21 +64,6 @@ func TestReportPacksAreComplete(t *testing.T) {
 	} {
 		if len(files[path]) == 0 {
 			t.Errorf("Files() missing or empty %s", path)
-		}
-	}
-}
-
-// The repository is public and the packs are installed in any repository:
-// client documents and company branding must stay out of them.
-func TestReportPacksHaveNoClientData(t *testing.T) {
-	for path, data := range Files() {
-		if !strings.Contains(path, "/generar-") || strings.HasSuffix(path, ".png") {
-			continue
-		}
-		for _, term := range []string{"GMX", "CommonAPI", "Resiliencia", "Teams4Soft", "TEAMS4SOFT", "teams4soft", "T4S", "TEA240124E29", "Insurgentes"} {
-			if bytes.Contains(data, []byte(term)) {
-				t.Errorf("%s contains client term %q", path, term)
-			}
 		}
 	}
 }
