@@ -28,15 +28,14 @@ Texto de nodo en `bold` solo para estados clave.
 
 ## Conectores
 
-- Flechas `#292B2D` 1.4 px con `marker-end="url(#ah)"`; fallo con `#C62828`, `stroke-dasharray="5,4"` y marcador `#ahr`.
+- Flechas `#292B2D` 1.4 px: una `<line>` y un `<polygon>` para la punta (svglib ignora `marker-end`, la punta no saldría en el PDF);
+  fallo con `#C62828` y `stroke-dasharray="5,4"`.
 - Etiquetas de flecha 12–13 px bold del color de la flecha.
 - Líneas de vida (secuencia): `#A8A49E` 1.2 px, `stroke-dasharray="4,4"`.
 
 ```xml
-<defs>
-  <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#292B2D"/></marker>
-  <marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C62828"/></marker>
-</defs>
+<line x1="250" y1="105" x2="374" y2="105" stroke="#292B2D" stroke-width="1.4"/>
+<polygon points="372,99 384,105 372,111" fill="#292B2D"/>
 ```
 
 ## Tamaño en el PDF

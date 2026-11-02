@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -47,6 +48,7 @@ const (
 	screenPRPreview // pull request: draft and validation
 	screenComments  // clean comments
 	screenWorkflow  // running composed workflows
+	screenReport    // activity report: period and progress
 )
 
 // defaultWidth is assumed until the terminal reports its size.
@@ -93,6 +95,9 @@ type model struct {
 	workflowRunner WorkflowRunner
 	comments       *commentsFlow
 	workflow       *workflowFlow
+	report         *reportFlow
+
+	now func() time.Time // today's date; nil means time.Now
 }
 
 // Option configures the TUI model.
@@ -144,7 +149,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 	case startupMsg:
 		m.info = msg.info
-		m.items = MenuItems(msg.info.Initialized, msg.info.HasJS, msg.info.HasWorkflows)
+		m.items = MenuItems(msg.info.Initialized, msg.info.HasJS, msg.info.HasWorkflows, msg.info.HasReports)
 		m.cursor = 0
 		m.screen = screenMenu
 	case planMsg:
@@ -181,6 +186,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.mascot = Success
 			}
+		}
+	case reportEventMsg:
+		m.applyReportEvent(engine.ReportEvent(msg))
+		if m.report != nil && m.report.events != nil {
+			return m, waitForReportEvent(m.report.events)
 		}
 	case workflowStepMsg:
 		if m.workflow == nil {
@@ -226,6 +236,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.scrollOffset = 0
 		m.flow = nil
+		m.report = nil
 		m.screen = screenResult
 	}
 	return m, nil
@@ -265,6 +276,8 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 		return m.commentsKey(k)
 	case screenWorkflow:
 		return m.workflowKey(k)
+	case screenReport:
+		return m.reportKey(k)
 	case screenResult:
 		if m.scroll(k, m.result, m.height) {
 			return m, nil
@@ -282,7 +295,7 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 // backToMenu recomputes the startup info, since a command such as Init may
 // have changed the repository.
 func (m model) backToMenu() (model, tea.Cmd) {
-	m.flow, m.pr, m.comments, m.workflow, m.result = nil, nil, nil, nil, ""
+	m.flow, m.pr, m.comments, m.workflow, m.report, m.result = nil, nil, nil, nil, nil, ""
 	m.screen = screenDetecting
 	return m, detectCmd(m.dir, m.env)
 }
@@ -300,6 +313,9 @@ func (m model) run(item MenuItem) (model, tea.Cmd) {
 
 	case keyWorkflows:
 		return m.startWorkflow()
+
+	case keyReport:
+		return m.startReport()
 
 	case keyCheck, keyTests:
 		m.screen = screenQuality
@@ -425,6 +441,8 @@ func (m model) View() tea.View {
 		s = m.panel(m.mascot, m.caption, m.commentsBody())
 	case screenWorkflow:
 		s = m.panel(m.mascot, m.caption, m.workflowBody())
+	case screenReport:
+		s = m.panel(m.reportMascot(), m.caption, m.reportBody())
 	case screenResult:
 		body, _, _ := wrapAndSliceResult(m.result, m.width, m.height, m.scrollOffset)
 		s = m.panel(m.mascot, m.caption, body)
@@ -495,6 +513,16 @@ func (m model) footer() string {
 			help = "ctrl+c quit"
 		} else {
 			help = "esc/q back"
+		}
+	case screenReport:
+		help = "↑/↓ move · enter select · esc back"
+		if m.report != nil {
+			switch m.report.state {
+			case reportEditing:
+				help = "type digits · tab switch · enter next · esc back"
+			case reportWorking:
+				help = "ctrl+c quit"
+			}
 		}
 	case screenResult:
 		_, needsScroll, _ := wrapAndSliceResult(m.result, m.width, m.height, 0)
