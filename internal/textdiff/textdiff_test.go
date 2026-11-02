@@ -15,3 +15,13 @@ func TestLinesOnlyChanges(t *testing.T) {
 		t.Errorf("from empty = %q", got)
 	}
 }
+
+func TestLinesBinary(t *testing.T) {
+	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+	if got := Lines(png, []byte("text\n")); got != BinaryDiff {
+		t.Errorf("binary old = %q", got)
+	}
+	if got := Lines([]byte("text\n"), png); got != BinaryDiff {
+		t.Errorf("binary new = %q", got)
+	}
+}

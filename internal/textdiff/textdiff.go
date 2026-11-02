@@ -1,7 +1,10 @@
 // Package textdiff computes minimal line diffs (longest common subsequence).
 package textdiff
 
-import "strings"
+import (
+	"bytes"
+	"strings"
+)
 
 // Op is one line of an edit script: Kind is ' ' (kept), '-' (removed) or
 // '+' (added).
@@ -62,9 +65,15 @@ func Ops(a, b []string) []Op {
 	return ops
 }
 
+// BinaryDiff is what Lines returns when either side is a binary file.
+const BinaryDiff = "binary file differs"
+
 // Lines renders only the changed lines of old→new as "-line" / "+line",
 // joined with "\n". It is "" when the contents are equal (ignoring CRLF).
 func Lines(old, new []byte) string {
+	if bytes.IndexByte(old, 0) >= 0 || bytes.IndexByte(new, 0) >= 0 {
+		return BinaryDiff
+	}
 	var out []string
 	for _, op := range Ops(Split(old), Split(new)) {
 		if op.Kind != ' ' {

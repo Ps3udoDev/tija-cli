@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "title": "Migración del módulo de facturación",
+    "subtitle": "Documento de ejemplo con datos ficticios – ACME",
+    "cliente": "ACME",
+    "nombre_corto": "MigracionFacturacion",
+    "version": "1.0",
+    "fecha": "2026-01-15",
+    "clasificacion": "Uso interno",
+    "ficha": {
+      "modulo": "Facturación",
+      "area": "Equipo de Desarrollo",
+      "estado": "Ejemplo"
+    }
+  },
+  "blocks": [
+    { "type": "h1", "text": "Resumen" },
+    { "type": "paragraph", "text": "Este informe muestra los bloques disponibles. El servicio `facturacion-api` y sus datos son **ficticios**." },
+    { "type": "h2", "text": "Motivos del cambio" },
+    { "type": "list", "style": "numbered", "items": [
+      "**Mantenimiento:** la versión actual dificulta los cambios.",
+      { "text": "**Operación:**", "items": [ "Despliegues manuales.", "Sin métricas de errores." ] }
+    ] },
+    { "type": "h1", "text": "Propuesta" },
+    { "type": "figure", "src": "figuras/fig1-flujo.svg", "caption": "Flujo de la migración", "width_pct": 82 },
+    { "type": "table", "first_col_bold": true, "col_widths_pct": [30, 35, 35],
+      "columns": ["Aspecto", "Hoy", "Con la propuesta"],
+      "rows": [
+        ["Despliegue", "Manual", "Automático"],
+        ["Reversión", "Restaurar un respaldo", "Volver a la versión anterior"]
+      ] },
+    { "type": "code", "lang": "sql", "text": "SELECT id, total\n  FROM facturas\n WHERE estado = 'PENDIENTE';" },
+    { "type": "note", "label": "NOTA:", "text": "Sustituye este contenido por el de tu informe." }
+  ]
+}

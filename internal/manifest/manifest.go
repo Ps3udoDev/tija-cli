@@ -224,10 +224,12 @@ func FromDetection(d detect.Detection, agents []string, target string) Manifest 
 	yes, assign := true, true
 
 	skills := map[string]SkillRef{
-		"antislop-code":        {Path: ".tija/skills/antislop-code/SKILL.md"},
-		"antislop-copywriting": {Path: ".tija/skills/antislop-copywriting/SKILL.md"},
-		"thermo-review":        {Path: ".tija/skills/thermo-review/SKILL.md"},
-		"thermo-quality":       {Path: ".tija/skills/thermo-quality/SKILL.md"},
+		"antislop-code":               {Path: ".tija/skills/antislop-code/SKILL.md"},
+		"antislop-copywriting":        {Path: ".tija/skills/antislop-copywriting/SKILL.md"},
+		"thermo-review":               {Path: ".tija/skills/thermo-review/SKILL.md"},
+		"thermo-quality":              {Path: ".tija/skills/thermo-quality/SKILL.md"},
+		"generar-informe-pdf":         {Path: ".tija/skills/generar-informe-pdf/SKILL.md"},
+		"generar-reporte-actividades": {Path: ".tija/skills/generar-reporte-actividades/SKILL.md"},
 	}
 
 	var comments Comments

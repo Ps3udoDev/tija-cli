@@ -345,10 +345,12 @@ func TestFromDetectionAddsSkillsAndComments(t *testing.T) {
 	mReact := FromDetection(dReact, nil, "main")
 
 	wantSkills := map[string]SkillRef{
-		"antislop-code":        {Path: ".tija/skills/antislop-code/SKILL.md"},
-		"antislop-copywriting": {Path: ".tija/skills/antislop-copywriting/SKILL.md"},
-		"thermo-review":        {Path: ".tija/skills/thermo-review/SKILL.md"},
-		"thermo-quality":       {Path: ".tija/skills/thermo-quality/SKILL.md"},
+		"antislop-code":               {Path: ".tija/skills/antislop-code/SKILL.md"},
+		"antislop-copywriting":        {Path: ".tija/skills/antislop-copywriting/SKILL.md"},
+		"thermo-review":               {Path: ".tija/skills/thermo-review/SKILL.md"},
+		"thermo-quality":              {Path: ".tija/skills/thermo-quality/SKILL.md"},
+		"generar-informe-pdf":         {Path: ".tija/skills/generar-informe-pdf/SKILL.md"},
+		"generar-reporte-actividades": {Path: ".tija/skills/generar-reporte-actividades/SKILL.md"},
 	}
 	if !reflect.DeepEqual(mReact.Skills, wantSkills) {
 		t.Errorf("mReact.Skills = %+v, want %+v", mReact.Skills, wantSkills)

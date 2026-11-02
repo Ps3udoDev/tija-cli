@@ -1,0 +1,15 @@
+{
+  "_doc": "Ajustes sobre generar-informe-pdf/template.json. Header, logo, fuentes y colores se heredan de esa plantilla.",
+  "footer": { "page_numbers": true },
+  "ficha_tecnica": { "enabled": false },
+  "reporte": {
+    "resumen_bg": "#F1F4F7",
+    "estados": {
+      "Completado": "#5E6A0F",
+      "En curso": "#1D6FA5",
+      "En revisión": "#B26A00",
+      "Propuesta": "#6B4FA0",
+      "Pausado": "#747474"
+    }
+  }
+}
