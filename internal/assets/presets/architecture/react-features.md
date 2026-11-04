@@ -4,12 +4,12 @@ description: Optional starting point for React features with hooks and services.
 appliesTo: ["src/**/*.{ts,tsx,js,jsx}"]
 checks:
   - id: fe-no-fetch-in-components
-    severity: High
-    files: ["src/**/components/**/*.{ts,tsx,js,jsx}", "src/**/*.tsx", "src/**/*.jsx"]
+    severity: Medium
+    files: "src/**/components/**/*.{ts,tsx,js,jsx}"
     forbid: '\b(fetch\s*\(|axios\s*[.(])'
     message: El acceso HTTP debe vivir en hooks o servicios, fuera del componente.
   - id: fe-no-cross-feature-imports
-    severity: High
+    severity: Medium
     files: "src/features/**/*.{ts,tsx,js,jsx}"
     forbid: '^\s*(import|export)\b.*(from\s*)?["\x27](@/features/|\.\./(\.\./)*[^./][^/]*["\x27/])'
     message: Evita dependencias directas entre features; mueve contratos compartidos a una capa común.

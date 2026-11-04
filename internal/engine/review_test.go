@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Ps3udoDev/tija-cli/internal/agents"
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
@@ -114,6 +115,56 @@ func TestReviewNoAgent(t *testing.T) {
 	r := runReviewTest(t, dir, fakeEnv(), ReviewRequest{NoCheck: true, NoPRComments: true})
 	if r.Exit != 0 || len(r.Warnings) != 1 || !strings.Contains(r.Warnings[0], "no agent CLI found") {
 		t.Fatalf("%+v", r)
+	}
+}
+
+func TestReviewExplicitAgentMissing(t *testing.T) {
+	dir := reviewRepo(t, false)
+	writeReviewFile(t, dir, "a.ts", "hello\n")
+	_, e := RunReview(context.Background(), dir, fakeEnv(), ReviewRequest{Agent: "codex", NoCheck: true, NoPRComments: true}, nil)
+	if !errors.Is(e, agents.ErrNotInstalled) {
+		t.Fatalf("an explicit agent that is not installed must fail, got %v", e)
+	}
+	// --no-agent wins over the explicit agent.
+	r := runReviewTest(t, dir, fakeEnv(), ReviewRequest{Agent: "codex", NoAgent: true, NoCheck: true, NoPRComments: true})
+	if r.Exit != 0 {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestReviewFallsBackFromMissingDefault(t *testing.T) {
+	dir := reviewRepo(t, true)
+	m, e := manifest.Load(dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	m.Agents.Default = "codex"
+	if e := manifest.Save(dir, m); e != nil {
+		t.Fatal(e)
+	}
+	testutil.Git(t, dir, "commit", "-am", "codex default")
+	testutil.Git(t, dir, "branch", "-f", "main", "HEAD")
+	writeReviewFile(t, dir, "a.ts", "hello\n")
+	env, calls := fakeAgentEnv(agentReply{out: `{"findings":[]}`})
+	r := runReviewTest(t, dir, env, ReviewRequest{NoCheck: true, NoPRComments: true})
+	if len(*calls) != 1 || r.Exit != 0 || len(r.Warnings) != 0 {
+		t.Fatalf("expected a fallback to the installed claude: calls=%d %+v", len(*calls), r)
+	}
+}
+
+func TestReviewNoRetryOnTimeout(t *testing.T) {
+	dir := reviewRepo(t, false)
+	writeReviewFile(t, dir, "a.ts", "hello\n")
+	env, _ := fakeAgentEnv()
+	var calls atomic.Int32
+	env.RunInput = func(ctx context.Context, dir, stdin, name string, args ...string) (string, string, int, error) {
+		calls.Add(1)
+		<-ctx.Done()
+		return "", "", -1, ctx.Err()
+	}
+	r := runReviewTest(t, dir, env, ReviewRequest{Agent: "claude", AgentTimeout: 50 * time.Millisecond, NoCheck: true, NoPRComments: true})
+	if calls.Load() != 1 || r.Exit != 2 || r.Chunks.Failed != 1 {
+		t.Fatalf("a timeout must not be retried: calls=%d %+v", calls.Load(), r)
 	}
 }
 

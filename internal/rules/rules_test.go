@@ -145,3 +145,46 @@ func TestPresetSeededViolations(t *testing.T) {
 		t.Fatalf("seeded 4 violations, got %+v", got)
 	}
 }
+
+// Only a domain depending on infrastructure blocks the default gate (High);
+// the other preset checks are syntactic and stay Medium.
+func TestPresetCheckSeverities(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range assets.Presets() {
+		b, _ := assets.Preset(name)
+		write(t, root, "rules/"+name+".md", string(b))
+	}
+	set, errs := rules.Load(root, []string{"rules/*.md"}, nil)
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	want := map[string]string{
+		"be-domain-no-infra":          "High",
+		"be-controller-no-dbcontext":  "Medium",
+		"fe-no-fetch-in-components":   "Medium",
+		"fe-no-cross-feature-imports": "Medium",
+	}
+	for _, c := range set.Checks() {
+		if want[c.ID] != c.Severity {
+			t.Errorf("%s: severity %s, want %s", c.ID, c.Severity, want[c.ID])
+		}
+	}
+}
+
+func TestPresetFetchOnlyInComponents(t *testing.T) {
+	root := t.TempDir()
+	b, _ := assets.Preset("react-features")
+	write(t, root, "rules/react-features.md", string(b))
+	set, errs := rules.Load(root, []string{"rules/*.md"}, nil)
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	got := set.Run([]rules.Changed{
+		{Path: "src/features/orders/components/List.jsx", Added: map[int]string{1: "fetch('/orders');"}},
+		{Path: "src/features/orders/hooks/useOrders.tsx", Added: map[int]string{1: "fetch('/orders');"}},
+		{Path: "src/pages/Orders.tsx", Added: map[int]string{1: "axios.get('/orders');"}},
+	})
+	if len(got) != 1 || got[0].File != "src/features/orders/components/List.jsx" {
+		t.Fatalf("fetch outside components must not be reported: %+v", got)
+	}
+}

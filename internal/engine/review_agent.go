@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -92,10 +93,12 @@ func reviewAgents(ctx context.Context, root string, env sys.Env, req ReviewReque
 					}
 					if err != nil {
 						result.err = err
-						input.Retry = oneLine(err)
-						if ctx.Err() != nil {
+						// Only an invalid answer is worth a second attempt: retrying a
+						// timeout doubles the wait, and a missing CLI cannot recover.
+						if ctx.Err() != nil || errors.Is(err, agents.ErrTimeout) || errors.Is(err, agents.ErrNotInstalled) {
 							break
 						}
+						input.Retry = oneLine(err)
 						continue
 					}
 					emit(ReviewEvent{Stage: StageVerify, Message: "verifying agent findings", Pass: pass, Chunk: i + 1, Chunks: len(chunks)})

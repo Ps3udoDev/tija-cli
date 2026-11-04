@@ -107,6 +107,14 @@ func RunReview(ctx context.Context, dir string, env sys.Env, req ReviewRequest, 
 	if !ok {
 		return ReviewReport{}, fmt.Errorf("%w: %s", ErrNoMergeBase, base)
 	}
+	// Resolve the agent before any work: an explicitly requested agent that is
+	// not installed is an environment error, never a silent deterministic run.
+	name := ""
+	if !req.NoAgent {
+		if name, err = reportProvider(m, env, req.Agent); err != nil {
+			return ReviewReport{}, err
+		}
+	}
 	head, _ := repo.Head(ctx)
 	a, b, c := repo.WorkTree(ctx)
 	cfg := m.Review.WithDefaults()
@@ -160,19 +168,9 @@ func RunReview(ctx context.Context, dir string, env sys.Env, req ReviewRequest, 
 	}
 	chunks := review.Chunks(files, cfg.MaxLines)
 	rep.Chunks.Total = len(chunks)
-	name := req.Agent
-	if name == "" {
-		name = m.Agents.Default
-	}
-	if name == "" {
-		available := agents.Available(env.LookPath)
-		if len(available) > 0 {
-			name = available[0]
-		}
-	}
-	if req.NoAgent || name == "none" {
+	if req.NoAgent || req.Agent == "none" {
 		rep.Warnings = append(rep.Warnings, "agent disabled — only deterministic checks ran")
-	} else if name == "" || agents.Binary(name, env.LookPath) == "" {
+	} else if name == "" {
 		rep.Warnings = append(rep.Warnings, "no agent CLI found — only deterministic checks ran")
 	} else {
 		reviewAgents(ctx, root, env, req, m, name, chunks, packs, set, qualityLines, &rep, emit)

@@ -9,7 +9,7 @@ checks:
     forbid: '^\s*using\s+[\w.]*\.(Infrastructure|Api)\b'
     message: El dominio no puede depender de Infrastructure ni de la API.
   - id: be-controller-no-dbcontext
-    severity: High
+    severity: Medium
     files: "src/**/Controllers/**/*.cs"
     forbid: '\b\w*DbContext\b'
     message: Los controladores no deben acceder directamente al DbContext.
