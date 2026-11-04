@@ -198,3 +198,15 @@ Run with the branch binary in a separate worktree (`../frontend-clean-claims`, b
 - **Diff scope:** without paths or `--all`, only committed changes (`base...HEAD`) and untracked files are in scope; modified uncommitted files are not. Decide whether they should be.
 - **`tija run <name>`:** when the workflow does not exist but another one fails to load, the error names the requested workflow with the other one's error.
 - The frontend worktree `../frontend-clean-claims` keeps the uncommitted `--write` result for review. Remove it from `frontend` with `git worktree remove --force ../frontend-clean-claims` and `git branch -D chore/clean-claims-comments`.
+
+---
+
+## Phase 4 — Review (2026-11-04)
+
+Implementation is on `feat/phase-4-review`, with a separate commit and report for each of Tasks 1–12. The reviewer entry point is [phase4/HANDOFF.md](phase4/HANDOFF.md); per-task reports are in that directory. Raw validation evidence stays local and git-ignored (`phase4/validation/`) because it contains private code. Task 13 records final static/test/build evidence and acceptance gaps.
+
+Delivered `tija review`, quality/deep, evidence verification, deterministic synthesis, optional architecture presets/checks, review defaults v5, readonly agents, chunk concurrency/timeouts, CLI/JSON/TUI, pre-pr gate, doctor/init and fresh PR citation. No dependencies added.
+
+Live frontend review/quality/deep succeeded; all17 displayed findings across normal/seeded runs had valid file/range/evidence, both preset checks and the seeded condition bug were detected. Backend deterministic checks found3/3 seeded matching lines; the inverted condition test failed and the corrected control passed. Backend agent runs timed out; a retry was rejected by automatic approval review because sending the private backend diff to Claude requires explicit authorization. No further backend agent attempts followed the rejection. Full phase acceptance remains pending that authorization and successful backend live-agent verification. See detailed audits rather than treating timeouts as success.
+
+Binary/static/test results and exact commit mapping are in phase4/task-13.md and phase4/HANDOFF.md. No original application worktree was changed, no push or PR was published.
