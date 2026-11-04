@@ -45,6 +45,7 @@ type WorkflowReport struct {
 
 // Allowed holds the allowed command prefixes for workflow steps.
 var Allowed = []string{
+	"review",
 	"check",
 	"lint",
 	"format",

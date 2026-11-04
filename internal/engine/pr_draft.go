@@ -17,6 +17,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/branch"
 	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
+	"github.com/Ps3udoDev/tija-cli/internal/review"
 )
 
 // Draft files, relative to the repo root.
@@ -227,7 +228,7 @@ func deterministicBody(c PRContext, desc string) string {
 			c.Branch, c.Target, len(c.Commits), len(c.Files)),
 		"objetivo":           objective,
 		"cambios realizados": changesList(c),
-		"pruebas":            testsList(c.Tests),
+		"pruebas":            verifiedTestsList(c.Tests, c.Review),
 		"evidencias":         "N/A",
 		"referencias":        refs,
 	}
@@ -328,8 +329,12 @@ const pruebasSection = "Pruebas"
 // testsList) the section becomes the verified list; in any other language
 // the agent's text stays and the verified list follows it. A body without
 // the section is returned as is, so validation reports it.
-func enforceVerifiedTests(body, language string, tests []quality.StepResult) string {
-	verified := testsList(tests)
+func enforceVerifiedTests(body, language string, tests []quality.StepResult, reviews ...*review.Result) string {
+	var r *review.Result
+	if len(reviews) > 0 {
+		r = reviews[0]
+	}
+	verified := verifiedTestsList(tests, r)
 	if language == "" || strings.EqualFold(language, "es") {
 		return replaceSection(body, pruebasSection, func(string) string { return verified })
 	}
@@ -339,6 +344,25 @@ func enforceVerifiedTests(body, language string, tests []quality.StepResult) str
 		}
 		return content + "\n\n" + verified
 	})
+}
+
+func reviewCitation(r *review.Result) string {
+	if r == nil {
+		return ""
+	}
+	command := "tija review"
+	if r.Mode == "quality" || r.Mode == "deep" {
+		command += " --" + r.Mode
+	}
+	return fmt.Sprintf("`%s`: %d critical, %d high, %d medium, %d low", command, r.Summary[review.Critical], r.Summary[review.High], r.Summary[review.Medium], r.Summary[review.Low])
+}
+
+func verifiedTestsList(tests []quality.StepResult, r *review.Result) string {
+	text := testsList(tests)
+	if line := reviewCitation(r); line != "" {
+		text += "\n- " + line
+	}
+	return text
 }
 
 // replaceSection replaces the content of the "## <title>" section of a

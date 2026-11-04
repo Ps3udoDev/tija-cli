@@ -29,7 +29,7 @@ func TestArgv(t *testing.T) {
 		{"gemini", `C:\agy\bin\agy.exe`, "deep", geminiArgs},
 	}
 	for _, c := range cases {
-		got := Argv(c.provider, c.bin, c.tier, tmp)
+		got := Argv(c.provider, c.bin, c.tier, tmp, false)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("Argv(%s, %s, %q) = %q, want %q", c.provider, c.bin, c.tier, got, c.want)
 		}
@@ -61,7 +61,7 @@ func TestGenerateUsesStdin(t *testing.T) {
 	if got.stdin != "the prompt" || got.name != "/bin/claude" || got.dir != "repo" {
 		t.Errorf("call = %+v", got)
 	}
-	if !reflect.DeepEqual(got.args, Argv("claude", "/bin/claude", "fast", "")) {
+	if !reflect.DeepEqual(got.args, Argv("claude", "/bin/claude", "fast", "", false)) {
 		t.Errorf("args = %q", got.args)
 	}
 }

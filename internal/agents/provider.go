@@ -21,11 +21,12 @@ var (
 
 // Request is one prompt for an agent CLI.
 type Request struct {
-	Prompt  string        // written to the agent's stdin
-	Tier    string        // fast | balanced | deep; "" keeps the CLI default
-	Dir     string        // working directory of the process
-	TmpDir  string        // where the agent may write temporary files
-	Timeout time.Duration // 0 means no timeout
+	ReadOnly bool          // restrict supported providers to reading repository files
+	Prompt   string        // written to the agent's stdin
+	Tier     string        // fast | balanced | deep; "" keeps the CLI default
+	Dir      string        // working directory of the process
+	TmpDir   string        // where the agent may write temporary files
+	Timeout  time.Duration // 0 means no timeout
 }
 
 // geminiPrompt is the positional prompt for gemini/agy print mode; the real
@@ -40,12 +41,15 @@ var claudeModels = map[string]string{"fast": "haiku", "balanced": "sonnet", "dee
 // Argv returns the arguments (without the binary) that run provider
 // non-interactively with the prompt on stdin. bin is the resolved binary;
 // gemini and agy (Antigravity) currently take the same arguments.
-func Argv(provider, bin, tier, tmpDir string) []string {
+func Argv(provider, bin, tier, tmpDir string, readOnly bool) []string {
 	switch provider {
 	case "claude":
 		args := []string{"-p", "--output-format", "text"}
 		if m, ok := claudeModels[tier]; ok {
 			args = append(args, "--model", m)
+		}
+		if readOnly {
+			args = append(args, "--allowedTools", "Read,Grep,Glob", "--disallowedTools", "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch")
 		}
 		return args
 	case "codex":
@@ -87,7 +91,7 @@ func Generate(ctx context.Context, env sys.Env, provider string, req Request) (s
 		defer cancel()
 	}
 
-	stdout, stderr, code, err := env.RunInput(runCtx, req.Dir, req.Prompt, bin, Argv(provider, bin, req.Tier, tmpDir)...)
+	stdout, stderr, code, err := env.RunInput(runCtx, req.Dir, req.Prompt, bin, Argv(provider, bin, req.Tier, tmpDir, req.ReadOnly)...)
 	if runCtx.Err() == context.DeadlineExceeded {
 		return "", fmt.Errorf("%s: %w after %s", provider, ErrTimeout, req.Timeout)
 	}

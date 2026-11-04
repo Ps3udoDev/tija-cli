@@ -193,6 +193,8 @@ func TestInitBackendWithYes(t *testing.T) {
 		".tija/templates/pull-request.md":  sum(tpl),
 		".tija/workflows/.gitkeep":         sum(nil),
 	}
+	preset, _ := assets.Preset("dotnet-clean")
+	wantInstalled[assets.ArchitectureDir+"/dotnet-clean.md"] = hash(preset)
 	for p, data := range assets.Files() {
 		if p != assets.RulesPath && p != assets.TemplatePath && p != assets.WorkflowsKeep {
 			wantInstalled[p] = hash(data)

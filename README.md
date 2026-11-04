@@ -191,3 +191,61 @@ Run `tija` with no arguments in a terminal to open the interactive terminal UI:
 - Phase 3a Design: [docs/superpowers/specs/2026-10-29-tija-phase-3a-skill-packs-design.md](docs/superpowers/specs/2026-10-29-tija-phase-3a-skill-packs-design.md)
 - Phase 3a Plan: [docs/superpowers/plans/2026-10-29-tija-phase-3a-skill-packs.md](docs/superpowers/plans/2026-10-29-tija-phase-3a-skill-packs.md)
 - Reference: [docs/reference/](docs/reference/)
+
+## Review
+
+`tija review` inspects committed changes, working tree changes and untracked text files against the target branch's merge base. It runs optional architecture checks, quality checks and a read-only agent pass. `tija review --quality` uses the quality pack; `tija review --deep` runs both packs with a deterministic synthesis. Deep mode confirms overlapping findings with the same rule and marks severity disagreements as disputed. At most three agent calls run concurrently.
+
+```sh
+tija review --no-agent --no-check
+tija review --deep --fail-on medium --json
+tija review --quality --agent claude --agent-timeout 8m --no-pr-comments
+```
+
+`--agent` selects claude, codex, gemini or none; `--no-agent` runs deterministic checks only. Without `--agent`, Tija uses `agents.default` or, if that CLI is missing, the first installed one; when none is installed it warns and runs deterministic checks only. An explicit `--agent` that is not installed exits 2. `--no-check` skips quality checks; otherwise fresh results for a clean HEAD are reused or check runs. `--check-timeout` defaults to 10 minutes. Agent calls default to 3/6/12 minutes for fast/balanced/deep; deep always uses the deep tier. `--agent-timeout` overrides the timeout. Invalid agent output is retried once; a timeout is not retried. `--no-pr-comments` skips reading existing PR comments; review never posts comments.
+
+Exit codes: **0** means no finding reaches the threshold; **1** means at least one does; **2** means invalid usage/environment, invalid architecture rules or a failed agent chunk after retry. `--fail-on critical|high|medium|low|none` overrides `review.failOn` (default high). `none` disables finding failures, but environment failures still return 2. `pre-pr` runs clean comments, check, review and pr prepare, stopping on a nonzero exit.
+
+Every agent finding is verified in order: file belongs to the chunk; the location overlaps a new-side diff hunk; evidence of at most five lines occurs within three lines of that range after whitespace normalization; severity is valid; rule belongs to the pass's pack or applicable architecture rules. Rejected findings are listed in JSON with `file-not-in-diff`, `line-outside-diff`, `evidence-not-found`, `invalid-severity` or `unknown-rule`. Deleted and binary files are not sent for review. Files are grouped by directory into chunks of up to `review.maxLines` changed lines (default 3000); oversized files run alone. `review.exclude` defaults exclude lockfiles, generated code and build output.
+
+`review` only persists `.tija/session/review.json` inside an initialized repository. Check artifacts and agent output use system temporary directories; failed check logs are retained there. In an uninitialized repository no session is saved. A clean session for the current commit can be cited by `pr prepare` in its tests section; findings are never copied into the PR.
+
+`--json` emits one object. Its stable fields are:
+
+| Field | Meaning |
+| --- | --- |
+| `mode`, `base`, `commit`, `dirty` | Mode, resolved target, reviewed HEAD and working tree state |
+| `failOn`, `exit` | Effective threshold and exit code |
+| `quality` | `reused` and status: passed, failed, unavailable or skipped |
+| `findings` | Verified agent, check and quality findings, ordered by severity and assigned `F1…Fn` |
+| `discarded` | Rejected agent locations with pass and reason |
+| `prComments` | Whether comments were read and the uncovered comments |
+| `chunks` | Total chunks and chunks with a failed pass |
+| `summary` | Counts under Critical, High, Medium and Low |
+| `warnings` | Nonfatal limitations or failed-call diagnostics |
+| `savedAt` | RFC 3339 timestamp in the saved session |
+
+Findings contain `id`, `source`, `passes`, `file`, `line`, `endLine`, `severity`, `rule`, `title`, `explanation`, `suggestion`, `evidence`, `confirmedBy`, `disputed`, `severities` and `prComments`. Quality failures use their log path and line zero. Comments are informational and never change severity or the exit code.
+
+### Architecture rules
+
+Rules are optional Markdown files at `.tija/rules/architecture/*.md`, configurable with `review.rules`. `doctor` validates YAML, regexes and unique IDs, including collisions with pack rules. Checks run on added lines only; rule bodies go to the agent only for matching paths.
+
+```markdown
+---
+name: backend-dotnet
+appliesTo: ["src/**/*.cs"]
+checks:
+  - id: be-domain-no-infra
+    severity: High
+    files: "src/*.Domain/**/*.cs"
+    forbid: '^\s*using\s+[\w.]*\.(Infrastructure|Api)\b'
+    message: El dominio no puede depender de Infrastructure ni de la API.
+---
+## be-thin-controllers: Controladores delgados
+Mantener la lógica de negocio fuera de los controladores.
+```
+
+`name` is required. `files` accepts a string or list; `appliesTo` is optional. `forbid` uses Go RE2 syntax, with no lookbehind. Severities are Critical, High, Medium and Low, case insensitive. IDs must be unique across all architecture checks/rules and distinct from pack IDs. Each `## id: title` starts an agent rule.
+
+Presets `dotnet-clean` and `react-features` are embedded starting points. Interactive init offers the detected stack's preset with default no. `--yes` does not install presets. Explicitly select one or more with `tija init --rules-preset dotnet-clean` or repeat the flag. Edited presets are preserved. Adjust the preset paths to your project. Only `be-domain-no-infra` is `High`; the other preset checks are pattern-based and `Medium`, so they do not block `pre-pr` with the default threshold.

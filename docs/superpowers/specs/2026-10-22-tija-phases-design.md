@@ -2,6 +2,7 @@
 
 > Fecha: 2026-10-22
 > Actualizado: 2026-10-29: se agrega la Fase 3a (skill packs, `clean comments`, workflows compuestos; spec en `2026-10-29-tija-phase-3a-skill-packs-design.md`) y la Fase 4 se apoya en las rúbricas de Thermos (Cursor, MIT)
+> Actualizado: 2026-11-04: se registra la Fase 3b (reportes en PDF y `tija report activity`, PR #8 y #9, entregada fuera del roadmap original) y el límite del binario sube a 10 MB desde la Fase 4
 > Estado: borrador para aprobación
 > Fuentes (en `docs/reference/`): `product/technical-product-draft.md`, `brand/brand-exploration-terminal.png`, `pull-requests/PULL_REQUEST_TEMPLATE_GUIDE.md`, `pull-requests/PULL_REQUEST_TEMPLATE.md`, `pull-requests/pr-governance.yml`
 > Repo: https://github.com/Ps3udoDev/tija-cli
@@ -61,6 +62,9 @@ El camino se recorre en fases, de la más simple a la más laboriosa. La Fase 1 
 | Material de terceros (2026-10-29) | Se toma solo lo necesario de proyectos como anti-slop y Thermos, **siempre atribuido a su autor** y adaptado a Tija. Ver la sección 4.1 del spec de la Fase 3a |
 | Edición de código (2026-10-29) | Tija puede editar código fuente con la semántica de Biome: sin flag reporta, `--write` aplica lo seguro, `--write --unsafe` aplica también lo inseguro |
 | Fase 3a (2026-10-29) | Se inserta entre la Fase 3 y la Fase 4 |
+| Reportes (2026-11-01) | Se agregan packs propios para informes y reportes de actividades en PDF, y `tija report activity` con su pantalla en la TUI. Quedan registrados como Fase 3b |
+| Validaciones pendientes de la 3a (2026-11-04) | Las validaciones de la sección 6.3 del handoff de la 3a se posponen; se pasa directamente a la Fase 4 |
+| Tamaño del binario (2026-11-04) | El límite sube de 7,5 MB a 10 MB (`-s -w`) desde la Fase 4. Es un techo, no una meta: solo se usa si hace falta |
 
 ### Decididas por Claude (revisables)
 | Tema | Decisión | Motivo |
@@ -93,6 +97,8 @@ El camino se recorre en fases, de la más simple a la más laboriosa. La Fase 1 
 9. **Branding consistente.** Toda salida coloreada usa solo la paleta C. Símbolos: `✓` éxito, `✗` error, `!` warning, `>` selección.
 10. **Escritura en tres niveles.** Todo comando que pueda editar código sigue el contrato de Biome: sin flag solo reporta (exit 1 si hay cambios pendientes), `--write` aplica los cambios seguros y `--write --unsafe` también los que pueden cambiar el significado. Cuando la propuesta viene de un agente, Tija aplica los cambios y los verifica de forma determinista; el agente nunca escribe archivos.
 11. **Atribución de terceros.** Todo pack o fragmento de otro proyecto lleva frontmatter de origen (autor, repo, ruta, commit, licencia), una nota visible de adaptación y su `LICENSE` original al lado. `THIRD_PARTY_NOTICES.md` viaja en cada release. Tija nunca descarga packs en tiempo de ejecución.
+12. **Tamaño del binario.** El binario compilado con `-ldflags="-s -w"` no supera los 10 MB (7,5 MB hasta la Fase 3b). Cada fase reporta el tamaño en su PR; si una dependencia sube el tamaño de forma notable, se justifica.
+13. **Dependencias externas opcionales.** Una función que requiere un runtime externo (p. ej. Python con ReportLab para los reportes) lo detecta, indica qué instalar y no lo instala. El resto de Tija funciona sin él.
 
 ## 5. Las fases
 
@@ -243,8 +249,23 @@ Los valores por defecto de `pullRequest.*` replican exactamente lo que valida `p
 **Workflows compuestos:** `.tija/workflows/*.yaml` con pasos que solo pueden ser comandos de Tija (nunca shell). Por defecto, `pre-pr` = `clean comments --write` → `check` → `pr prepare`.
 **TUI:** opciones `Clean comments` y `Workflows`.
 **Salida:** en `src/pages/(features)/claims` del frontend de Team4soft, `--write` elimina los separadores y los banners, deja intactos los `biome-ignore` y los comentarios de reglas de negocio, y `tija check` y el build siguen pasando.
+**Estado (2026-11-04):** entregada en el PR #7. Quedan validaciones pendientes en la sección 6.3 de `docs/superpowers/handoff/HANDOFF.md` (`--write --unsafe` en `claims`, `pr prepare` real con atribuciones de agente, snapshot de GoReleaser con `THIRD_PARTY_NOTICES.md`, `tija run pre-pr` en el frontend, alcance de los archivos modificados sin commitear y el mensaje de error de `tija run`). Se posponen por decisión del usuario.
+
+### Fase 3b — Reportes en PDF (entregada fuera del roadmap original)
+**Origen:** no estaba en el roadmap. Se agregó para generar los informes y reportes de actividades desde cualquier repo con Tija, sin depender de una empresa o cliente concretos. Entregada en los PR #8 y #9 (2026-11-01).
+**Skill packs propios** (instalados por `init` en `.tija/skills/`, `DefaultsVersion` 4):
+- `generar-informe-pdf`: informe PDF a partir de un JSON. Contiene el motor en Python (ReportLab + svglib), la plantilla `template.json` y los assets de marca. Marca neutra de Tija por defecto; cada repo pone la suya cambiando los PNG y `template.json`. El ejemplo usa datos ficticios.
+- `generar-reporte-actividades`: reporte de actividades de un periodo a partir de commits y PRs. Reutiliza el motor y los assets del pack anterior, por eso ambos deben estar en la misma carpeta.
+**Comando:** `tija report activity --since <fecha> --until <fecha>` con `--agent`, `--no-agent`, `--agent-timeout` (5 min por defecto) y `--json`. Exit `2` si falta configuración (packs, Python con ReportLab), `1` si falla la generación.
+**Flujo (`internal/engine/report.go`):** recolectar actividad (commits con la identidad de `git` y PRs con `gh`; `.tija/` no cuenta como trabajo) → si no hay actividad, se detiene sin llamar al agente → el agente devuelve solo el contenido como texto → Tija lo guarda y fija de forma determinista el periodo, los datos del documento y el tope de horas → una respuesta inválida tiene un segundo intento con el error → PDF. Sin agente, se detiene después de recolectar.
+**Salida:** `docs/reportes/actividades-<since>_<until>/` con `actividad.md`, `reporte.json` y el PDF. `docs/reportes/` queda ignorado por git porque los reportes nombran clientes y horas. Las horas son estimaciones a partir de los commits, marcadas con `~`.
+**Varios repositorios:** `docs/reportes/manifest.json` define grupos, repositorios y autores; cada reporte solo cambia el periodo.
+**TUI:** opción `Activity report` (solo si los packs están instalados) con presets (este mes, mes anterior, últimos 7 días), rango personalizado y avance por etapa.
+**Sin probar al cierre:** la pantalla en una terminal real y el manifest compartido con varios repositorios reales.
+**Ideas futuras (no planificadas):** generar el reporte de forma programada (hoy el periodo se elige a mano) y plantillas de marca por reporte, manteniendo los datos de empresas fuera del repo público.
 
 ### Fase 4 — Review
+**Spec propio:** `2026-11-04-tija-phase-4-review-design.md` (detalla verificación de hallazgos, reglas de arquitectura opcionales, síntesis, exit codes y umbral).
 **Comando:** `tija review` → diff → análisis estático (Quality) → tests → reglas de arquitectura de `.tija/rules/` → agente con un skill pack de Thermos.
 **Modos:**
 - `tija review`: pack `thermo-review` (bugs, cambios que rompen funcionalidad, seguridad, cambios que afectan al flujo local de los devs, fugas de feature flags), tier `balanced`.
@@ -285,6 +306,7 @@ internal/quality    → QualityTool + adapters (Fase 2)
 internal/skills     → skill packs: carga, origen y licencia (Fase 3a)
 internal/comments   → lexer JS/TS/JSX, reglas deterministas, verificador (Fase 3a)
 internal/workflows  → workflows compuestos de .tija/workflows/ (Fase 3a)
+internal/engine/report.go → reporte de actividades: recolección, agente y PDF vía los scripts de los packs (Fase 3b)
 internal/tui        → Bubble Tea: startup screen, menú, mascota, vistas
 internal/render     → salida CLI (texto con paleta, plano, JSON)
 assets/             → reglas, templates, skill packs y workflows por defecto embebidos (go:embed), sprites

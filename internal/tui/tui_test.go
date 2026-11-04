@@ -28,10 +28,10 @@ func titles(items []MenuItem) []string {
 }
 
 func TestMenuItemsPhase3(t *testing.T) {
-	if got, want := titles(MenuItems(false, false, false, false)), []string{"Init", "Pull Request", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
+	if got, want := titles(MenuItems(false, false, false, false)), []string{"Init", "Pull Request", "Review", "Check", "Tests", "Doctor", "Status"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(false) = %v, want %v", got, want)
 	}
-	if got, want := titles(MenuItems(true, false, false, false)), []string{"Pull Request", "Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
+	if got, want := titles(MenuItems(true, false, false, false)), []string{"Pull Request", "Review", "Check", "Tests", "Doctor", "Status", "Init"}; !slices.Equal(got, want) {
 		t.Errorf("MenuItems(true) = %v, want %v", got, want)
 	}
 	if k := MenuItems(true, false, false, false)[0].Key; k != "pr" {
@@ -39,6 +39,7 @@ func TestMenuItemsPhase3(t *testing.T) {
 	}
 	desc := map[string]string{
 		"Pull Request":   "Draft and open a pull request",
+		"Review":         "Review the diff with verified findings",
 		"Clean comments": "Remove AI-slop comments, keep the useful ones",
 		"Check":          "Lint, format and tests",
 		"Tests":          "Run the test suite",
@@ -67,56 +68,56 @@ func TestMenuOrderWithNewItems(t *testing.T) {
 			initialized:  false,
 			hasJS:        false,
 			hasWorkflows: false,
-			want:         []string{"Init", "Pull Request", "Check", "Tests", "Doctor", "Status"},
+			want:         []string{"Init", "Pull Request", "Review", "Check", "Tests", "Doctor", "Status"},
 		},
 		{
 			name:         "uninit with-js no-wf",
 			initialized:  false,
 			hasJS:        true,
 			hasWorkflows: false,
-			want:         []string{"Init", "Pull Request", "Clean comments", "Check", "Tests", "Doctor", "Status"},
+			want:         []string{"Init", "Pull Request", "Review", "Clean comments", "Check", "Tests", "Doctor", "Status"},
 		},
 		{
 			name:         "uninit no-js with-wf",
 			initialized:  false,
 			hasJS:        false,
 			hasWorkflows: true,
-			want:         []string{"Init", "Pull Request", "Check", "Tests", "Workflows", "Doctor", "Status"},
+			want:         []string{"Init", "Pull Request", "Review", "Check", "Tests", "Workflows", "Doctor", "Status"},
 		},
 		{
 			name:         "uninit with-js with-wf",
 			initialized:  false,
 			hasJS:        true,
 			hasWorkflows: true,
-			want:         []string{"Init", "Pull Request", "Clean comments", "Check", "Tests", "Workflows", "Doctor", "Status"},
+			want:         []string{"Init", "Pull Request", "Review", "Clean comments", "Check", "Tests", "Workflows", "Doctor", "Status"},
 		},
 		{
 			name:         "init no-js no-wf",
 			initialized:  true,
 			hasJS:        false,
 			hasWorkflows: false,
-			want:         []string{"Pull Request", "Check", "Tests", "Doctor", "Status", "Init"},
+			want:         []string{"Pull Request", "Review", "Check", "Tests", "Doctor", "Status", "Init"},
 		},
 		{
 			name:         "init with-js no-wf",
 			initialized:  true,
 			hasJS:        true,
 			hasWorkflows: false,
-			want:         []string{"Pull Request", "Clean comments", "Check", "Tests", "Doctor", "Status", "Init"},
+			want:         []string{"Pull Request", "Review", "Clean comments", "Check", "Tests", "Doctor", "Status", "Init"},
 		},
 		{
 			name:         "init no-js with-wf",
 			initialized:  true,
 			hasJS:        false,
 			hasWorkflows: true,
-			want:         []string{"Pull Request", "Check", "Tests", "Workflows", "Doctor", "Status", "Init"},
+			want:         []string{"Pull Request", "Review", "Check", "Tests", "Workflows", "Doctor", "Status", "Init"},
 		},
 		{
 			name:         "init with-js with-wf",
 			initialized:  true,
 			hasJS:        true,
 			hasWorkflows: true,
-			want:         []string{"Pull Request", "Clean comments", "Check", "Tests", "Workflows", "Doctor", "Status", "Init"},
+			want:         []string{"Pull Request", "Review", "Clean comments", "Check", "Tests", "Workflows", "Doctor", "Status", "Init"},
 		},
 	}
 
@@ -126,8 +127,8 @@ func TestMenuOrderWithNewItems(t *testing.T) {
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("MenuItems(%v, %v, %v) = %v, want %v", tt.initialized, tt.hasJS, tt.hasWorkflows, got, tt.want)
 			}
-			if slices.Contains(got, "Review") {
-				t.Errorf("MenuItems should never contain 'Review'")
+			if !slices.Contains(got, "Review") {
+				t.Errorf("MenuItems should contain 'Review'")
 			}
 		})
 	}
@@ -265,12 +266,12 @@ func TestNavigation(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		m, _ = m.handleKey("j")
 	}
-	if m.cursor != 5 {
-		t.Fatalf("after j past end cursor = %d, want 5", m.cursor)
+	if m.cursor != len(m.items)-1 {
+		t.Fatalf("after j past end cursor = %d, want %d", m.cursor, len(m.items)-1)
 	}
 	m, _ = m.handleKey("k")
-	if m.cursor != 4 {
-		t.Fatalf("after k cursor = %d, want 4", m.cursor)
+	if m.cursor != len(m.items)-2 {
+		t.Fatalf("after k cursor = %d, want %d", m.cursor, len(m.items)-2)
 	}
 	if _, cmd := m.handleKey("q"); !isQuit(cmd) {
 		t.Fatal("\"q\" did not quit")
@@ -538,6 +539,10 @@ func TestInitFlowConsent(t *testing.T) {
 	if m.screen != screenConsent {
 		t.Fatalf("screen = %v, want consent", m.screen)
 	}
+	// Optional architecture presets precede existing-file consent. Enter skips.
+	for m.screen == screenConsent && m.flow.consent[m.flow.action].OptIn {
+		m, cmd = m.handleKey("enter")
+	}
 	if v := plainView(m); !strings.Contains(v, ".gitignore") || !strings.Contains(v, "y/n") {
 		t.Errorf("consent view lacks the action or prompt:\n%s", v)
 	}
@@ -558,6 +563,9 @@ func TestInitFlowConsent(t *testing.T) {
 	after, _ := os.ReadFile(gitignore)
 	if string(after) != string(before) {
 		t.Error(".gitignore changed although its action was rejected")
+	}
+	if _, err := os.Stat(filepath.Join(repo, ".tija/rules/architecture/react-features.md")); !os.IsNotExist(err) {
+		t.Errorf("optional preset was installed after enter skipped it: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(repo, filepath.FromSlash(manifest.Path))); err != nil {
 		t.Errorf("manifest not created: %v", err)

@@ -25,6 +25,8 @@ type QualityRequest struct {
 	Mode    quality.Mode
 	Timeout time.Duration
 	Verbose io.Writer
+	// Ephemeral keeps review-triggered quality artifacts outside the repo.
+	Ephemeral bool
 }
 
 type QualityEventType string
@@ -120,7 +122,9 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 	}
 
 	var tmpDir string
-	if initialized {
+	var temporaryLogDir string
+	keepTemporaryLogs := false
+	if initialized && !req.Ephemeral {
 		tmpDir = filepath.Join(root, ".tija", "tmp", "quality")
 		_ = os.MkdirAll(tmpDir, 0o755)
 	} else {
@@ -128,8 +132,19 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 		if err != nil {
 			return QualityReport{}, err
 		}
-		defer os.RemoveAll(tmp)
 		tmpDir = tmp
+		if req.Ephemeral {
+			tmpDir = filepath.Join(tmp, "reports")
+			temporaryLogDir = filepath.Join(tmp, "logs")
+			_ = os.MkdirAll(tmpDir, 0o755)
+		}
+		defer func() {
+			if !keepTemporaryLogs {
+				_ = os.RemoveAll(tmp)
+			} else {
+				_ = os.RemoveAll(tmpDir)
+			}
+		}()
 	}
 
 	project := quality.Project{
@@ -188,10 +203,14 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 		}
 
 		var logFile *os.File
-		if initialized && len(inv.Kinds) > 0 {
+		if (initialized || req.Ephemeral) && len(inv.Kinds) > 0 {
 			firstKind := string(inv.Kinds[0])
 			logRel := filepath.ToSlash(filepath.Join(".tija", "session", "logs", firstKind+".log"))
 			logAbs := filepath.Join(root, filepath.FromSlash(logRel))
+			if req.Ephemeral {
+				logAbs = filepath.Join(temporaryLogDir, firstKind+".log")
+				logRel = filepath.ToSlash(logAbs)
+			}
 			_ = os.MkdirAll(filepath.Dir(logAbs), 0o755)
 			f, err := os.Create(logAbs)
 			if err == nil {
@@ -240,6 +259,9 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 		} else {
 			result.Status = quality.StatusPassed
 		}
+		if req.Ephemeral && result.Status == quality.StatusFailed {
+			keepTemporaryLogs = true
+		}
 
 		if inv.Report != "" {
 			counts, err := quality.ParseReport(inv.Provider, inv.Report)
@@ -275,7 +297,7 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 			}
 		}
 		sort.Strings(changedFiles)
-	} else if req.Mode == quality.CheckMode && initialized {
+	} else if req.Mode == quality.CheckMode && initialized && !req.Ephemeral {
 		_ = quality.SaveSession(root, stepResults)
 	}
 

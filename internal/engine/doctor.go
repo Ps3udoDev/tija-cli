@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/Ps3udoDev/tija-cli/internal/agents"
+	"github.com/Ps3udoDev/tija-cli/internal/assets"
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
+	"github.com/Ps3udoDev/tija-cli/internal/rules"
 	"github.com/Ps3udoDev/tija-cli/internal/skills"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 	"github.com/Ps3udoDev/tija-cli/internal/workflows"
@@ -190,6 +192,28 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 		}
 	}
 	if inRepo {
+		reserved := []string{"1000-lines-ceiling", "quality-check-failed"}
+		for _, name := range []string{"thermo-review", "thermo-quality"} {
+			p, err := skills.Load(root, m, name)
+			if err != nil {
+				if data, ok := assets.Skill(name); ok {
+					p, _ = skills.Parse(data)
+				}
+			}
+			reserved = append(reserved, p.Rules...)
+		}
+		set, errs := rules.Load(root, m.Review.WithDefaults().Rules, reserved)
+		if len(errs) > 0 {
+			for _, err := range errs {
+				rep.Checks = append(rep.Checks, Check{ID: "architecture.rules", Status: StatusFail, Title: "architecture rules: " + err.Error()})
+			}
+		} else {
+			title := "no architecture rules (optional)"
+			if len(set.Files) > 0 {
+				title = fmt.Sprintf("architecture rules: %d valid files", len(set.Files))
+			}
+			rep.Checks = append(rep.Checks, Check{ID: "architecture.rules", Status: StatusOK, Title: title})
+		}
 		packs, _ := skills.List(root, m)
 		for _, pack := range packs {
 			for _, prob := range pack.Problems {

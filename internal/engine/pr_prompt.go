@@ -10,6 +10,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
+	"github.com/Ps3udoDev/tija-cli/internal/review"
 	"github.com/Ps3udoDev/tija-cli/internal/skills"
 )
 
@@ -104,6 +105,9 @@ func BuildPRPrompt(c PRContext, problems []prrules.Problem) string {
 	}
 
 	section("Prohibitions")
+	if line := reviewCitation(c.Review); line != "" {
+		fmt.Fprintf(&b, "- Verified review for this commit; cite only this summary in ## Pruebas: %s. Do not copy findings into the pull request.\n", line)
+	}
 	b.WriteString("- Do not invent tests, endpoints or features that are not in the commits or the diff.\n" +
 		"- Keep technical names (DTOs, endpoints, classes, hooks, services, files) exactly as they appear in the code.\n" +
 		"- Summarise the commits by feature; do not copy the commit messages literally.\n" +
@@ -156,16 +160,7 @@ func copywritingBody(root string) string {
 // diffFence returns a backtick fence longer than the longest run of
 // backticks in s (at least three), so a diff containing ``` cannot close it.
 func diffFence(s string) string {
-	longest, run := 0, 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '`' {
-			run++
-			longest = max(longest, run)
-		} else {
-			run = 0
-		}
-	}
-	return strings.Repeat("`", max(3, longest+1))
+	return review.Fence(s)
 }
 
 func describeResult(r quality.StepResult) string {

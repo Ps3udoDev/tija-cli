@@ -57,6 +57,7 @@ type Action struct {
 	Diff         string     `json:"diff,omitempty"`
 	Reason       string     `json:"reason,omitempty"`
 	NeedsConsent bool       `json:"needsConsent"`
+	OptIn        bool       `json:"optIn,omitempty"`
 
 	data      []byte // content written by file actions
 	installed bool   // record the written content in tija.installed
@@ -85,6 +86,7 @@ type InitPlan struct {
 	refresh      map[string]string  // stale tija.installed entries of files equal to the default
 	adoptOffer   bool               // an earlier run copied the .github template; point the manifest to it
 	notes        []string
+	rulesPresets []string
 }
 
 // InitResult reports what ApplyInit did. Paths are repo-relative with '/'.
@@ -211,6 +213,9 @@ func (p *InitPlan) planActions() error {
 			return err
 		}
 		if ok {
+			if strings.HasPrefix(path, assets.ArchitectureDir+"/") && a.Kind == KindReplace && a.NeedsConsent {
+				continue
+			}
 			p.Actions = append(p.Actions, a)
 		}
 		if stale {
@@ -231,6 +236,9 @@ func (p *InitPlan) planActions() error {
 		}
 	}
 	if err := p.planAdoptedOffer(files[assets.TemplatePath], installed); err != nil {
+		return err
+	}
+	if err := p.planRulesPresets(installed); err != nil {
 		return err
 	}
 
@@ -357,6 +365,9 @@ func (p InitPlan) updatedManifest(fresh manifest.Manifest, installed map[string]
 
 // source returns the embedded content installed at path.
 func source(files map[string][]byte, path string) ([]byte, bool) {
+	if strings.HasPrefix(path, assets.ArchitectureDir+"/") {
+		return assets.Preset(strings.TrimSuffix(strings.TrimPrefix(path, assets.ArchitectureDir+"/"), ".md"))
+	}
 	if path == githubTemplate {
 		path = assets.TemplatePath
 	}
@@ -432,7 +443,9 @@ func ApplyInit(ctx context.Context, plan InitPlan, answers map[string]string, ap
 			return res, err
 		}
 		if a.NeedsConsent && !approved[a.ID] {
-			res.Pending = append(res.Pending, a)
+			if !a.OptIn {
+				res.Pending = append(res.Pending, a)
+			}
 			continue
 		}
 		switch a.Path {

@@ -54,6 +54,7 @@ type Manifest struct {
 	Agents      Agents                  `yaml:"agents"`
 	Skills      map[string]SkillRef     `yaml:"skills,omitempty"`
 	Comments    Comments                `yaml:"comments,omitempty"`
+	Review      Review                  `yaml:"review,omitempty"`
 	Tija        Meta                    `yaml:"tija"`
 }
 
@@ -91,6 +92,42 @@ type Comments struct {
 	Include []string `yaml:"include"`
 	Exclude []string `yaml:"exclude"`
 	Protect []string `yaml:"protect,omitempty"` // regex
+}
+
+// Review configures diff review; zero values inherit the standard defaults.
+type Review struct {
+	FailOn   string   `yaml:"failOn,omitempty"`
+	Rules    []string `yaml:"rules,omitempty"`
+	Exclude  []string `yaml:"exclude,omitempty"`
+	MaxLines int      `yaml:"maxLines,omitempty"`
+}
+
+var FailOnValues = []string{"critical", "high", "medium", "low", "none"}
+
+func DefaultReview() Review {
+	return Review{FailOn: "high", Rules: []string{".tija/rules/architecture/*.md"}, MaxLines: 3000,
+		Exclude: []string{"**/*.lock", "**/package-lock.json", "**/pnpm-lock.yaml", "**/*.min.js", "dist/**", "build/**", "**/bin/**", "**/obj/**", "**/*.g.cs", "**/*.generated.*"}}
+}
+
+func (r Review) IsZero() bool {
+	return r.FailOn == "" && r.Rules == nil && r.Exclude == nil && r.MaxLines == 0
+}
+
+func (r Review) WithDefaults() Review {
+	d := DefaultReview()
+	if r.FailOn == "" {
+		r.FailOn = d.FailOn
+	}
+	if r.Rules == nil {
+		r.Rules = d.Rules
+	}
+	if r.Exclude == nil {
+		r.Exclude = d.Exclude
+	}
+	if r.MaxLines == 0 {
+		r.MaxLines = d.MaxLines
+	}
+	return r
 }
 
 func (c Comments) IsZero() bool {
@@ -261,6 +298,7 @@ func FromDetection(d detect.Detection, agents []string, target string) Manifest 
 		}},
 		Skills:   skills,
 		Comments: comments,
+		Review:   DefaultReview(),
 	}
 }
 
@@ -315,6 +353,12 @@ func encode(v any) ([]byte, error) {
 // Validate reports every schema violation, or nil when m is valid.
 func (m Manifest) Validate() []error {
 	var errs []error
+	if m.Review.FailOn != "" && !slices.Contains(FailOnValues, m.Review.FailOn) {
+		errs = append(errs, fmt.Errorf("review.failOn: invalid value %q (want one of %v)", m.Review.FailOn, FailOnValues))
+	}
+	if m.Review.MaxLines < 0 {
+		errs = append(errs, fmt.Errorf("review.maxLines: must be positive"))
+	}
 	if m.Version != version {
 		errs = append(errs, fmt.Errorf("version: unsupported value %d (want %d)", m.Version, version))
 	}

@@ -49,6 +49,9 @@ type setupError struct{ error }
 
 func (setupError) Is(target error) bool { return target == ErrReportSetup }
 
+// Unwrap keeps the cause (e.g. agents.ErrNotInstalled) visible to errors.Is.
+func (e setupError) Unwrap() error { return e.error }
+
 func setupErrorf(format string, args ...any) error {
 	return setupError{fmt.Errorf(format, args...)}
 }

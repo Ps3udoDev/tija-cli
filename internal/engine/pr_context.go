@@ -17,6 +17,7 @@ import (
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
+	"github.com/Ps3udoDev/tija-cli/internal/review"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
 )
 
@@ -45,6 +46,7 @@ type PRContext struct {
 	Truncated []string
 	// Tests holds only the quality results of HEAD with a clean tree.
 	Tests           []quality.StepResult
+	Review          *review.Result
 	Rules, Template string
 	// Manifest is the repo's manifest, or one built in memory from detection.
 	Manifest    manifest.Manifest
@@ -121,6 +123,9 @@ func CollectPRContext(ctx context.Context, dir string, env sys.Env) (PRContext, 
 	// A corrupt session only means no verified results.
 	if s, err := quality.LoadSession(root); err == nil {
 		c.Tests = FreshTests(s, c.Head)
+	}
+	if s, exists, err := review.LoadSession(root); err == nil && exists && s.Commit == c.Head && !s.Dirty {
+		c.Review = &s
 	}
 
 	if c.Rules, err = readOrDefault(root, m.PullRequest.Rules, assets.RulesPath); err != nil {

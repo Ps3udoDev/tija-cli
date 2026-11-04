@@ -14,6 +14,7 @@ type MenuItem struct {
 
 const (
 	keyPR        = "pr"
+	keyReview    = "review"
 	keyComments  = "comments"
 	keyCheck     = "check"
 	keyTests     = "tests"
@@ -26,6 +27,7 @@ const (
 
 var (
 	itemPR        = MenuItem{Key: keyPR, Title: "Pull Request", Description: "Draft and open a pull request"}
+	itemReview    = MenuItem{Key: keyReview, Title: "Review", Description: "Review the diff with verified findings"}
 	itemComments  = MenuItem{Key: keyComments, Title: "Clean comments", Description: "Remove AI-slop comments, keep the useful ones"}
 	itemCheck     = MenuItem{Key: keyCheck, Title: "Check", Description: "Lint, format and tests"}
 	itemTests     = MenuItem{Key: keyTests, Title: "Tests", Description: "Run the test suite"}
@@ -43,7 +45,7 @@ func MenuItems(initialized, hasJS, hasWorkflows, hasReports bool) []MenuItem {
 	if !initialized {
 		items = append(items, itemInit)
 	}
-	items = append(items, itemPR)
+	items = append(items, itemPR, itemReview)
 	if hasJS {
 		items = append(items, itemComments)
 	}
