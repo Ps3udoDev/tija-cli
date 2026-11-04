@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -87,27 +88,51 @@ func Load(root string, globs []string, reserved []string) (Set, []error) {
 	var set Set
 	var errs []error
 	var paths []string
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	pathsSeen := map[string]bool{}
+	for _, pattern := range globs {
+		pattern = normalize(pattern)
+		// Walk only the literal directory prefix. In particular, the default
+		// architecture glob never traverses node_modules, bin or obj.
+		prefix := pattern
+		if at := strings.IndexAny(pattern, "*?{["); at >= 0 {
+			prefix = path.Dir(pattern[:at])
+			if strings.HasSuffix(pattern[:at], "/") {
+				prefix = strings.TrimSuffix(pattern[:at], "/")
+			}
 		}
-		if d.IsDir() {
-			if d.Name() == ".git" {
-				return filepath.SkipDir
+		start := filepath.Join(root, filepath.FromSlash(prefix))
+		rel, err := filepath.Rel(root, start)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			errs = append(errs, fmt.Errorf("architecture rules glob %q must stay inside the repository", pattern))
+			continue
+		}
+		err = filepath.WalkDir(start, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				if os.IsNotExist(err) && p == start {
+					return nil // architecture rules are optional
+				}
+				return err
+			}
+			if d.IsDir() {
+				if d.Name() == ".git" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			rel, e := filepath.Rel(root, p)
+			if e != nil {
+				return e
+			}
+			rel = normalize(rel)
+			if matches([]string{pattern}, rel) && !pathsSeen[rel] {
+				paths = append(paths, rel)
+				pathsSeen[rel] = true
 			}
 			return nil
+		})
+		if err != nil {
+			errs = append(errs, fmt.Errorf("architecture rules glob %q: %w", pattern, err))
 		}
-		rel, e := filepath.Rel(root, p)
-		if e != nil {
-			return e
-		}
-		if len(globs) > 0 && matches(globs, rel) {
-			paths = append(paths, normalize(rel))
-		}
-		return nil
-	})
-	if err != nil {
-		return set, []error{err}
 	}
 	slices.Sort(paths)
 	seen := map[string]string{}
