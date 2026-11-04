@@ -6,7 +6,7 @@ Spec: `docs/superpowers/specs/2026-11-04-tija-phase-4-review-design.md`.
 
 ## Estado y alcance
 
-Tasks 1–12 implementadas y commiteadas individualmente, con reportes task-01.md a task-12.md en esta carpeta. Task 13 incluye validación local, pruebas reales y este handoff. **La aceptación completa de fase sigue pendiente para el agente real del backend:** review/quality/deep agotaron sus timeouts y la revisión automática rechazó el reintento de envío a Claude sin autorización explícita del usuario. No se presenta esa limitación como éxito.
+Tasks 1–12 implementadas y commiteadas individualmente, con reportes task-01.md a task-12.md en esta carpeta. Task 13 incluye validación local, pruebas reales y este handoff. **Actualización (revisión, 2026-11-04):** el usuario autorizó el envío del diff del backend a Claude y la revalidación con timeouts por defecto cerró la aceptación del backend (ver "Revisión y revalidación del backend" al final). La primera corrida, descrita abajo, había terminado por timeouts del sandbox.
 
 Entregado: `tija review`, quality/deep, verificación de archivo/rango/evidencia/severidad/regla, síntesis determinista, arquitectura opcional, presets, umbrales/exit codes, chunks/concurrencia, sesión, CLI/JSON/render, `pre-pr`, doctor/init, cita en PR y TUI. No se agregó dependencia. No se publicaron comentarios, PRs ni pushes.
 
@@ -76,7 +76,7 @@ No se ejecutó build/restore global de la aplicación. El repositorio original q
 
 ## Riesgos y trabajo pendiente para el revisor
 
-- **Bloqueo real de aceptación backend:** el reintento elevado fue rechazado automáticamente por posible envío del diff privado a Claude sin autorización explícita. Se solicitó esa autorización al usuario y no se lanzó ningún intento posterior al rechazo. Se requiere respuesta afirmativa antes de nuevos envíos; después ejecutar secuencialmente review/quality/deep con timeout default y auditar cada hallazgo. Validar también detección del bug sembrado.
+- **Resuelto en la revisión (ver la última sección).** Texto original: **Bloqueo real de aceptación backend:** el reintento elevado fue rechazado automáticamente por posible envío del diff privado a Claude sin autorización explícita. Se solicitó esa autorización al usuario y no se lanzó ningún intento posterior al rechazo. Se requiere respuesta afirmativa antes de nuevos envíos; después ejecutar secuencialmente review/quality/deep con timeout default y auditar cada hallazgo. Validar también detección del bug sembrado.
 - La evidencia estructural no prueba el juicio semántico del agente. En frontend hubo un Low de empty options bajo breaking-functionality sin explicación y riesgos de prefijo gateway cuya configuración desplegada no se verificó. Severidades variaron entre modos. El revisor debe evaluar utilidad y clasificación, además de las citas.
 - El preset cross-feature es sintáctico: puede señalar imports absolutos dentro de la misma feature. Es un punto de partida editable, no un análisis de dependencias/AST. Ajustar al repo.
 - Claude se probó real en Windows. Los argumentos de Codex/Gemini se prueban unitariamente; no se probó ejecución real ni enforcement de esos proveedores. Gemini no agrega flags de restricción según el contrato aprobado; revisar esa limitación antes de usarlo con código sensible.
@@ -91,3 +91,33 @@ No se ejecutó build/restore global de la aplicación. El repositorio original q
 3. Inspeccionar engine/review*.go y QualityRequest.Ephemeral, proveedores y helpers Git; contrastar readonly/no-writes con tests.
 4. Revisar reglas/presets, upgrade de defaults/hash, opt-in init, doctor y flujo TUI.
 5. Reproducir workflow stop y PR citation; examinar raw JSON y auditorías reales. Mantener pendiente la aceptación backend hasta autorización y ejecución exitosa.
+
+## Revisión y revalidación del backend (2026-11-04)
+
+### Correcciones de la revisión
+
+| Commit | Corrección |
+|---|---|
+| `8503250` (amend) | La evidencia cruda con código privado sale del repo: `docs/superpowers/handoff/**/validation/` queda ignorado y los handoffs registran solo resultados agregados. |
+| `346742e` | Un `--agent` explícito que no está instalado sale con exit 2. Sin `--agent`, si `agents.default` no está instalado se usa el primer CLI disponible. Un timeout o un CLI ausente no se reintentan (solo una respuesta inválida). Los checks de los presets salvo `be-domain-no-infra` pasan a `Medium` y `fe-no-fetch-in-components` solo aplica a `components/`. |
+
+### Revalidación autorizada
+
+Con autorización explícita del usuario para enviar el diff del backend a Claude, se repitieron las corridas en los mismos clones aislados con el binario de `346742e`, timeouts por defecto (6 min `balanced`, 12 min `deep`), `--no-check --no-pr-comments --agent claude`. Ninguna parte falló; cada corrida tardó entre 15 y 29 s, lo que confirma que los timeouts anteriores venían del sandbox de red, no de Tija.
+
+| Corrida | Exit | Critical | High | Medium | Low | Descartados |
+|---|---:|---:|---:|---:|---:|---:|
+| review real | 0 | 0 | 0 | 1 | 0 | 0 |
+| quality real | 1 | 0 | 1 | 0 | 1 | 0 |
+| deep real | 0 | 0 | 0 | 2 | 0 | 1 (`unknown-rule`) |
+| sembrado deep | 1 | 1 | 4 | 3 | 1 | 0 |
+
+**Auditoría manual:** los 14 hallazgos mostrados apuntan a archivos del diff, a líneas dentro de bloques del lado nuevo y citan evidencia que existe en esas líneas. El descartado de `deep` es correcto: el pase de calidad usó una regla fuera de su catálogo.
+
+**Criterio 2 (backend):** el bug sembrado (condición invertida) lo reportan ambos pases de `deep` (`breaking-functionality` High y `clean-design` Critical); los checks deterministas encuentran 3/3 líneas sembradas. En el clon sembrado `be-controller-no-dbcontext` sigue en High porque el preset se instaló con el binario anterior a `346742e`.
+
+**Observaciones semánticas (no afectan la verificación):**
+- En `quality` real, endpoints comentados en lugar de borrados salieron como High y producen exit 1; en `review` y `deep` el mismo cambio sale Medium. La severidad del agente varía entre modos.
+- En el sembrado, el pase de calidad clasificó el bug lógico como `clean-design` Critical: la regla no es la más adecuada y la severidad es alta respecto del pase de review. Como las reglas difieren, la síntesis no los une (comportamiento del spec §9).
+
+Con esto los criterios 1 y 2 del §17 quedan cumplidos en frontend y backend. La evidencia cruda está en `validation/rerun-2026-11-04/` (local, ignorada por git).

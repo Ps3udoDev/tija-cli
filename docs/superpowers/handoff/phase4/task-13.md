@@ -1,6 +1,6 @@
 ﻿# Task 13 — Verificación y entrega
 
-Estado: implementación local verificada; aceptación externa backend pendiente por autorización. No se marca completa la aceptación de fase17 del spec.
+Estado: implementación verificada. La aceptación del backend, pendiente al cierre de este reporte, se completó en la revalidación autorizada (ver el final).
 
 ## Validaciones locales finales
 
@@ -40,3 +40,7 @@ El reintento backend a6m con ejecución elevada fue rechazado automáticamente a
 Pendientes para cerrar la aceptación: autorización explícita del envío backend a Claude; repetir secuencialmente review/quality/deep con timeout suficiente; auditar hallazgos y confirmar detección del bug sembrado. La implementación y el handoff quedan commiteados para revisión sin afirmar que ese criterio pasó.
 
 Handoff principal: `HANDOFF.md` en esta carpeta. Se actualizó también `docs/superpowers/handoff/HANDOFF.md` con el enlace a fase4.
+
+## Revalidación autorizada (2026-11-04)
+
+Con autorización del usuario se repitió la validación del backend con timeouts por defecto: review exit 0 (1 Medium), quality exit 1 (1 High, 1 Low), deep exit 0 (2 Medium, 1 descartado `unknown-rule`), sembrado deep exit 1 (1 Critical, 4 High, 3 Medium, 1 Low) con el bug sembrado detectado por ambos pases. Sin partes fallidas; 15–29 s por corrida. Los 14 hallazgos mostrados se auditaron a mano: archivo, rango y evidencia correctos. El bloqueo anterior queda resuelto; detalle en `HANDOFF.md`, sección "Revisión y revalidación del backend".
