@@ -18,13 +18,16 @@ func Chunks(files []FileDiff, maxLines int) [][]FileDiff {
 		}
 	}
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Path < sorted[j].Path })
-	var groups [][]FileDiff
+	byDirectory := map[string][]FileDiff{}
+	var directories []string
 	for _, f := range sorted {
-		if len(groups) == 0 || path.Dir(groups[len(groups)-1][0].Path) != path.Dir(f.Path) {
-			groups = append(groups, nil)
+		dir := path.Dir(f.Path)
+		if _, ok := byDirectory[dir]; !ok {
+			directories = append(directories, dir)
 		}
-		groups[len(groups)-1] = append(groups[len(groups)-1], f)
+		byDirectory[dir] = append(byDirectory[dir], f)
 	}
+	sort.Strings(directories)
 	var out [][]FileDiff
 	var part []FileDiff
 	used := 0
@@ -35,7 +38,8 @@ func Chunks(files []FileDiff, maxLines int) [][]FileDiff {
 			used = 0
 		}
 	}
-	for _, group := range groups {
+	for _, dir := range directories {
+		group := byDirectory[dir]
 		total := 0
 		for _, f := range group {
 			total += f.ChangedLines()

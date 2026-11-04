@@ -19,3 +19,11 @@ func TestChunksByDirectory(t *testing.T) {
 		t.Fatal("Chunks mutated input")
 	}
 }
+
+func TestChunksKeepNestedDirectoryGroupsComplete(t *testing.T) {
+	files := []FileDiff{{Path: "a/a.ts", Removed: 5}, {Path: "a/sub/x.ts", Removed: 5}, {Path: "a/z.ts", Removed: 5}}
+	c := Chunks(files, 10)
+	if len(c) != 2 || len(c[0]) != 2 || c[0][0].Path != "a/a.ts" || c[0][1].Path != "a/z.ts" || len(c[1]) != 1 || c[1][0].Path != "a/sub/x.ts" {
+		t.Fatalf("directory group split by a nested directory: %#v", c)
+	}
+}

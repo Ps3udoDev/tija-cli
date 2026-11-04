@@ -7,3 +7,5 @@ Decisions: normalize CRLF to LF in diff text as well as parsing; decode Git quot
 Validation: the requested focused command first failed because the package interfaces did not exist. `go test ./internal/review/ -run 'ParseDiff|Touches|Synthetic|Chunks'` passes after implementation. Tests cover quoted paths, renames, deleted and binary files, CRLF, range boundaries, synthetic additions, stable ordering and oversized files.
 
 Reviewer: verify merge-base git output against `ParseDiff`, especially paths with spaces and quotes. No git or subprocess dependencies were introduced into this package.
+
+Audit addendum: nested directory paths can interleave files from the same `path.Dir` when globally sorted (`a/a.ts`, `a/sub/x.ts`, `a/z.ts`). Grouping now builds complete directory buckets and visits directory names in sorted order; files remain sorted within each bucket. `TestChunksKeepNestedDirectoryGroupsComplete` prevents a directory from being split merely because it has a nested directory. The focused chunk suite passes after this fix.
