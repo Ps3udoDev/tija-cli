@@ -25,7 +25,7 @@ type Result struct {
 	PRComments PRCommentsSummary `json:"prComments"`
 	Chunks     ChunkSummary      `json:"chunks"`
 	Summary    map[Severity]int  `json:"summary"`
-	Warnings   []string          `json:"warnings,omitempty"`
+	Warnings   []string          `json:"warnings"`
 	SavedAt    string            `json:"savedAt,omitempty"`
 }
 
@@ -45,6 +45,9 @@ func (r *Result) Finalize() {
 	}
 	if r.PRComments.Uncovered == nil {
 		r.PRComments.Uncovered = []PRComment{}
+	}
+	if r.Warnings == nil {
+		r.Warnings = []string{}
 	}
 	for i := range r.Findings {
 		f := &r.Findings[i]

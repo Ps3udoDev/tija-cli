@@ -9,3 +9,5 @@ Session writes use a temporary sibling file and the existing quality-session Win
 Validation: focused tests failed for absent interfaces before implementation; `go test ./internal/review/ -run 'Merge|Sort|Ceiling|Attach|Finalize|Session'` passes. Includes input-order independence, transitive overlap, different rules, checks exclusion, disputed severities, threshold/error precedence, empty JSON arrays, missing session, replacement roundtrip and corrupt JSON.
 
 Reviewer: the Thermos attribution is present in `synth.go`; the parent integration must add its notice entry. The ceiling rule's generated prose is English at this pure layer; an engine can translate it to `content.language` when constructing the report.
+
+Integration addendum: `warnings` is always present as a JSON array, including `[]` when there are no warnings, matching the documented stable response fields. The empty-array assertion covers it alongside findings and discarded.

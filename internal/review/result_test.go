@@ -24,7 +24,7 @@ func TestFinalizeExit(t *testing.T) {
 	}
 	var raw map[string]json.RawMessage
 	_ = json.Unmarshal(b, &raw)
-	for _, key := range []string{"findings", "discarded"} {
+	for _, key := range []string{"findings", "discarded", "warnings"} {
 		if string(raw[key]) != "[]" {
 			t.Errorf("%s=%s", key, raw[key])
 		}
