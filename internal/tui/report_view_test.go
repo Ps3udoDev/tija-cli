@@ -138,7 +138,7 @@ func TestReportMenuItem(t *testing.T) {
 		t.Error("the item must stay hidden without the packs")
 	}
 	got := titles(MenuItems(true, false, false, true))
-	want := []string{"Pull Request", "Check", "Tests", "Activity report", "Doctor", "Status", "Init"}
+	want := []string{"Pull Request", "Review", "Check", "Tests", "Activity report", "Doctor", "Status", "Init"}
 	if !slices.Equal(got, want) {
 		t.Errorf("items = %v, want %v", got, want)
 	}

@@ -49,6 +49,7 @@ const (
 	screenComments  // clean comments
 	screenWorkflow  // running composed workflows
 	screenReport    // activity report: period and progress
+	screenReview    // review mode, progress, findings and details
 )
 
 // defaultWidth is assumed until the terminal reports its size.
@@ -96,6 +97,8 @@ type model struct {
 	comments       *commentsFlow
 	workflow       *workflowFlow
 	report         *reportFlow
+	review         *reviewFlow
+	reviewRunner   ReviewRunner
 
 	now func() time.Time // today's date; nil means time.Now
 }
@@ -192,6 +195,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.report != nil && m.report.events != nil {
 			return m, waitForReportEvent(m.report.events)
 		}
+	case reviewEventMsg, reviewDoneMsg:
+		return m.updateReview(msg)
 	case workflowStepMsg:
 		if m.workflow == nil {
 			m.workflow = &workflowFlow{}
@@ -278,6 +283,8 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 		return m.workflowKey(k)
 	case screenReport:
 		return m.reportKey(k)
+	case screenReview:
+		return m.reviewKey(k)
 	case screenResult:
 		if m.scroll(k, m.result, m.height) {
 			return m, nil
@@ -295,6 +302,7 @@ func (m model) handleKey(k string) (model, tea.Cmd) {
 // backToMenu recomputes the startup info, since a command such as Init may
 // have changed the repository.
 func (m model) backToMenu() (model, tea.Cmd) {
+	m.review = nil
 	m.flow, m.pr, m.comments, m.workflow, m.report, m.result = nil, nil, nil, nil, nil, ""
 	m.screen = screenDetecting
 	return m, detectCmd(m.dir, m.env)
@@ -304,6 +312,8 @@ func (m model) backToMenu() (model, tea.Cmd) {
 func (m model) run(item MenuItem) (model, tea.Cmd) {
 	dir, env := m.dir, m.env
 	switch item.Key {
+	case keyReview:
+		return m.startReview()
 	case keyPR:
 		m.pr = nil
 		return m.startPR(false)
@@ -443,6 +453,9 @@ func (m model) View() tea.View {
 		s = m.panel(m.mascot, m.caption, m.workflowBody())
 	case screenReport:
 		s = m.panel(m.reportMascot(), m.caption, m.reportBody())
+	case screenReview:
+		body, _, _ := wrapAndSliceResult(m.reviewBody(), m.width, m.height, m.scrollOffset)
+		s = m.panel(m.mascot, m.caption, body)
 	case screenResult:
 		body, _, _ := wrapAndSliceResult(m.result, m.width, m.height, m.scrollOffset)
 		s = m.panel(m.mascot, m.caption, body)
@@ -483,6 +496,11 @@ func (m model) panel(state MascotState, caption, body string) string {
 func (m model) footer() string {
 	var help string
 	switch m.screen {
+	case screenReview:
+		help = "up/down move · enter detail · esc/q back"
+		if m.review != nil && m.review.working {
+			help = "ctrl+c quit"
+		}
 	case screenDetecting:
 		help = "q quit"
 	case screenMenu:

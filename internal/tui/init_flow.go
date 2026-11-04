@@ -104,6 +104,9 @@ func (m model) choiceKey(k string) (model, tea.Cmd) {
 func (m model) consentKey(k string) (model, tea.Cmd) {
 	f := m.flow
 	a := f.consent[f.action]
+	if k == "enter" && a.OptIn {
+		k = "n"
+	}
 	switch k {
 	case "y", "n":
 		f.approved[a.ID] = k == "y"
@@ -159,7 +162,11 @@ func (m model) consentView() string {
 		lines = append(lines, "")
 		lines = append(lines, diff...)
 	}
-	lines = append(lines, "", sandStyle.Render("Apply? y/n"))
+	prompt := "Apply? y/n"
+	if a.OptIn {
+		prompt = "Install optional preset? y/N (enter skips)"
+	}
+	lines = append(lines, "", sandStyle.Render(prompt))
 	return strings.Join(lines, "\n")
 }
 
