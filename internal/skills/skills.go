@@ -47,9 +47,11 @@ type Pack struct {
 	Edited      bool     `json:"edited"`
 	Problems    []string `json:"problems,omitempty"`
 	Body        string   `json:"body,omitempty"`
+	Rules       []string `json:"rules,omitempty"`
 }
 
 type skillFrontmatter struct {
+	Rules       []string `yaml:"rules"`
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description"`
 	Source      *Source  `yaml:"source"`
@@ -87,6 +89,7 @@ func Parse(data []byte) (Pack, error) {
 	}
 
 	pack.Name = fm.Name
+	pack.Rules = fm.Rules
 	pack.Description = fm.Description
 	pack.Source = fm.Source
 	pack.Adapted = fm.Adapted

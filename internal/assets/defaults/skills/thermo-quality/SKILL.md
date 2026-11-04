@@ -1,5 +1,6 @@
 ---
 name: thermo-quality
+rules: [code-judo, 1000-lines-ceiling, spaghetti-condition, clean-design, type-boundary, canonical-layer, clean-orchestration]
 description: Strict maintainability review for abstractions, file size limits, and spaghetti conditions.
 source:
   project: thermos
@@ -13,6 +14,7 @@ adapted:
   by: Tija
   date: 2026-10-29
   changes:
+    - Declared the rule ids in frontmatter (rules) so Tija can verify findings.
     - Removed Cursor subagent orchestration directives (disable-model-invocation, subagent_type, run_in_background).
     - Mapped output to Tija finding schema (file, line, severity Critical/High/Medium/Low, rule, suggestion).
     - Retained core structural principles (code judo, 1000-line ceiling, spaghetti prevention, canonical layer placement).

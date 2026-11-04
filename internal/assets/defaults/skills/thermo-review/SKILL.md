@@ -1,5 +1,6 @@
 ---
 name: thermo-review
+rules: [breaking-functionality, devex-regression, feature-leak, security-vulnerability]
 description: Comprehensive security and correctness audit of diff changes.
 source:
   project: thermos
@@ -13,6 +14,7 @@ adapted:
   by: Tija
   date: 2026-10-29
   changes:
+    - Declared the rule ids in frontmatter (rules) so Tija can verify findings.
     - Removed Cursor subagent orchestration directives (disable-model-invocation, subagent_type, run_in_background).
     - Generalized PR comments inspection to gh CLI performed strictly after independent audit.
     - Mapped output to Tija finding schema (file, line, severity Critical/High/Medium/Low, rule, suggestion).
