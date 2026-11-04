@@ -5,12 +5,14 @@ import (
 	"io"
 
 	"github.com/Ps3udoDev/tija-cli/internal/engine"
+	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/render"
 	"github.com/spf13/cobra"
 )
 
 func newInitCmd(deps Deps, in io.Reader) *cobra.Command {
-	return &cobra.Command{
+	var presets []string
+	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Set up .tija/ in the current repository",
 		Args:  cobra.NoArgs,
@@ -28,16 +30,27 @@ func newInitCmd(deps Deps, in io.Reader) *cobra.Command {
 				return err
 			}
 
+			if err := plan.AddRulesPresets(presets...); err != nil {
+				return &ExitError{Code: 2, Err: err}
+			}
 			var answers map[string]string
 			approved := map[string]bool{}
 			switch {
 			case o.yes:
 				for _, a := range plan.Actions {
-					approved[a.ID] = true
+					if !a.OptIn {
+						approved[a.ID] = true
+					}
 				}
 			case !o.json && isTTY(deps, in) && isTTY(deps, cmd.OutOrStdout()):
 				answers, approved = ask(newStdinPrompter(in, o.printer), plan)
 				o.printer.Line("")
+			}
+			for _, name := range presets {
+				approved["create:.tija/rules/architecture/"+name+".md"] = true
+			}
+			if len(presets) > 0 {
+				approved["update:"+manifest.Path] = true
 			}
 
 			res, err := engine.ApplyInit(cmd.Context(), plan, answers, approved)
@@ -48,6 +61,8 @@ func newInitCmd(deps Deps, in io.Reader) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringArrayVar(&presets, "rules-preset", nil, "Install an optional architecture rules preset (repeatable)")
+	return cmd
 }
 
 // ask resolves the plan's choices and the approval of each action that
