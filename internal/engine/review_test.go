@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Ps3udoDev/tija-cli/internal/detect"
+	"github.com/Ps3udoDev/tija-cli/internal/gitx"
 	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/review"
@@ -36,6 +37,30 @@ func reviewRepo(t *testing.T, initialized bool) string {
 		testutil.Git(t, dir, "branch", "-f", "main", "HEAD")
 	}
 	return dir
+}
+
+func TestReviewSkipsSymlinkContents(t *testing.T) {
+	dir := reviewRepo(t, false)
+	outside := filepath.Join(t.TempDir(), "private.txt")
+	if e := os.WriteFile(outside, []byte("private sentinel never sent to agent"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Symlink(outside, filepath.Join(dir, "link.ts")); e != nil {
+		t.Skipf("symlink privilege unavailable: %v", e)
+	}
+	repo := gitx.Repo{Dir: dir, Run: fakeEnv().Run}
+	for _, tracked := range []bool{false, true} {
+		if tracked {
+			testutil.Git(t, dir, "add", "link.ts")
+		}
+		files, e := reviewFiles(context.Background(), repo, "main", nil)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if len(files) != 0 {
+			t.Fatalf("symlink included (tracked=%t): %+v", tracked, files)
+		}
+	}
 }
 
 func TestReviewQualityReuseOrRun(t *testing.T) {

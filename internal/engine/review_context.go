@@ -41,6 +41,13 @@ func reviewFiles(ctx context.Context, repo gitx.Repo, base string, exclude []str
 		if excluded(p) {
 			continue
 		}
+		info, err := os.Lstat(abs(repo.Dir, p))
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
 		data, err := os.ReadFile(abs(repo.Dir, p))
 		if err != nil {
 			return nil, err
@@ -53,6 +60,13 @@ func reviewFiles(ctx context.Context, repo gitx.Repo, base string, exclude []str
 	var out []review.FileDiff
 	for _, f := range files {
 		if !excluded(f.Path) && !f.Binary && !f.Deleted {
+			info, err := os.Lstat(abs(repo.Dir, f.Path))
+			if err != nil {
+				return nil, err
+			}
+			if !info.Mode().IsRegular() {
+				continue
+			}
 			out = append(out, f)
 		}
 	}
@@ -61,6 +75,13 @@ func reviewFiles(ctx context.Context, repo gitx.Repo, base string, exclude []str
 
 func reviewReadLines(root, path string) ([]string, error) {
 	// Only paths already parsed from git are ever passed by verification.
+	info, err := os.Lstat(abs(root, path))
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("cannot review non-regular file %s", path)
+	}
 	data, err := os.ReadFile(abs(root, path))
 	if err != nil {
 		return nil, err
