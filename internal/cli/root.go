@@ -162,6 +162,7 @@ func NewRoot(deps Deps, in io.Reader) *cobra.Command {
 		newFormatCmd(deps),
 		newTestCmd(deps),
 		newPRCmd(deps, in),
+		newReviewCmd(deps),
 		newSkillsCmd(deps),
 		newCleanCmd(deps),
 		newReportCmd(deps),

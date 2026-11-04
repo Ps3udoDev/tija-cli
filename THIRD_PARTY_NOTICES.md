@@ -52,7 +52,7 @@ SOFTWARE.
   - `thermos/skills/thermo-nuclear-review/SKILL.md` → `.tija/skills/thermo-review/SKILL.md`
   - `thermos/skills/thermo-nuclear-code-quality-review/SKILL.md` → `.tija/skills/thermo-quality/SKILL.md`
 
-> **Note on `thermos/skills/thermos/SKILL.md`:** The Cursor-specific multi-agent orchestration pattern described in `thermos/skills/thermos/SKILL.md` is not copied into Tija as a skill pack; instead, the review orchestration flow is independently reimplemented in pure Go in Tija Phase 4 and credited here.
+> **Note on `thermos/skills/thermos/SKILL.md`:** The parallel orchestration and deterministic synthesis of `tija review --deep` follow the idea of Cursor's `thermos` skill (MIT), independently reimplemented in Go in `internal/engine/review_agent.go` and `internal/review/synth.go`.
 
 ### MIT License Text
 
