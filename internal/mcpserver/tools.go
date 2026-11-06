@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -102,6 +103,16 @@ func toolHandler[In, Out any](s *Server, name string, e Effect, h func(context.C
 			}
 		}
 		out, exit, err := h(ctx, in, progressFor(ctx, req))
+		var withOut *resultError
+		if errors.As(err, &withOut) {
+			// A failure that still describes what happened (for example the
+			// problems of a draft that was not published) keeps its output.
+			return &mcp.CallToolResult{
+				IsError: true,
+				Meta:    mcp.Meta{"tija/exitCode": exit},
+				Content: []mcp.Content{&mcp.TextContent{Text: withOut.msg}},
+			}, out, nil
+		}
 		if err != nil {
 			return nil, zero, err
 		}
@@ -123,3 +134,9 @@ func summarize(name string, _ any) string { return name + " completed" }
 type schemaAdjuster interface {
 	adjustSchema(*jsonschema.Schema)
 }
+
+// resultError is a tool failure whose structured output is still returned,
+// so the caller can read why it failed (isError: true plus the output).
+type resultError struct{ msg string }
+
+func (e *resultError) Error() string { return e.msg }

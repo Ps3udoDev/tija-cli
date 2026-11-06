@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -70,6 +71,10 @@ type CreateReport struct {
 	Pushed   bool   `json:"pushed"`
 	Updated  bool   `json:"updated"`
 	Assigned bool   `json:"assigned"`
+	// Number is the pull request number taken from URL; 0 when it has none.
+	Number int `json:"number"`
+	// Evidence is the normalized evidence the published body cites.
+	Evidence []EvidenceRef `json:"evidence,omitempty"`
 }
 
 // PlanCreatePR checks gh, reuses the draft saved by prepare when it belongs
@@ -99,7 +104,11 @@ func PlanCreatePR(ctx context.Context, dir string, env sys.Env, req CreateReques
 		return CreatePlan{}, err
 	}
 
-	rep, fresh := savedDraftReport(c, emit)
+	incoming, err := NormalizeEvidence(req.Prepare.EvidenceRefs)
+	if err != nil {
+		return CreatePlan{}, err
+	}
+	rep, fresh := savedDraftReport(c, emit, incoming, req.Prepare.EvidenceRefs != nil)
 	if !fresh {
 		if rep, err = PreparePR(ctx, root, env, req.Prepare, onEvent); err != nil {
 			return CreatePlan{}, err
@@ -174,6 +183,7 @@ func ApplyCreatePR(ctx context.Context, dir string, env sys.Env, p CreatePlan, r
 			return fail(commandError("gh pr edit", stderr, code, err))
 		}
 		out.URL, out.Updated, out.Assigned = p.Existing, true, p.Assign
+		out.Number, out.Evidence = prNumber(out.URL), r.Evidence
 		return out, nil
 	}
 
@@ -193,6 +203,7 @@ func ApplyCreatePR(ctx context.Context, dir string, env sys.Env, p CreatePlan, r
 		return fail(fmt.Errorf("gh pr create printed no pull request URL"))
 	}
 	out.Assigned = p.Assign
+	out.Number, out.Evidence = prNumber(out.URL), r.Evidence
 	return out, nil
 }
 
@@ -220,13 +231,23 @@ func checkGH(ctx context.Context, root string, env sys.Env) error {
 
 // savedDraftReport builds the report from the saved draft when it was made
 // for c's HEAD, branch and target. fresh is false otherwise.
-func savedDraftReport(c PRContext, emit func(PREvent)) (PRReport, bool) {
+func savedDraftReport(c PRContext, emit func(PREvent), incoming []EvidenceRef, provided bool) (PRReport, bool) {
 	if !c.Initialized || c.Head == "" {
 		return PRReport{}, false
 	}
 	d, meta, err := LoadDraft(c.Root)
 	if err != nil || meta.Head != c.Head || meta.Branch != c.Branch || meta.Target != c.Target {
 		return PRReport{}, false
+	}
+	// Evidence belongs to the draft it was prepared with: different (or
+	// explicitly absent) references, or a stored set that no longer
+	// validates, mean the draft cannot be reused.
+	stored, err := revalidateStoredEvidence(meta.Evidence)
+	if err != nil || (provided && !sameEvidence(incoming, stored)) {
+		return PRReport{}, false
+	}
+	if len(stored) > 0 {
+		d.Body = prrules.Normalize(enforceEvidence(d.Body, stored))
 	}
 	emit(PREvent{Stage: StageValidate, Message: "checking title and sections of the saved draft"})
 	pr := c.Manifest.PullRequest
@@ -243,20 +264,26 @@ func savedDraftReport(c PRContext, emit func(PREvent)) (PRReport, bool) {
 		warnings = []string{}
 	}
 	emit(PREvent{Stage: StageDone, Message: "using saved draft"})
+	var validation *EvidenceValidation
+	if len(stored) > 0 {
+		validation = &EvidenceValidation{Structural: "passed", ExternalExistence: "not_checked"}
+	}
 	return PRReport{
-		Root:      c.Root,
-		Branch:    c.Branch,
-		Target:    c.Target,
-		Verdict:   c.Verdict,
-		Title:     d.Title,
-		Body:      d.Body,
-		Source:    meta.Source,
-		Problems:  problems,
-		Commits:   len(c.Commits),
-		Files:     len(c.Files),
-		Tests:     tests,
-		Warnings:  warnings,
-		DraftPath: DraftPath,
+		Evidence:           stored,
+		EvidenceValidation: validation,
+		Root:               c.Root,
+		Branch:             c.Branch,
+		Target:             c.Target,
+		Verdict:            c.Verdict,
+		Title:              d.Title,
+		Body:               d.Body,
+		Source:             meta.Source,
+		Problems:           problems,
+		Commits:            len(c.Commits),
+		Files:              len(c.Files),
+		Tests:              tests,
+		Warnings:           warnings,
+		DraftPath:          DraftPath,
 	}, true
 }
 
@@ -331,4 +358,55 @@ func commandError(what, stderr string, code int, err error) error {
 		return fmt.Errorf("%s failed with exit code %d", what, code)
 	}
 	return fmt.Errorf("%s failed: %s", what, msg)
+}
+
+var prNumberRx = regexp.MustCompile(`/pull/(\d+)/?$`)
+
+// prNumber is the number at the end of a pull request URL, 0 without one.
+func prNumber(url string) int {
+	m := prNumberRx.FindStringSubmatch(strings.TrimSpace(url))
+	if m == nil {
+		return 0
+	}
+	n, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// revalidateStoredEvidence checks references read back from the draft
+// metadata. They were normalized when saved, so they carry ExportName and
+// no ExportPath; they are checked as stored data, never as fresh input, and
+// a set that was edited into something invalid (or that carries a path
+// again) is rejected so the draft is prepared anew.
+func revalidateStoredEvidence(refs []EvidenceRef) ([]EvidenceRef, error) {
+	if len(refs) == 0 {
+		return nil, nil
+	}
+	probe := make([]EvidenceRef, len(refs))
+	for i, ref := range refs {
+		if ref.ExportPath != "" {
+			return nil, evidenceError(fmt.Sprintf("[%d].exportPath", i), "must not be stored")
+		}
+		if ref.ExportName != "" && baseName(ref.ExportName) != ref.ExportName {
+			return nil, evidenceError(fmt.Sprintf("[%d].exportName", i), "must be a file name")
+		}
+		// Re-run the input rules with the stored name standing in for the
+		// path; NormalizeEvidence reduces it back to the same name.
+		ref.ExportPath, ref.ExportName = ref.ExportName, ""
+		probe[i] = ref
+	}
+	return NormalizeEvidence(probe)
+}
+
+// sameEvidence compares normalized reference sets by their JSON, the form
+// they are stored in, so nil and empty lists (and empty case lists) match.
+func sameEvidence(a, b []EvidenceRef) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	ja, errA := json.Marshal(a)
+	jb, errB := json.Marshal(b)
+	return errA == nil && errB == nil && string(ja) == string(jb)
 }

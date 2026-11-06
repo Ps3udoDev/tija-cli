@@ -54,6 +54,492 @@
     }
   },
   {
+    "name": "pr_create",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "draft": {
+          "description": "Abre el PR como borrador.",
+          "type": "boolean"
+        },
+        "evidenceRefs": {
+          "description": "Referencias de Qapture para la sección Evidencias. Si cambian respecto del borrador guardado, se prepara uno nuevo; una lista vacía quita las evidencias.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "cases": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "exportName": {
+                "type": "string"
+              },
+              "exportPath": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "project": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "project"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "write": {
+          "description": "Debe ser true para hacer push y abrir o actualizar el PR en GitHub. Sin write solo devuelve el plan.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "assign": {
+          "type": "boolean"
+        },
+        "assigned": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "cases": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "exportName": {
+                "type": "string"
+              },
+              "exportPath": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "project": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "project"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "existing": {
+          "type": "string"
+        },
+        "existingBase": {
+          "type": "string"
+        },
+        "number": {
+          "type": "integer"
+        },
+        "push": {
+          "type": "boolean"
+        },
+        "pushed": {
+          "type": "boolean"
+        },
+        "question": {
+          "type": "string"
+        },
+        "report": {
+          "additionalProperties": false,
+          "properties": {
+            "attempts": {
+              "type": "integer"
+            },
+            "body": {
+              "type": "string"
+            },
+            "branch": {
+              "type": "string"
+            },
+            "commits": {
+              "type": "integer"
+            },
+            "draftPath": {
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "cases": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "exportName": {
+                    "type": "string"
+                  },
+                  "exportPath": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "project": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "project"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "evidenceValidation": {
+              "additionalProperties": false,
+              "properties": {
+                "externalExistence": {
+                  "type": "string"
+                },
+                "structural": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "structural",
+                "externalExistence"
+              ],
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "files": {
+              "type": "integer"
+            },
+            "problems": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "message"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "root": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "target": {
+              "type": "string"
+            },
+            "tests": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "commit": {
+                    "type": "string"
+                  },
+                  "dirty": {
+                    "type": "boolean"
+                  },
+                  "durationMs": {
+                    "type": "integer"
+                  },
+                  "exitCode": {
+                    "type": "integer"
+                  },
+                  "hint": {
+                    "type": "string"
+                  },
+                  "kinds": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "log": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "startedAt": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "tests": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failed": {
+                        "type": "integer"
+                      },
+                      "passed": {
+                        "type": "integer"
+                      },
+                      "skipped": {
+                        "type": "integer"
+                      },
+                      "total": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "total",
+                      "passed",
+                      "failed",
+                      "skipped"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  },
+                  "timedOut": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kinds",
+                  "provider",
+                  "command",
+                  "status",
+                  "exitCode",
+                  "durationMs",
+                  "startedAt",
+                  "commit",
+                  "dirty"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "title": {
+              "type": "string"
+            },
+            "verdict": {
+              "additionalProperties": false,
+              "properties": {
+                "issueNumber": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                },
+                "suggested": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state",
+                "name"
+              ],
+              "type": "object"
+            },
+            "warnings": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            }
+          },
+          "required": [
+            "root",
+            "branch",
+            "target",
+            "verdict",
+            "title",
+            "body",
+            "source",
+            "attempts",
+            "problems",
+            "commits",
+            "files",
+            "tests",
+            "warnings",
+            "draftPath"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "type": "string"
+        },
+        "updated": {
+          "type": "boolean"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
+  },
+  {
     "name": "pr_prepare",
     "inputSchema": {
       "additionalProperties": false,

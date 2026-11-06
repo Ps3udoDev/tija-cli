@@ -43,6 +43,7 @@ func New(root string, d Deps) *Server {
 	registerReadTools(s)
 	registerLocalTools(s)
 	registerRepoTools(s)
+	registerExternalTools(s)
 	return s
 }
 
