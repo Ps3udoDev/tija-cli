@@ -2,12 +2,14 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/Ps3udoDev/tija-cli/internal/engine"
 	"github.com/Ps3udoDev/tija-cli/internal/render"
@@ -18,6 +20,7 @@ import (
 var prAgents = []string{"claude", "codex", "gemini", "none"}
 
 func addPRFlags(cmd *cobra.Command) {
+	cmd.Flags().String("evidence", "", "JSON file containing evidenceRefs (structural validation only)")
 	cmd.Flags().String("agent", "", "Agent that drafts the pull request: claude, codex, gemini or none (default: manifest)")
 	cmd.Flags().Bool("no-agent", false, "Do not use an agent (same as --agent none)")
 	cmd.Flags().Bool("no-check", false, "Do not run check when there are no verified results")
@@ -36,7 +39,25 @@ func prRequest(cmd *cobra.Command) (engine.PRRequest, error) {
 	noCheck, _ := cmd.Flags().GetBool("no-check")
 	at, _ := cmd.Flags().GetDuration("agent-timeout")
 	ct, _ := cmd.Flags().GetDuration("check-timeout")
-	return engine.PRRequest{Agent: agent, NoCheck: noCheck, AgentTimeout: at, CheckTimeout: ct}, nil
+	req := engine.PRRequest{Agent: agent, NoCheck: noCheck, AgentTimeout: at, CheckTimeout: ct}
+	if cmd.Flags().Changed("evidence") {
+		path, _ := cmd.Flags().GetString("evidence")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return engine.PRRequest{}, prExit(fmt.Errorf("read evidence file: %w", err))
+		}
+		var input struct {
+			EvidenceRefs []engine.EvidenceRef `json:"evidenceRefs"`
+		}
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(string(data), "\uFEFF")), &input); err != nil {
+			return engine.PRRequest{}, prExit(fmt.Errorf("invalid evidence file: %w", err))
+		}
+		if _, err := engine.NormalizeEvidence(input.EvidenceRefs); err != nil {
+			return engine.PRRequest{}, prExit(err)
+		}
+		req.EvidenceRefs = input.EvidenceRefs
+	}
+	return req, nil
 }
 
 // prExit maps engine errors to exit codes: no commits is 1, everything
@@ -85,6 +106,10 @@ func newPRPrepareCmd(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			req, err := prRequest(cmd)
+			if err != nil {
+				return err
+			}
 			if printPrompt, _ := cmd.Flags().GetBool("print-prompt"); printPrompt {
 				prompt, err := engine.PRPrompt(cmd.Context(), dir, deps.Env)
 				if err != nil {
@@ -96,10 +121,6 @@ func newPRPrepareCmd(deps Deps) *cobra.Command {
 					}{prompt})
 				}
 				_, err = io.WriteString(cmd.OutOrStdout(), prompt)
-				return err
-			}
-			req, err := prRequest(cmd)
-			if err != nil {
 				return err
 			}
 			rep, err := engine.PreparePR(cmd.Context(), dir, deps.Env, req, progress(cmd, o))

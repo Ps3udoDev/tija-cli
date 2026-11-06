@@ -33,6 +33,7 @@ const SourceDeterministic = "deterministic"
 
 // PRRequest configures PreparePR.
 type PRRequest struct {
+	EvidenceRefs []EvidenceRef // optional external references, validated before any work
 	Agent        string        // "" = manifest agents.default; "none" = deterministic
 	NoCheck      bool          // never run check, even without verified results
 	CheckTimeout time.Duration // per check step; default 10m
@@ -59,14 +60,16 @@ type PREvent struct {
 
 // PRReport is the outcome of PreparePR.
 type PRReport struct {
-	Root     string         `json:"root"`
-	Branch   string         `json:"branch"`
-	Target   string         `json:"target"`
-	Verdict  branch.Verdict `json:"verdict"`
-	Title    string         `json:"title"`
-	Body     string         `json:"body"`
-	Source   string         `json:"source"` // claude | codex | gemini | deterministic
-	Attempts int            `json:"attempts"`
+	Evidence           []EvidenceRef       `json:"evidence,omitempty"`
+	EvidenceValidation *EvidenceValidation `json:"evidenceValidation,omitempty"`
+	Root               string              `json:"root"`
+	Branch             string              `json:"branch"`
+	Target             string              `json:"target"`
+	Verdict            branch.Verdict      `json:"verdict"`
+	Title              string              `json:"title"`
+	Body               string              `json:"body"`
+	Source             string              `json:"source"` // claude | codex | gemini | deterministic
+	Attempts           int                 `json:"attempts"`
 	// Problems are the rule violations of the final draft.
 	Problems  []prrules.Problem    `json:"problems"`
 	Commits   int                  `json:"commits"`
@@ -100,6 +103,11 @@ func PRPrompt(ctx context.Context, dir string, env sys.Env) (string, error) {
 // the repository is initialized. A draft that breaks rules is still
 // returned (and saved); see PRReport.ExitCode.
 func PreparePR(ctx context.Context, dir string, env sys.Env, req PRRequest, onEvent func(PREvent)) (PRReport, error) {
+	refs, err := NormalizeEvidence(req.EvidenceRefs)
+	if err != nil {
+		return PRReport{}, err
+	}
+	req.EvidenceRefs = refs
 	emit := func(e PREvent) {
 		if onEvent != nil {
 			onEvent(e)
@@ -146,6 +154,7 @@ func PreparePR(ctx context.Context, dir string, env sys.Env, req PRRequest, onEv
 	}
 
 	rep := PRReport{
+		Evidence: refs,
 		Root:     c.Root,
 		Branch:   c.Branch,
 		Target:   c.Target,
@@ -160,8 +169,11 @@ func PreparePR(ctx context.Context, dir string, env sys.Env, req PRRequest, onEv
 		Tests:    c.Tests,
 		Warnings: warnings,
 	}
+	if len(refs) > 0 {
+		rep.EvidenceValidation = &EvidenceValidation{Structural: "passed", ExternalExistence: "not_checked"}
+	}
 	if c.Initialized {
-		meta := DraftMeta{Head: c.Head, Branch: c.Branch, Target: c.Target, Source: source, Problems: problems}
+		meta := DraftMeta{Head: c.Head, Branch: c.Branch, Target: c.Target, Source: source, Problems: problems, Evidence: refs}
 		if err := SaveDraft(c.Root, draft, meta); err != nil {
 			return PRReport{}, err
 		}
@@ -238,6 +250,7 @@ func draftPR(ctx context.Context, c PRContext, env sys.Env, req PRRequest, emit 
 	}
 	deterministic := func() (agents.Draft, []prrules.Problem) {
 		d := DeterministicDraft(c)
+		d.Body = prrules.Normalize(enforceEvidence(d.Body, req.EvidenceRefs))
 		return d, validate(d)
 	}
 
@@ -300,6 +313,7 @@ func draftPR(ctx context.Context, c PRContext, env sys.Env, req PRRequest, emit 
 		draft.Body = prrules.Normalize(draft.Body)
 		// Anti-invention: ## Pruebas cites only what Tija verified.
 		draft.Body = prrules.Normalize(enforceVerifiedTests(draft.Body, c.Manifest.Content.Language, c.Tests, c.Review))
+		draft.Body = prrules.Normalize(enforceEvidence(draft.Body, req.EvidenceRefs))
 		if problems = validate(draft); len(problems) == 0 {
 			break
 		}
