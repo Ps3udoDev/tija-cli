@@ -107,6 +107,12 @@ func ExecuteWithContext(ctx context.Context, deps Deps, args []string, in io.Rea
 	if !jsonOut {
 		jsonOut = slices.Contains(args, "--json")
 	}
+	// MCP reserves stdout for JSON-RPC even when --json is inherited.
+	if jsonOut {
+		if executed, _, findErr := root.Find(args); findErr == nil && executed.CommandPath() == "tija mcp serve" {
+			jsonOut = false
+		}
+	}
 	if jsonOut {
 		render.JSONError(out, code, err)
 		return code
@@ -167,6 +173,7 @@ func NewRoot(deps Deps, in io.Reader) *cobra.Command {
 		newCleanCmd(deps),
 		newReportCmd(deps),
 		newRunCmd(deps, in),
+		newMCPCmd(deps),
 	)
 	return root
 }
