@@ -41,6 +41,7 @@ func New(root string, d Deps) *Server {
 		Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}, Prompts: &mcp.PromptCapabilities{}, Logging: &mcp.LoggingCapabilities{}},
 	})
 	registerReadTools(s)
+	registerLocalTools(s)
 	return s
 }
 
