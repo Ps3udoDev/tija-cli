@@ -70,7 +70,7 @@ Commits, uno por tarea: `719b85d` (6), `20e5029` (7) y `3843d05` (8). Sin push n
 | `govulncheck@v1.9.0` | `No vulnerabilities found.` |
 | Binario windows/amd64 con `-s -w` | 12 761 088 bytes, cumple el objetivo < 15 MB |
 
-**Herramientas registradas (13):** `repo_status`, `doctor`, `repo_rules`, `repo_context`, `skills_list`, `quality_check`, `review_run`, `pr_prepare`, `quality_fix`, `comments_clean`, `pr_create` y `workflow_run`. Falta `report_activity` (tarea 9).
+**Herramientas registradas (12):** `repo_status`, `doctor`, `repo_rules`, `repo_context`, `skills_list`, `quality_check`, `review_run`, `pr_prepare`, `quality_fix`, `comments_clean`, `pr_create` y `workflow_run`. Falta `report_activity` (tarea 9).
 
 **Lo que debe saber quien continúe con las tareas 9–13:**
 
