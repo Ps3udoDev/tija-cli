@@ -1,0 +1,149 @@
+[
+  {
+    "name": "doctor",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "repo_context",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "repo_rules",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "repo_status",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "ahead": {
+          "type": "integer"
+        },
+        "behind": {
+          "type": "integer"
+        },
+        "branch": {
+          "additionalProperties": false,
+          "properties": {
+            "issueNumber": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "suggested": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "name"
+          ],
+          "type": "object"
+        },
+        "hasCommits": {
+          "type": "boolean"
+        },
+        "hasRemote": {
+          "type": "boolean"
+        },
+        "huskyWarning": {
+          "type": "boolean"
+        },
+        "published": {
+          "type": "boolean"
+        },
+        "root": {
+          "type": "string"
+        },
+        "staged": {
+          "type": "integer"
+        },
+        "target": {
+          "type": "string"
+        },
+        "targetFound": {
+          "type": "boolean"
+        },
+        "unstaged": {
+          "type": "integer"
+        },
+        "untracked": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "root",
+        "branch",
+        "target",
+        "targetFound",
+        "ahead",
+        "behind",
+        "staged",
+        "unstaged",
+        "untracked",
+        "hasRemote",
+        "published",
+        "hasCommits",
+        "huskyWarning"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "skills_list",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  }
+]

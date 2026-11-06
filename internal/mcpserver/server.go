@@ -40,6 +40,7 @@ func New(root string, d Deps) *Server {
 		Logger:       slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: d.LogLevel})),
 		Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}, Prompts: &mcp.PromptCapabilities{}, Logging: &mcp.LoggingCapabilities{}},
 	})
+	registerReadTools(s)
 	return s
 }
 
