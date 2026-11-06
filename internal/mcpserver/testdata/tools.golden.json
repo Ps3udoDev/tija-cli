@@ -1098,6 +1098,44 @@
     }
   },
   {
+    "name": "report_activity",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "description": "claude, codex, gemini o none; none solo recolecta. Omitido usa el default del CLI.",
+          "type": "string"
+        },
+        "agentTimeoutSec": {
+          "description": "Timeout positivo del agente en segundos; por defecto 300.",
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
+        "since": {
+          "description": "Inicio del período, inclusive, YYYY-MM-DD.",
+          "type": "string"
+        },
+        "until": {
+          "description": "Fin del período, inclusive, YYYY-MM-DD; no anterior a since ni posterior a hoy.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
+  },
+  {
     "name": "review_run",
     "inputSchema": {
       "additionalProperties": false,

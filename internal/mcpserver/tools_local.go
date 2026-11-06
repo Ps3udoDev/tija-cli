@@ -90,4 +90,5 @@ func registerLocalTools(s *Server) {
 			r, err := engine.PreparePR(ctx, s.root, s.deps.Env, engine.PRRequest{Agent: in.Agent, NoCheck: in.NoCheck, EvidenceRefs: in.EvidenceRefs}, func(e engine.PREvent) { p(string(e.Stage), 0, 0) })
 			return r, r.ExitCode(), err
 		})
+	registerReportActivityTool(s)
 }
