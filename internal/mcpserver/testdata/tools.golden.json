@@ -1438,5 +1438,39 @@
       "openWorldHint": false,
       "readOnlyHint": true
     }
+  },
+  {
+    "name": "workflow_run",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Nombre del workflow de .tija/workflows/ (por ejemplo pre-pr).",
+          "type": "string"
+        },
+        "publish": {
+          "description": "Autoriza los pasos pr create, que hacen push y publican en GitHub (requiere write).",
+          "type": "boolean"
+        },
+        "unsafe": {
+          "description": "Autoriza los pasos con --unsafe (requiere write).",
+          "type": "boolean"
+        },
+        "write": {
+          "description": "Autoriza los pasos que modifican archivos del repositorio y los que publican.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
   }
 ]

@@ -26,7 +26,7 @@ func newCleanCommentsCmd(deps Deps) *cobra.Command {
 		Short: "Clean comment slop from JS/TS code with verified edits",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o := newOutput(cmd, deps)
-			dir, err := workDir()
+			dir, err := deps.workDir()
 			if err != nil {
 				return err
 			}

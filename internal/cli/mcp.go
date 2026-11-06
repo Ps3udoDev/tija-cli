@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/Ps3udoDev/tija-cli/internal/mcpserver"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -24,7 +25,11 @@ func newMCPCmd(deps Deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			s := mcpserver.New(root, mcpserver.Deps{Env: deps.Env, Version: currentVersion(), Log: cmd.ErrOrStderr(), LogLevel: level})
+			// Workflow steps run as CLI commands pinned to the root, never on a
+			// terminal and with no stdin: consent was checked by workflow_run.
+			stepDeps := Deps{Env: deps.Env, Dir: root, IsTTY: func(any) bool { return false }}
+			s := mcpserver.New(root, mcpserver.Deps{Env: deps.Env, Version: currentVersion(), Log: cmd.ErrOrStderr(), LogLevel: level,
+				RunStep: StepExecutor(stepDeps, strings.NewReader(""))})
 			return s.Serve(cmd.Context(), &mcp.StdioTransport{})
 		},
 	}

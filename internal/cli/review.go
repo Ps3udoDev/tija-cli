@@ -51,7 +51,7 @@ func newReviewCmd(deps Deps) *cobra.Command {
 		req.NoAgent, _ = cmd.Flags().GetBool("no-agent")
 		req.NoCheck, _ = cmd.Flags().GetBool("no-check")
 		req.NoPRComments, _ = cmd.Flags().GetBool("no-pr-comments")
-		dir, err := workDir()
+		dir, err := deps.workDir()
 		if err != nil {
 			return prExit(err)
 		}

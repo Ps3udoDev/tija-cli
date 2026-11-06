@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -43,7 +44,11 @@ func addTool[In, Out any](s *Server, name, descES string, e Effect, h func(conte
 // default inference makes maps non-nullable; describe their actual Go JSON
 // representation instead of changing reports just to satisfy a schema.
 func outputSchema(t reflect.Type) (*jsonschema.Schema, error) {
-	maps := map[reflect.Type]*jsonschema.Schema{}
+	maps := map[reflect.Type]*jsonschema.Schema{
+		// Raw JSON (a workflow step's captured output) is any JSON value, not
+		// the byte array its Go type suggests.
+		reflect.TypeFor[json.RawMessage](): {},
+	}
 	seen := map[reflect.Type]bool{}
 	var visit func(reflect.Type) error
 	visit = func(t reflect.Type) error {

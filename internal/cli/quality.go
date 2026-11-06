@@ -18,7 +18,7 @@ func addQualityFlags(cmd *cobra.Command) {
 
 func runQuality(cmd *cobra.Command, deps Deps, kinds []quality.Kind, mode quality.Mode) error {
 	o := newOutput(cmd, deps)
-	dir, err := workDir()
+	dir, err := deps.workDir()
 	if err != nil {
 		return err
 	}

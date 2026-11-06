@@ -102,7 +102,7 @@ func newPRPrepareCmd(deps Deps) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			o := newOutput(cmd, deps)
-			dir, err := workDir()
+			dir, err := deps.workDir()
 			if err != nil {
 				return err
 			}
@@ -156,7 +156,7 @@ func newPRCreateCmd(deps Deps, in io.Reader) *cobra.Command {
 
 func runPRCreate(cmd *cobra.Command, deps Deps, in io.Reader) error {
 	o := newOutput(cmd, deps)
-	dir, err := workDir()
+	dir, err := deps.workDir()
 	if err != nil {
 		return err
 	}

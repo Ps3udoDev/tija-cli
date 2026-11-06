@@ -1,13 +1,10 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -23,10 +20,10 @@ type StepResult = workflows.StepResult
 // WorkflowReport is the outcome of running an entire workflow.
 type WorkflowReport = workflows.WorkflowReport
 
-// RunWorkflow executes each step of w in-process. With jsonOut=true, output of each
-// step is captured and embedded in StepResult.Output. Without jsonOut, "> <run>" is
-// printed and the step's stdout flows to out.
-// Stops at the first failing step unless step.ContinueOnError is true.
+// RunWorkflow executes each step of w in-process through the shared step
+// loop (workflows.Run). With jsonOut=true, the output of each step is
+// captured and embedded in StepResult.Output; without it, "> <run>" is
+// printed and the step's output flows to out.
 func RunWorkflow(
 	ctx context.Context,
 	deps Deps,
@@ -36,84 +33,15 @@ func RunWorkflow(
 	out io.Writer,
 	onStep func(i int, r StepResult),
 ) WorkflowReport {
-	report := WorkflowReport{
-		Name:  w.Name,
-		Steps: make([]StepResult, 0, len(w.Steps)),
+	return workflows.Run(ctx, w, StepExecutor(deps, in), workflows.Options{JSON: jsonOut, Yes: yes, Out: out, OnStep: onStep})
+}
+
+// StepExecutor runs a workflow step as a CLI command with deps, reading
+// consent answers from in.
+func StepExecutor(deps Deps, in io.Reader) workflows.Executor {
+	return func(ctx context.Context, args []string, out, errOut io.Writer) int {
+		return ExecuteWithContext(ctx, deps, args, in, out, errOut)
 	}
-
-	maxExit := 0
-	for i, step := range w.Steps {
-		stepArgs, err := workflows.Args(step)
-		if err != nil {
-			res := StepResult{
-				Run:  step.Run,
-				Exit: 2,
-			}
-			if !jsonOut {
-				fmt.Fprintf(out, "✗ %s\n", err)
-			}
-			report.Steps = append(report.Steps, res)
-			if res.Exit > maxExit {
-				maxExit = res.Exit
-			}
-			if onStep != nil {
-				onStep(i, res)
-			}
-			if !step.ContinueOnError {
-				break
-			}
-			continue
-		}
-
-		var args []string
-		args = append(args, stepArgs...)
-		if jsonOut && !slices.Contains(args, "--json") {
-			args = append(args, "--json")
-		}
-		if yes && !slices.Contains(args, "--yes") {
-			args = append(args, "--yes")
-		}
-
-		var res StepResult
-		if jsonOut {
-			var stepBuf bytes.Buffer
-			code := ExecuteWithContext(ctx, deps, args, in, &stepBuf, &stepBuf)
-			res = StepResult{
-				Run:  step.Run,
-				Exit: code,
-			}
-			trimmed := bytes.TrimSpace(stepBuf.Bytes())
-			if len(trimmed) > 0 {
-				if json.Valid(trimmed) {
-					res.Output = json.RawMessage(trimmed)
-				} else {
-					raw, _ := json.Marshal(string(trimmed))
-					res.Output = json.RawMessage(raw)
-				}
-			}
-		} else {
-			fmt.Fprintf(out, "> %s\n", step.Run)
-			code := ExecuteWithContext(ctx, deps, args, in, out, out)
-			res = StepResult{
-				Run:  step.Run,
-				Exit: code,
-			}
-		}
-
-		report.Steps = append(report.Steps, res)
-		if res.Exit > maxExit {
-			maxExit = res.Exit
-		}
-		if onStep != nil {
-			onStep(i, res)
-		}
-		if res.Exit != 0 && !step.ContinueOnError {
-			break
-		}
-	}
-
-	report.Exit = maxExit
-	return report
 }
 
 func newRunCmd(deps Deps, in io.Reader) *cobra.Command {
@@ -124,7 +52,7 @@ func newRunCmd(deps Deps, in io.Reader) *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o := newOutput(cmd, deps)
-			dir, err := workDir()
+			dir, err := deps.workDir()
 			if err != nil {
 				return err
 			}

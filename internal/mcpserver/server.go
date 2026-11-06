@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
+	"github.com/Ps3udoDev/tija-cli/internal/workflows"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -18,6 +19,9 @@ type Deps struct {
 	Version  string
 	Log      io.Writer
 	LogLevel slog.Level
+	// RunStep runs one workflow step as a CLI command pinned to the server
+	// root, with no stdin and output captured; without it workflow_run fails.
+	RunStep workflows.Executor
 }
 
 // Server owns an MCP server and its immutable repository root.
@@ -44,6 +48,7 @@ func New(root string, d Deps) *Server {
 	registerLocalTools(s)
 	registerRepoTools(s)
 	registerExternalTools(s)
+	registerWorkflowTool(s)
 	return s
 }
 

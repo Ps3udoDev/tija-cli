@@ -1,10 +1,10 @@
-# Fase 5: handoff tras las tareas 1–5
+# Fase 5: handoff tras las tareas 1–8
 
-Fecha: 2026-11-05. Rama: `feat/phase5-mcp`.
+Fecha: 2026-11-05 (tareas 1–5); actualizado 2026-11-06 (tareas 6–8). Rama: `feat/phase5-mcp`.
 
 ## Estado
 
-La medición inicial de la tarea 2 superó el antiguo máximo de 10 MB. El usuario autorizó continuar con el SDK oficial y actualizó el criterio: objetivo < 15 MB, alerta técnica desde 20 MB y máximo permitido 25 MB (bytes decimales). Los tres binarios iniciales cumplen el nuevo objetivo. No se activó el fallback manual. La parada antes de iniciar la tarea 6 permanece vigente.
+La medición inicial de la tarea 2 superó el antiguo máximo de 10 MB. El usuario autorizó continuar con el SDK oficial y actualizó el criterio: objetivo < 15 MB, alerta técnica desde 20 MB y máximo permitido 25 MB (bytes decimales). Los tres binarios iniciales cumplen el nuevo objetivo. No se activó el fallback manual. Las tareas 6–8 se completaron después, con revisión previa de las tareas 1–5 (sección «Tareas 6–8» al final). **Parada vigente antes de la tarea 9**: las tareas 9–13 las continúa otro agente.
 
 | Tarea | Estado | Reporte |
 | --- | --- | --- |
@@ -13,8 +13,10 @@ La medición inicial de la tarea 2 superó el antiguo máximo de 10 MB. El usuar
 | 3. Núcleo y herramientas de lectura | Completada | [task-03.md](task-03.md) |
 | 4. EvidenceRef y CLI | Completada | [task-04.md](task-04.md) |
 | 5. Herramientas locales | Completada | [task-05.md](task-05.md) |
-| 6–8. Escrituras, publicación y workflows | No iniciadas; parada solicitada antes de la tarea 6 | — |
-| 9–13. Resto de la fase y cierre | No iniciadas | — |
+| 6. `quality_fix` y `comments_clean` | Completada | [task-06.md](task-06.md) |
+| 7. `pr_create` | Completada | [task-07.md](task-07.md) |
+| 8. Runner compartido y `workflow_run` | Completada | [task-08.md](task-08.md) |
+| 9–13. `report_activity`, prompt, `mcp config`, CI/docs y cierre | No iniciadas; las continúa otro agente | — |
 
 Se usaron subagentes por tarea, con dependencias coordinadas y revisión de integración por el agente principal. Los cambios previos del usuario en los specs, plan y propuesta se conservaron fuera de los commits de implementación; el plan y los specs también contienen las actualizaciones de tamaño y contrato realizadas en esta sesión. La interrupción del primer turno terminó los subagentes; se retomó su trabajo desde el árbol existente.
 
@@ -55,3 +57,32 @@ Herramientas registradas: `repo_status`, `doctor`, `repo_rules`, `repo_context`,
 ## Alcance de las verificaciones
 
 Las mediciones son compilaciones cruzadas desde Windows, sin comprimir y con `-ldflags="-s -w"`; no equivalen a pruebas de ejecución en Linux o macOS. Los resultados reales, bytes y comandos constan en los reportes individuales. No se validaron clientes MCP ni Qapture.
+
+## Tareas 6–8 (2026-11-06)
+
+**Revisión previa de las tareas 1–5:** se leyeron sus reportes y el código del núcleo (`server.go`, `tools.go`, `progress.go`, `tools_local.go`, `evidence.go`). `go vet`, `gofmt` y los tests de `internal/mcpserver` y de las evidencias pasaron. No hizo falta corregir nada. Las adaptaciones que documentó la tarea 3 (`_meta["tija/exitCode"]`, `{skills: [...]}` y mapas anulables) se mantienen.
+
+Commits, uno por tarea: `719b85d` (6), `20e5029` (7) y el commit de la tarea 8. Sin push ni PR.
+
+| Comprobación (al cerrar la tarea 8) | Resultado |
+|---|---|
+| `go vet` y `go test -count=1 -timeout 15m` sobre todos los paquetes salvo `./dist` | PASS, exit 0 (`dist/phase5-task8-tests.log`) |
+| `govulncheck@v1.9.0` | `No vulnerabilities found.` |
+| Binario windows/amd64 con `-s -w` | 12 761 088 bytes, cumple el objetivo < 15 MB |
+
+**Herramientas registradas (13):** `repo_status`, `doctor`, `repo_rules`, `repo_context`, `skills_list`, `quality_check`, `review_run`, `pr_prepare`, `quality_fix`, `comments_clean`, `pr_create` y `workflow_run`. Falta `report_activity` (tarea 9).
+
+**Lo que debe saber quien continúe con las tareas 9–13:**
+
+1. **`resultError` (tools.go):** úsalo cuando una herramienta falle pero deba devolver su salida estructurada. **`adjustSchema`:** úsalo cuando la salida embebe un reporte que no siempre está presente; si no, el SDK rechaza la salida por campos obligatorios faltantes.
+2. **`json.RawMessage` en las salidas** ya se describe como cualquier valor JSON. Cualquier otro tipo con JSON propio necesita un override parecido en `outputSchema`.
+3. **`cli.Deps.Dir`** fija el repositorio de los comandos. La tarea 11 (`mcp config`) no lo necesita, pero cualquier ejecución nueva de comandos del CLI desde MCP debe pasarlo.
+4. **Nombres reales para el prompt `documentar_pr` (tarea 10):**
+   - **Herramientas de Tija:** las de la lista de arriba.
+   - **`workflow_run`:** responde `needs-permission` con la lista `needs`.
+   - **`pr_create`:** sin `write` responde `needs-write` con `question`; con un borrador con problemas responde `draft-has-problems` (`isError`).
+5. **Golden:** `go test ./internal/mcpserver -run ToolsGolden -update` después de agregar una herramienta.
+6. **`dist/phase5-task2-mcp_test.go`** (ignorado por git) rompe `go test ./...` y `go vet ./...` en local. Bórralo o excluye `./dist`: `go list ./... | grep -v /dist$`.
+7. **Pendientes de validar en la tarea 13 con clientes reales:**
+   - cancelación desde el cliente;
+   - cómo muestra cada cliente las anotaciones `destructive` y `openWorld` de `quality_fix`, `comments_clean`, `pr_create` y `workflow_run`.
