@@ -8,6 +8,8 @@ Tija is a CLI that prepares a repository to work with AI coding agents: it detec
 
 ## Install
 
+Building from source requires Go 1.27.3 or later.
+
 ```sh
 go install github.com/Ps3udoDev/tija-cli/cmd/tija@latest
 ```

@@ -1,6 +1,6 @@
 module github.com/Ps3udoDev/tija-cli
 
-go 1.27.1
+go 1.27.3
 
 require (
 	charm.land/bubbletea/v2 v2.1.0
