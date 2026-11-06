@@ -607,6 +607,11 @@ func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanReques
 			}
 		}
 
+		// Last cancellation point: once writing starts the loop runs to the
+		// end, because a half-cleaned tree is worse than a complete one.
+		if err := ctx.Err(); err != nil {
+			return CleanReport{}, fmt.Errorf("cancelled before writing: %w", err)
+		}
 		for i := range touched {
 			tf := &touched[i]
 			emit(CleanEvent{Type: "write", Done: i + 1, Total: len(touched), Path: tf.relPath})
@@ -619,9 +624,9 @@ func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanReques
 			}
 		}
 
-		if hasBiome && errBefore == nil && len(touchedPaths) > 0 {
+		if hasBiome && errBefore == nil && len(touchedPaths) > 0 && ctx.Err() == nil {
 			afterDiags, errAfter := quality.BiomeDiagnostics(ctx, env, root, touchedPaths)
-			if errAfter == nil {
+			if ctx.Err() == nil && errAfter == nil {
 				regs := quality.Regressions(beforeDiags, afterDiags)
 				if len(regs) > 0 {
 					regMap := make(map[string]string)
@@ -641,6 +646,12 @@ func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanReques
 					}
 				}
 			}
+		}
+
+		// The files are written; a cancellation now only means the
+		// regression check did not get to run, and the report must say so.
+		if hasBiome && errBefore == nil && len(touchedPaths) > 0 && ctx.Err() != nil {
+			rep.PostCheck = "skipped: cancelled"
 		}
 
 		for _, tf := range touched {

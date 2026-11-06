@@ -31,6 +31,10 @@ func addTool[In, Out any](s *Server, name, descES string, e Effect, h func(conte
 	if err != nil {
 		panic(fmt.Sprintf("output schema for %s: %v", name, err))
 	}
+	var out Out
+	if a, ok := any(out).(schemaAdjuster); ok {
+		a.adjustSchema(schema)
+	}
 	mcp.AddTool(s.MCP, &mcp.Tool{Name: name, Description: descES, Annotations: annotations(e), OutputSchema: schema}, toolHandler(s, name, e, h))
 }
 
@@ -112,3 +116,10 @@ func toolHandler[In, Out any](s *Server, name string, e Effect, h func(context.C
 }
 
 func summarize(name string, _ any) string { return name + " completed" }
+
+// schemaAdjuster lets an output type correct the schema inferred from its Go
+// type, for shapes the inference cannot express (an embedded report that is
+// only present in some results).
+type schemaAdjuster interface {
+	adjustSchema(*jsonschema.Schema)
+}

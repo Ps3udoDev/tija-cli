@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -177,7 +178,7 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 			Dirty:    dirty,
 		}
 
-		if failedBuild || timedOut {
+		if failedBuild || timedOut || ctx.Err() != nil {
 			result.Status = quality.StatusSkipped
 			stepResults = append(stepResults, result)
 			continue
@@ -289,7 +290,9 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 
 	changedFiles := make([]string, 0)
 	if req.Mode == quality.FixMode {
-		afterPaths := repo.StatusPaths(ctx)
+		// A cancelled fix may already have rewritten files: compare the tree
+		// with a context that still lets git run, so the report is honest.
+		afterPaths := repo.StatusPaths(context.WithoutCancel(ctx))
 		afterHashes := hashFiles(root, afterPaths)
 		for p, h := range afterHashes {
 			if oldH, ok := beforeHashes[p]; !ok || oldH != h {
@@ -308,7 +311,7 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 		warnings = make([]string, 0)
 	}
 
-	return QualityReport{
+	rep := QualityReport{
 		Root:         root,
 		Initialized:  initialized,
 		Mode:         modeStr,
@@ -317,7 +320,13 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 		Steps:        stepResults,
 		ChangedFiles: changedFiles,
 		Warnings:     warnings,
-	}, nil
+	}
+	// Only a fix can leave the tree changed, so only a fix reports its
+	// cancellation as an error; the report still lists what changed.
+	if req.Mode == quality.FixMode && ctx.Err() != nil {
+		return rep, fmt.Errorf("cancelled: %w", ctx.Err())
+	}
+	return rep, nil
 }
 
 func hashFiles(root string, paths []string) map[string]string {

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -367,5 +368,32 @@ func TestRunQualityEvents(t *testing.T) {
 	}
 	if events[3].Type != "done" || events[3].Index != 1 || events[3].Total != 2 {
 		t.Errorf("event 3 = %+v", events[3])
+	}
+}
+
+func TestRunQualityFixCancelReportsChangedFiles(t *testing.T) {
+	root := initRepo(t, "react-vite")
+	createFakeNodeBin(t, root, "biome")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env, calls := fakeQualityEnv(func(ctx context.Context, dir string, out io.Writer, name string, args ...string) (int, error) {
+		// The formatter rewrites a file and then hangs until the call is cancelled.
+		_ = os.MkdirAll(filepath.Join(dir, "src"), 0o755)
+		_ = os.WriteFile(filepath.Join(dir, "src", "a.ts"), []byte("formatted"), 0o644)
+		cancel()
+		<-ctx.Done()
+		return -1, ctx.Err()
+	})
+
+	report, err := RunQuality(ctx, root, env, QualityRequest{Mode: quality.FixMode}, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+	if !slices.Contains(report.ChangedFiles, "src/a.ts") {
+		t.Errorf("ChangedFiles = %v, want src/a.ts", report.ChangedFiles)
+	}
+	if len(*calls) != 1 {
+		t.Errorf("stream calls = %d, want 1 (later steps are skipped once cancelled)", len(*calls))
 	}
 }

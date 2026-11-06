@@ -1,5 +1,46 @@
 [
   {
+    "name": "comments_clean",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "description": "claude, codex, gemini o none; none aplica solo las reglas deterministas; omitido usa el default del CLI.",
+          "type": "string"
+        },
+        "all": {
+          "description": "Limpia todos los archivos soportados del repositorio.",
+          "type": "boolean"
+        },
+        "paths": {
+          "description": "Rutas relativas a la raíz; omitido limpia los archivos del diff.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "unsafe": {
+          "description": "Aplica también cambios inseguros (código comentado, reescrituras). Requiere write: true.",
+          "type": "boolean"
+        },
+        "write": {
+          "description": "Debe ser true para escribir; sin write devuelve el plan con su diff y no toca archivos.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
     "name": "doctor",
     "inputSchema": {
       "additionalProperties": false,
@@ -415,6 +456,35 @@
     },
     "annotations": {
       "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "quality_fix",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "kinds": {
+          "description": "Tipos a corregir: lint o format; omitido corrige ambos, como tija lint --fix.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "write": {
+          "description": "Debe ser true para modificar archivos del repositorio. Sin write no se ejecuta nada.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false,
       "readOnlyHint": false
