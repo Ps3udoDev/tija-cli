@@ -46,7 +46,7 @@ func registerRepoTools(s *Server) {
 			if in.Unsafe && !in.Write {
 				return engine.CleanReport{}, 2, fmt.Errorf("unsafe requires write: true")
 			}
-			req := engine.CleanRequest{Paths: in.Paths, All: in.All, Write: in.Write, Unsafe: in.Unsafe, Diff: !in.Write}
+			req := engine.CleanRequest{Paths: in.Paths, All: in.All, Write: in.Write, Unsafe: in.Unsafe, Diff: !in.Write, Agent: in.Agent}
 			if in.Agent == "none" {
 				req.NoAgent = true
 			}

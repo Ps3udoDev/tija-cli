@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Ps3udoDev/tija-cli/internal/gitx"
+	"github.com/Ps3udoDev/tija-cli/internal/manifest"
 	"github.com/Ps3udoDev/tija-cli/internal/prrules"
 	"github.com/Ps3udoDev/tija-cli/internal/quality"
 	"github.com/Ps3udoDev/tija-cli/internal/sys"
@@ -31,6 +32,8 @@ type CreateRequest struct {
 
 // CreatePlan is what ApplyCreatePR will do, shown before asking consent.
 type CreatePlan struct {
+	// Head pins the plan to the commit whose draft and evidence were checked.
+	Head   string   `json:"-"`
 	Report PRReport `json:"report"`
 	// Push is true when the branch is not published or has unpushed commits.
 	Push bool `json:"push"`
@@ -115,7 +118,7 @@ func PlanCreatePR(ctx context.Context, dir string, env sys.Env, req CreateReques
 		}
 	}
 
-	p := CreatePlan{Report: rep, Assign: autoAssign(c)}
+	p := CreatePlan{Head: c.Head, Report: rep, Assign: autoAssign(c)}
 	if p.Push, err = needsPush(ctx, root, env, c.Branch); err != nil {
 		return CreatePlan{}, err
 	}
@@ -148,6 +151,27 @@ func ApplyCreatePR(ctx context.Context, dir string, env sys.Env, p CreatePlan, r
 	}
 
 	var out CreateReport
+	// Consent and long-running drafting can leave time for another process to
+	// commit, switch branches or change the target. Recheck before publishing.
+	if p.Head != "" {
+		repo := gitx.Repo{Dir: root, Run: env.Run}
+		head, found := repo.Head(ctx)
+		if !found {
+			return out, errors.New("cannot resolve HEAD before publishing; nothing was published")
+		}
+		branch, detached, err := repo.CurrentBranch(ctx)
+		if err != nil {
+			return out, err
+		}
+		m, initialized := loadValidManifest(root)
+		var mp *manifest.Manifest
+		if initialized {
+			mp = &m
+		}
+		if head != p.Head || detached || branch != r.Branch || branchRules(ctx, repo, mp).Target != r.Target {
+			return out, errors.New("repository changed since PR was planned; prepare a new draft; nothing was published")
+		}
+	}
 	// fail reports a failure after the push step, saying when the branch
 	// was pushed already so the user knows the remote changed.
 	fail := func(err error) (CreateReport, error) {

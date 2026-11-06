@@ -35,6 +35,7 @@ type CleanRequest struct {
 	Unsafe       bool
 	Diff         bool
 	NoAgent      bool
+	Agent        string
 	Force        bool
 	Concurrency  int
 	AgentTimeout time.Duration
@@ -115,6 +116,13 @@ type CleanEvent struct {
 }
 
 func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanRequest, onEvent func(CleanEvent)) (CleanReport, error) {
+	if !slices.Contains([]string{"", "none", "claude", "codex", "gemini"}, req.Agent) {
+		return CleanReport{}, fmt.Errorf("unknown agent (use claude, codex, gemini or none)")
+	}
+	req.NoAgent = req.NoAgent || req.Agent == "none"
+	if !req.NoAgent && req.Agent != "" && agents.Binary(req.Agent, env.LookPath) == "" {
+		return CleanReport{}, fmt.Errorf("%s: %w", req.Agent, agents.ErrNotInstalled)
+	}
 	emit := func(e CleanEvent) {
 		if onEvent != nil {
 			onEvent(e)
@@ -368,7 +376,9 @@ func CleanComments(ctx context.Context, dir string, env sys.Env, req CleanReques
 			rep.Warnings = append(rep.Warnings, "! no agent CLI found — only deterministic rules ran")
 		} else {
 			provider := ""
-			if m.Agents.Default != "" && agents.Binary(m.Agents.Default, env.LookPath) != "" {
+			if req.Agent != "" {
+				provider = req.Agent
+			} else if m.Agents.Default != "" && agents.Binary(m.Agents.Default, env.LookPath) != "" {
 				provider = m.Agents.Default
 			} else {
 				provider = avail[0]
