@@ -62,7 +62,7 @@ Las mediciones son compilaciones cruzadas desde Windows, sin comprimir y con `-l
 
 **Revisión previa de las tareas 1–5:** se leyeron sus reportes y el código del núcleo (`server.go`, `tools.go`, `progress.go`, `tools_local.go`, `evidence.go`). `go vet`, `gofmt` y los tests de `internal/mcpserver` y de las evidencias pasaron. No hizo falta corregir nada. Las adaptaciones que documentó la tarea 3 (`_meta["tija/exitCode"]`, `{skills: [...]}` y mapas anulables) se mantienen.
 
-Commits, uno por tarea: `719b85d` (6), `20e5029` (7) y el commit de la tarea 8. Sin push ni PR.
+Commits, uno por tarea: `719b85d` (6), `20e5029` (7) y `3843d05` (8). Sin push ni PR.
 
 | Comprobación (al cerrar la tarea 8) | Resultado |
 |---|---|
