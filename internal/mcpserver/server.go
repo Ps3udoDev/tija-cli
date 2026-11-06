@@ -49,6 +49,7 @@ func New(root string, d Deps) *Server {
 	registerRepoTools(s)
 	registerExternalTools(s)
 	registerWorkflowTool(s)
+	registerPrompts(s)
 	return s
 }
 

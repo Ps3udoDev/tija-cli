@@ -1,0 +1,16 @@
+[
+  {
+    "arguments": [
+      {
+        "name": "qaptureProject",
+        "description": "Nombre o id del proyecto de Qapture; omitido usa el que indique el tester."
+      },
+      {
+        "name": "mode",
+        "description": "Modo de revisión: review, quality o deep; por defecto review."
+      }
+    ],
+    "description": "Guía la revisión y preparación de un PR con evidencias de Qapture; publicar requiere una solicitud explícita del usuario.",
+    "name": "documentar_pr"
+  }
+]
