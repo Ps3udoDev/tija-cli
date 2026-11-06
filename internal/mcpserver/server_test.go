@@ -25,7 +25,7 @@ func TestResolveRootFixesGitRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filepath.Clean(got) != filepath.Clean(root) {
+	if !sameDir(t, got, root) {
 		t.Fatalf("root = %q, want %q", got, root)
 	}
 	outside := t.TempDir()
@@ -38,7 +38,7 @@ func TestResolveRootUsesWorkingDirectory(t *testing.T) {
 	root := testutil.NewRepo(t, "")
 	t.Chdir(root)
 	got, err := ResolveRoot(context.Background(), sys.Default(), "")
-	if err != nil || filepath.Clean(got) != filepath.Clean(root) {
+	if err != nil || !sameDir(t, got, root) {
 		t.Fatalf("root = %q, error = %v, want %q", got, err, root)
 	}
 }
@@ -79,4 +79,16 @@ func TestInitializeReportsTijaAndInstructions(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("serve did not stop after disconnect")
 	}
+}
+
+// sameDir compares directories by identity: macOS temp dirs resolve through
+// /private and Windows runners mix 8.3 short and long names for the same path.
+func sameDir(t *testing.T, a, b string) bool {
+	t.Helper()
+	ia, errA := os.Stat(a)
+	ib, errB := os.Stat(b)
+	if errA != nil || errB != nil {
+		t.Fatalf("stat %q: %v; stat %q: %v", a, errA, b, errB)
+	}
+	return os.SameFile(ia, ib)
 }

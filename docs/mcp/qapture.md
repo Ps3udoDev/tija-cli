@@ -67,6 +67,6 @@ El agente puede ver código y evidencias en la misma conversación. Los títulos
 | Cursor | Formato de configuración disponible; cliente no validado |
 | Antigravity | Configuración experimental hasta comprobar stdio en el cliente real |
 
-Consulta `docs/superpowers/handoff/phase5/task-13.md` para distinguir compilación cruzada, pruebas de protocolo y validación real de cada cliente. La configuración impresa no demuestra por sí sola compatibilidad del cliente.
+La configuración impresa no demuestra por sí sola compatibilidad del cliente.
 
 En el escenario B, los hallazgos High o Critical pueden convertirse en casos «Verificar: …». Mantén separado el hallazgo de código de la prueba funcional y no marques un caso como aprobado hasta ejecutarlo.

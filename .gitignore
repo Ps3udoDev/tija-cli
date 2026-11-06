@@ -9,3 +9,6 @@ coverage.out
 
 # Phase validation evidence: contains private code from client repositories
 docs/superpowers/handoff/**/validation/
+
+# Internal working docs (specs, plans, proposals, handoffs) stay local
+docs/superpowers/
