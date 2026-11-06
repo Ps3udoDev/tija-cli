@@ -1,0 +1,57 @@
+# Fase 5: handoff tras las tareas 1–5
+
+Fecha: 2026-11-05. Rama: `feat/phase5-mcp`.
+
+## Estado
+
+La medición inicial de la tarea 2 superó el antiguo máximo de 10 MB. El usuario autorizó continuar con el SDK oficial y actualizó el criterio: objetivo < 15 MB, alerta técnica desde 20 MB y máximo permitido 25 MB (bytes decimales). Los tres binarios iniciales cumplen el nuevo objetivo. No se activó el fallback manual. La parada antes de iniciar la tarea 6 permanece vigente.
+
+| Tarea | Estado | Reporte |
+| --- | --- | --- |
+| 1. Go 1.27.3 y govulncheck | Completada | [task-01.md](task-01.md) |
+| 2. SDK y arranque MCP | Completada | [task-02.md](task-02.md) |
+| 3. Núcleo y herramientas de lectura | Completada | [task-03.md](task-03.md) |
+| 4. EvidenceRef y CLI | Completada | [task-04.md](task-04.md) |
+| 5. Herramientas locales | Completada | [task-05.md](task-05.md) |
+| 6–8. Escrituras, publicación y workflows | No iniciadas; parada solicitada antes de la tarea 6 | — |
+| 9–13. Resto de la fase y cierre | No iniciadas | — |
+
+Se usaron subagentes por tarea, con dependencias coordinadas y revisión de integración por el agente principal. Los cambios previos del usuario en los specs, plan y propuesta se conservaron fuera de los commits de implementación; el plan y los specs también contienen las actualizaciones de tamaño y contrato realizadas en esta sesión. La interrupción del primer turno terminó los subagentes; se retomó su trabajo desde el árbol existente.
+
+Commits locales, uno por tarea: `7fd31c6` (1), `5af46a8` (2), `9ddc3e5` (3), `57ce092` (4) y `e10041f` (5). No se hizo push ni se abrió un PR.
+
+## Verificación integrada
+
+| Comprobación | Resultado |
+| --- | --- |
+| `go test -count=1 ./... -timeout 15m` | PASS, exit 0; engine 252,450 s, CLI 66,164 s, MCP 29,791 s |
+| `go vet ./...` | PASS, exit 0 |
+| `gofmt -l` sobre archivos Go modificados y `internal/mcpserver` | Sin archivos pendientes de formato |
+| `go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` | Exit 0; `No vulnerabilities found.` |
+| `git diff --check` | PASS |
+
+Logs y artefactos locales ignorados por Git: `dist/phase5-tests.log`, `dist/phase5-tests.exit` (0), `dist/phase5-govulncheck.log`, `dist/phase5-sizes.log` y `dist/phase5-gate/`.
+
+| Destino | Bytes finales | Objetivo < 15 MB |
+| --- | ---: | --- |
+| Windows / amd64 | 12 598 784 | Cumple |
+| Linux / amd64 | 12 210 336 | Cumple |
+| macOS / arm64 | 11 523 026 | Cumple |
+
+Compilador: Go 1.27.3; `CGO_ENABLED=0`; `go build -ldflags="-s -w"`, sin compresión. Los tamaños corresponden a las ocho herramientas, con evidencias integradas. SHA256 del binario Windows: `FCAFA445AEC306E35A3974820DEEB08BFFB4AEEA71453D8B9829F07C8E8F565E`.
+
+Herramientas registradas: `repo_status`, `doctor`, `repo_rules`, `repo_context`, `skills_list`, `quality_check`, `review_run` y `pr_prepare`. El snapshot conserva nombres, entradas, anotaciones y los esquemas de salida requeridos para las herramientas presentes.
+
+## Decisiones y revisión
+
+1. Aplicar el nuevo criterio de tamaño autorizado: objetivo < 15 000 000 bytes; alerta desde 20 000 000; máximo 25 000 000. Plan y specs actualizados; mantener el SDK.
+2. La tarea 2 ya incluye pruebas de raíz, inicialización y stdout, además de los avisos de licencia. El fallo transitorio de `go vet` por `root.Find != nil` fue corregido y la comprobación posterior pasó.
+3. El resultado final de una primera suite aislada de la tarea 1 se perdió al terminar la sesión del subagente. No se atribuye un PASS a esa ejecución. La suite integrada posterior, con salida guardada, sí pasó y cerró la verificación de las tareas 1–5.
+4. Se conserva la paridad del JSON del CLI: código de salida en `_meta["tija/exitCode"]`, `review.exit` intacto y lista de skills envuelta en `{ "skills": [...] }`. El SDK devuelve argumentos inválidos como `isError: true` sin ejecutar el handler, mientras que una herramienta inexistente da error JSON-RPC. Los mapas nil del engine se admiten como `null` en los esquemas de salida. Adaptaciones documentadas en el reporte de la tarea 3 y en el contrato.
+5. El runner compartido de workflows pertenece a la tarea 8. No anticipar ese cambio al agregar `Deps.RunStep` en la tarea 2.
+6. **Parada vigente antes de la tarea 6.** No se han implementado `quality_fix`, `comments_clean`, `pr_create` ni `workflow_run` por MCP. No ejecutar las tareas 6–8 en una continuación automática; requieren el relevo y revisión independiente solicitados por el usuario.
+7. La tarea 7 debe validar explícitamente las referencias persistidas: `NormalizeEvidence` valida entrada nueva y rechaza `exportName` como sustituto libre de `exportPath`. Al revalidar metadatos normalizados no se deben tratar como entrada nueva. Las políticas de HEAD, rama, target y evidencias obsoletas no se implementaron anticipadamente.
+
+## Alcance de las verificaciones
+
+Las mediciones son compilaciones cruzadas desde Windows, sin comprimir y con `-ldflags="-s -w"`; no equivalen a pruebas de ejecución en Linux o macOS. Los resultados reales, bytes y comandos constan en los reportes individuales. No se validaron clientes MCP ni Qapture.
