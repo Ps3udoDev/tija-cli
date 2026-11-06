@@ -251,3 +251,35 @@ Mantener la lógica de negocio fuera de los controladores.
 `name` is required. `files` accepts a string or list; `appliesTo` is optional. `forbid` uses Go RE2 syntax, with no lookbehind. Severities are Critical, High, Medium and Low, case insensitive. IDs must be unique across all architecture checks/rules and distinct from pack IDs. Each `## id: title` starts an agent rule.
 
 Presets `dotnet-clean` and `react-features` are embedded starting points. Interactive init offers the detected stack's preset with default no. `--yes` does not install presets. Explicitly select one or more with `tija init --rules-preset dotnet-clean` or repeat the flag. Edited presets are preserved. Adjust the preset paths to your project. Only `be-domain-no-infra` is `High`; the other preset checks are pattern-based and `Medium`, so they do not block `pre-pr` with the default threshold.
+
+## MCP
+
+Run Tija as a local stdio MCP server using the same engine as the CLI:
+
+```sh
+tija mcp serve --dir /absolute/path/to/repository
+tija mcp config codex --dir /absolute/path/to/repository
+```
+
+The repository root is resolved once at startup. Starting outside a repository without a valid `--dir` exits with code 2 on stderr. Tools cannot change the root. Stdout contains only JSON-RPC; diagnostics go to stderr (`--log-level error|warn|info|debug`, default `warn`).
+
+`mcp config` prints configuration and never edits client files. Supported formats: `claude-code`, `codex`, `claude-desktop`, `cursor`, and experimental `antigravity`. For Claude Desktop, use `--dir` because the client may start in your home directory. The Claude Code command uses PowerShell quoting on Windows and POSIX shell quoting elsewhere. Codex configuration includes `tool_timeout_sec = 900` and `startup_timeout_sec = 20`.
+
+| Tools | Effect | Permission |
+| --- | --- | --- |
+| `repo_status`, `doctor`, `repo_rules`, `repo_context`, `skills_list` | Read | None |
+| `quality_check`, `review_run`, `pr_prepare` | Session files and engine temporary artifacts | None |
+| `report_activity` | Ignored `docs/reportes/`; reads PRs with `gh` | None |
+| `quality_fix`, `comments_clean` | Repository files | `write: true`; unsafe comment changes also require `unsafe: true` |
+| `pr_create` | Push and GitHub PR creation/update | `write: true` |
+| `workflow_run` | Highest effect of its steps | Checks all steps first; publishing requires both `write: true` and `publish: true` |
+
+Without `write`, `quality_fix` describes what it would run, `comments_clean` returns its plan/diff and `pr_create` returns its plan. Invalid PR drafts are rejected even when write is absent. Missing workflow permissions return `needs-permission` before any step executes. Tool annotations inform clients; server-side checks enforce permissions. Scripts configured by the repository run with the normal local process permissions.
+
+Calls report progress when the client sends a `progressToken`. Writing operations are serialized with a cancellable gate. Cancelling an external formatter may leave changes; the server reports changed files, while a cancelling client may only display its own context error. `agent: "none"` selects deterministic processing. `comments_clean` and `tija clean comments --agent <provider>` honor explicit provider selection.
+
+Structured results preserve the CLI JSON; `_meta["tija/exitCode"]` carries the exit code. Review also retains `exit`. Exit 1 is a normal finding result, while environment failures are `isError`. `skills_list` wraps its CLI array in `{ "skills": [...] }` because MCP structured output must be an object.
+
+The embedded prompt `documentar_pr` guides QA and PR preparation. Its optional arguments are `qaptureProject` and `mode` (`review`, `quality`, `deep`). It is not installed into `.tija/` and does not change defaults versions. See [Usar Tija con Qapture](docs/mcp/qapture.md) for evidence references, permissions and platform limits. Case titles and notes can appear in a PR: review private data before attaching or publishing. Tija validates evidence structure, never the external existence of Qapture records, and discards full export paths.
+
+CI tests the stdio protocol and tool snapshot on Windows, Linux and macOS. `bash scripts/check-binary-size.sh` cross-compiles stripped, uncompressed binaries for Windows/amd64, Linux/amd64 and macOS/arm64. Size policy uses decimal bytes: goal below 15 MB, technical alert from 20 MB, maximum 25 MB; exceeding the maximum fails the script. Actual client-validation results are recorded in [the phase 5 handoff](docs/superpowers/handoff/phase5/HANDOFF.md).

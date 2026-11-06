@@ -1,3 +1,4 @@
 internal/assets/defaults/** -text
 docs/reference/pull-requests/** -text
 *.go text eol=lf
+*.sh text eol=lf
