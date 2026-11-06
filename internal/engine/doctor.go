@@ -259,5 +259,6 @@ func Doctor(ctx context.Context, dir string, env sys.Env) (DoctorReport, error) 
 			})
 		}
 	}
+	rep.Checks = append(rep.Checks, Check{ID: "mcp", Status: StatusOK, Title: "connect an agent: tija mcp config <claude-code|codex|claude-desktop>"})
 	return rep, nil
 }

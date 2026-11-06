@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/Ps3udoDev/tija-cli/internal/mcpserver"
@@ -36,5 +37,23 @@ func newMCPCmd(deps Deps) *cobra.Command {
 	serve.Flags().StringVar(&dir, "dir", "", "Repository directory (defaults to the working directory)")
 	serve.Flags().StringVar(&logLevel, "log-level", "warn", "Diagnostic level: error, warn, info or debug")
 	cmd.AddCommand(serve)
+	var configDir string
+	config := &cobra.Command{
+		Use: "config <client>", Short: "Print MCP configuration for a client", Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			exe, err := os.Executable()
+			if err != nil {
+				return err
+			}
+			text, err := mcpserver.ClientConfig(args[0], exe, configDir)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprint(cmd.OutOrStdout(), text)
+			return err
+		},
+	}
+	config.Flags().StringVar(&configDir, "dir", "", "Repository directory to include in the configuration")
+	cmd.AddCommand(config)
 	return cmd
 }
