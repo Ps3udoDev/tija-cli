@@ -485,3 +485,100 @@ func TestCreatePRGhFailureAfterPushSaysPushed(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func evidenceRef(project, code string) EvidenceRef {
+	return EvidenceRef{Source: "qapture", Project: EvidenceProject{ID: project, Name: "Proyecto " + project},
+		Cases: []EvidenceCase{{Code: code, Title: "Caso " + code, Status: "Aprobado"}}, ExportPath: `C:\Users\someone\matriz-` + project + ".xlsx"}
+}
+
+func TestPRCreateDiscardsStaleEvidence(t *testing.T) {
+	repo, _ := remotePRRepo(t)
+	ctx := context.Background()
+	if _, err := PreparePR(ctx, repo, fakeEnv(), PRRequest{Agent: "none", NoCheck: true, EvidenceRefs: []EvidenceRef{evidenceRef("A", "EJ-001")}}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Same HEAD, no references given: the draft and its evidence are reused.
+	p := planCreate(t, repo, withGH(fakeEnv(), &ghFake{}), CreateRequest{Prepare: PRRequest{Agent: "none", NoCheck: true}})
+	if !strings.Contains(p.Report.Body, "EJ-001") || len(p.Report.Evidence) != 1 || p.Report.EvidenceValidation == nil {
+		t.Fatalf("same HEAD did not reuse evidence A: %+v", p.Report)
+	}
+
+	// Same HEAD, different references: a new draft with B only.
+	p = planCreate(t, repo, withGH(fakeEnv(), &ghFake{}), CreateRequest{Prepare: PRRequest{Agent: "none", NoCheck: true, EvidenceRefs: []EvidenceRef{evidenceRef("B", "EJ-002")}}})
+	if !strings.Contains(p.Report.Body, "EJ-002") || strings.Contains(p.Report.Body, "EJ-001") {
+		t.Errorf("different references kept the old evidence:\n%s", p.Report.Body)
+	}
+
+	// New commit, no references given: evidence from the old HEAD never travels.
+	commitFile(t, repo, "src/auth/extra.ts", "export const extra = 1\n", "feat(auth): add extra helper")
+	p = planCreate(t, repo, withGH(fakeEnv(), &ghFake{}), CreateRequest{Prepare: PRRequest{Agent: "none", NoCheck: true}})
+	if strings.Contains(p.Report.Body, "EJ-002") || strings.Contains(p.Report.Body, "EJ-001") || len(p.Report.Evidence) != 0 {
+		t.Errorf("evidence crossed to a new HEAD:\n%s", p.Report.Body)
+	}
+}
+
+func TestPRCreateExplicitEmptyEvidenceDropsStored(t *testing.T) {
+	repo, _ := remotePRRepo(t)
+	if _, err := PreparePR(context.Background(), repo, fakeEnv(), PRRequest{Agent: "none", NoCheck: true, EvidenceRefs: []EvidenceRef{evidenceRef("A", "EJ-001")}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	p := planCreate(t, repo, withGH(fakeEnv(), &ghFake{}), CreateRequest{Prepare: PRRequest{Agent: "none", NoCheck: true, EvidenceRefs: []EvidenceRef{}}})
+	if strings.Contains(p.Report.Body, "EJ-001") {
+		t.Errorf("an explicit empty list kept the stored evidence:\n%s", p.Report.Body)
+	}
+}
+
+func TestPRCreateTamperedStoredEvidenceRegenerates(t *testing.T) {
+	repo, _ := remotePRRepo(t)
+	if _, err := PreparePR(context.Background(), repo, fakeEnv(), PRRequest{Agent: "none", NoCheck: true, EvidenceRefs: []EvidenceRef{evidenceRef("A", "EJ-001")}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	d, meta, err := LoadDraft(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Someone puts a full path back into the stored metadata.
+	meta.Evidence[0].ExportPath = `C:\Users\someone\private\matriz.xlsx`
+	if err := SaveDraft(repo, d, meta); err != nil {
+		t.Fatal(err)
+	}
+	p := planCreate(t, repo, withGH(fakeEnv(), &ghFake{}), CreateRequest{Prepare: PRRequest{Agent: "none", NoCheck: true}})
+	if strings.Contains(p.Report.Body, "EJ-001") || strings.Contains(p.Report.Body, "private") {
+		t.Errorf("tampered evidence was reused:\n%s", p.Report.Body)
+	}
+}
+
+func TestPRCreateReturnsNumberAndEvidence(t *testing.T) {
+	repo, _ := remotePRRepo(t)
+	g := &ghFake{create: "https://github.com/o/r/pull/42\n"}
+	env := withGH(fakeEnv(), g)
+	req := CreateRequest{Prepare: PRRequest{Agent: "none", NoCheck: true, EvidenceRefs: []EvidenceRef{evidenceRef("A", "EJ-001")}}}
+	p := planCreate(t, repo, env, req)
+	rep, err := ApplyCreatePR(context.Background(), repo, env, p, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Number != 42 {
+		t.Errorf("Number = %d, want 42", rep.Number)
+	}
+	if len(rep.Evidence) != 1 || rep.Evidence[0].ExportName != "matriz-A.xlsx" || rep.Evidence[0].ExportPath != "" {
+		t.Errorf("Evidence = %+v", rep.Evidence)
+	}
+	if len(g.bodies) != 1 || strings.Contains(g.bodies[0], `C:\Users`) || !strings.Contains(g.bodies[0], "EJ-001") {
+		t.Errorf("published body = %q", g.bodies)
+	}
+}
+
+func TestPRNumber(t *testing.T) {
+	for url, want := range map[string]int{
+		"https://github.com/o/r/pull/42":  42,
+		"https://github.com/o/r/pull/7/":  7,
+		"https://github.com/o/r/issues/3": 0,
+		"":                                0,
+	} {
+		if got := prNumber(url); got != want {
+			t.Errorf("prNumber(%q) = %d, want %d", url, got, want)
+		}
+	}
+}

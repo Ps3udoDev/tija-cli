@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -116,8 +117,9 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 	dirty := (staged + unstaged + untracked) > 0
 
 	var beforeHashes map[string]string
+	var beforePaths []string
 	if req.Mode == quality.FixMode {
-		beforePaths := repo.StatusPaths(ctx)
+		beforePaths = repo.StatusPaths(ctx)
 		beforeHashes = hashFiles(root, beforePaths)
 	}
 
@@ -177,7 +179,7 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 			Dirty:    dirty,
 		}
 
-		if failedBuild || timedOut {
+		if failedBuild || timedOut || ctx.Err() != nil {
 			result.Status = quality.StatusSkipped
 			stepResults = append(stepResults, result)
 			continue
@@ -289,10 +291,32 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 
 	changedFiles := make([]string, 0)
 	if req.Mode == quality.FixMode {
-		afterPaths := repo.StatusPaths(ctx)
-		afterHashes := hashFiles(root, afterPaths)
-		for p, h := range afterHashes {
-			if oldH, ok := beforeHashes[p]; !ok || oldH != h {
+		// A cancelled fix may already have rewritten files: compare the tree
+		// with a context that still lets git run, so the report is honest.
+		inspectCtx, inspectCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		afterPaths := repo.StatusPaths(inspectCtx)
+		inspectCancel()
+		paths := make(map[string]bool, len(beforePaths)+len(afterPaths))
+		for _, p := range beforePaths {
+			paths[p] = true
+		}
+		for _, p := range afterPaths {
+			if _, present := paths[p]; !present {
+				paths[p] = false
+			}
+		}
+		allPaths := make([]string, 0, len(paths))
+		for p := range paths {
+			allPaths = append(allPaths, p)
+		}
+		afterHashes := hashFiles(root, allPaths)
+		for p, wasDirty := range paths {
+			before, existedBefore := beforeHashes[p]
+			after, existsAfter := afterHashes[p]
+			// A new status path changed from clean, including deletions. For
+			// pre-existing changes, compare existence as well as content, even
+			// when restoring HEAD makes the path disappear from git status.
+			if !wasDirty || existedBefore != existsAfter || before != after {
 				changedFiles = append(changedFiles, p)
 			}
 		}
@@ -308,7 +332,7 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 		warnings = make([]string, 0)
 	}
 
-	return QualityReport{
+	rep := QualityReport{
 		Root:         root,
 		Initialized:  initialized,
 		Mode:         modeStr,
@@ -317,7 +341,13 @@ func RunQuality(ctx context.Context, dir string, env sys.Env, req QualityRequest
 		Steps:        stepResults,
 		ChangedFiles: changedFiles,
 		Warnings:     warnings,
-	}, nil
+	}
+	// Only a fix can leave the tree changed, so only a fix reports its
+	// cancellation as an error; the report still lists what changed.
+	if req.Mode == quality.FixMode && ctx.Err() != nil {
+		return rep, fmt.Errorf("cancelled: %w", ctx.Err())
+	}
+	return rep, nil
 }
 
 func hashFiles(root string, paths []string) map[string]string {

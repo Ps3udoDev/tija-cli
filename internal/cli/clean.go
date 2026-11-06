@@ -26,7 +26,7 @@ func newCleanCommentsCmd(deps Deps) *cobra.Command {
 		Short: "Clean comment slop from JS/TS code with verified edits",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o := newOutput(cmd, deps)
-			dir, err := workDir()
+			dir, err := deps.workDir()
 			if err != nil {
 				return err
 			}
@@ -49,6 +49,7 @@ func newCleanCommentsCmd(deps Deps) *cobra.Command {
 			diff, _ := cmd.Flags().GetBool("diff")
 			all, _ := cmd.Flags().GetBool("all")
 			noAgent, _ := cmd.Flags().GetBool("no-agent")
+			agent, _ := cmd.Flags().GetString("agent")
 			force, _ := cmd.Flags().GetBool("force")
 
 			req := engine.CleanRequest{
@@ -58,6 +59,7 @@ func newCleanCommentsCmd(deps Deps) *cobra.Command {
 				Unsafe:       unsafe,
 				Diff:         diff,
 				NoAgent:      noAgent,
+				Agent:        agent,
 				Force:        force,
 				Concurrency:  concurrency,
 				AgentTimeout: agentTimeout,
@@ -92,6 +94,7 @@ func newCleanCommentsCmd(deps Deps) *cobra.Command {
 	cmd.Flags().Bool("diff", false, "Show unified diff of changes")
 	cmd.Flags().Bool("all", false, "Include all files matching manifest include/exclude")
 	cmd.Flags().Bool("no-agent", false, "Only run deterministic rules")
+	cmd.Flags().String("agent", "", "Agent: claude, codex, gemini or none (default: manifest)")
 	cmd.Flags().Bool("force", false, "Include untracked files")
 	cmd.Flags().Int("concurrency", 2, "Number of concurrent agent batches")
 	cmd.Flags().Duration("agent-timeout", 3*time.Minute, "Timeout for agent batch calls")

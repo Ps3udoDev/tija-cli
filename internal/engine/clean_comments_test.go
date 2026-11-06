@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -745,5 +746,83 @@ func TestCleanKeepsSoleCommentOfEmptyBlock(t *testing.T) {
 		if strings.Contains(c.stdin, "Fallback") {
 			t.Errorf("sole block comment was sent to the agent")
 		}
+	}
+}
+
+func TestCommentsCleanCancelBeforeWrite(t *testing.T) {
+	repo := setupCommentsRepo(t)
+	compPath := filepath.Join(repo, "src", "Component.jsx")
+	before, err := os.ReadFile(compPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// The agent answers normally, but the caller cancels while it does.
+	env, _ := commentFakeEnv(func(stdin string) string {
+		cancel()
+		return dynamicCommentClassifications(stdin)
+	})
+
+	_, err = CleanComments(ctx, repo, env, CleanRequest{Write: true, All: true}, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+	after, err := os.ReadFile(compPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Errorf("a cancelled clean wrote files")
+	}
+	if _, err := os.Stat(filepath.Join(repo, ".tija", "session", "comments.json")); err == nil {
+		t.Errorf("a cancelled clean saved its session")
+	}
+}
+
+func TestCommentsCleanCancelDuringPostCheck(t *testing.T) {
+	repo := setupCommentsRepo(t)
+	env, _ := commentFakeEnv(dynamicCommentClassifications)
+	look := env.LookPath
+	env.LookPath = func(name string) (string, error) {
+		if name == "biome" {
+			return "/fake/bin/biome", nil
+		}
+		return look(name)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	biomeRuns := 0
+	origRun := env.Run
+	env.Run = func(c context.Context, dir, name string, args ...string) (string, string, int, error) {
+		if strings.HasSuffix(name, "biome") {
+			biomeRuns++
+			if biomeRuns == 1 {
+				return "", "", 0, nil
+			}
+			// The regression check after writing is interrupted.
+			cancel()
+			return "", "", -1, context.Canceled
+		}
+		return origRun(c, dir, name, args...)
+	}
+
+	rep, err := CleanComments(ctx, repo, env, CleanRequest{Write: true, All: true}, nil)
+	if err != nil {
+		t.Fatalf("CleanComments: %v", err)
+	}
+	if rep.PostCheck != "skipped: cancelled" {
+		t.Errorf("PostCheck = %q, want %q", rep.PostCheck, "skipped: cancelled")
+	}
+	written := false
+	for _, f := range rep.Files {
+		if strings.HasSuffix(f.Path, "Component.jsx") && f.Status == "written" {
+			written = true
+		}
+	}
+	if !written {
+		t.Errorf("expected Component.jsx written, files = %+v", rep.Files)
 	}
 }

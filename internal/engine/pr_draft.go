@@ -28,6 +28,7 @@ const (
 
 // DraftMeta describes how and for which commit a draft was produced.
 type DraftMeta struct {
+	Evidence []EvidenceRef     `json:"evidence,omitempty"`
 	Head     string            `json:"head"`
 	Branch   string            `json:"branch"`
 	Target   string            `json:"target"`

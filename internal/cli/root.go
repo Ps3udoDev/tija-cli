@@ -35,7 +35,10 @@ func (e *ExitError) Unwrap() error { return e.Err }
 
 // Deps are the injectable dependencies of the CLI.
 type Deps struct {
-	Env   sys.Env
+	Env sys.Env
+	// Dir, when set, replaces the process working directory as the place
+	// commands resolve the repository from.
+	Dir   string
 	IsTTY func(any) bool
 	// RunTUI starts the interactive UI; nil means tui.Run with the current version and Env.
 	RunTUI func(dir string) error
@@ -107,6 +110,12 @@ func ExecuteWithContext(ctx context.Context, deps Deps, args []string, in io.Rea
 	if !jsonOut {
 		jsonOut = slices.Contains(args, "--json")
 	}
+	// MCP reserves stdout for JSON-RPC even when --json is inherited.
+	if jsonOut {
+		if executed, _, findErr := root.Find(args); findErr == nil && executed.CommandPath() == "tija mcp serve" {
+			jsonOut = false
+		}
+	}
 	if jsonOut {
 		render.JSONError(out, code, err)
 		return code
@@ -167,6 +176,7 @@ func NewRoot(deps Deps, in io.Reader) *cobra.Command {
 		newCleanCmd(deps),
 		newReportCmd(deps),
 		newRunCmd(deps, in),
+		newMCPCmd(deps),
 	)
 	return root
 }
@@ -198,4 +208,12 @@ func newOutput(cmd *cobra.Command, deps Deps) output {
 func isTTY(deps Deps, v any) bool { return deps.IsTTY != nil && deps.IsTTY(v) }
 
 // workDir is the directory commands operate on.
-func workDir() (string, error) { return os.Getwd() }
+// workDir is the directory commands resolve the repository from: Deps.Dir
+// when set (the MCP server pins workflow steps to its root), else the
+// process working directory.
+func (d Deps) workDir() (string, error) {
+	if d.Dir != "" {
+		return d.Dir, nil
+	}
+	return os.Getwd()
+}

@@ -1,0 +1,1514 @@
+[
+  {
+    "name": "comments_clean",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "description": "claude, codex, gemini o none; none aplica solo las reglas deterministas; omitido usa el default del CLI.",
+          "type": "string"
+        },
+        "all": {
+          "description": "Limpia todos los archivos soportados del repositorio.",
+          "type": "boolean"
+        },
+        "paths": {
+          "description": "Rutas relativas a la raíz; omitido limpia los archivos del diff.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "unsafe": {
+          "description": "Aplica también cambios inseguros (código comentado, reescrituras). Requiere write: true.",
+          "type": "boolean"
+        },
+        "write": {
+          "description": "Debe ser true para escribir; sin write devuelve el plan con su diff y no toca archivos.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "doctor",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "pr_create",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "draft": {
+          "description": "Abre el PR como borrador.",
+          "type": "boolean"
+        },
+        "evidenceRefs": {
+          "description": "Referencias de Qapture para la sección Evidencias. Si cambian respecto del borrador guardado, se prepara uno nuevo; una lista vacía quita las evidencias.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "cases": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "exportName": {
+                "type": "string"
+              },
+              "exportPath": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "project": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "project"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "write": {
+          "description": "Debe ser true para hacer push y abrir o actualizar el PR en GitHub. Sin write solo devuelve el plan.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "assign": {
+          "type": "boolean"
+        },
+        "assigned": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "cases": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "exportName": {
+                "type": "string"
+              },
+              "exportPath": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "project": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "project"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "existing": {
+          "type": "string"
+        },
+        "existingBase": {
+          "type": "string"
+        },
+        "number": {
+          "type": "integer"
+        },
+        "push": {
+          "type": "boolean"
+        },
+        "pushed": {
+          "type": "boolean"
+        },
+        "question": {
+          "type": "string"
+        },
+        "report": {
+          "additionalProperties": false,
+          "properties": {
+            "attempts": {
+              "type": "integer"
+            },
+            "body": {
+              "type": "string"
+            },
+            "branch": {
+              "type": "string"
+            },
+            "commits": {
+              "type": "integer"
+            },
+            "draftPath": {
+              "type": "string"
+            },
+            "evidence": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "cases": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "exportName": {
+                    "type": "string"
+                  },
+                  "exportPath": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "project": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "project"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "evidenceValidation": {
+              "additionalProperties": false,
+              "properties": {
+                "externalExistence": {
+                  "type": "string"
+                },
+                "structural": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "structural",
+                "externalExistence"
+              ],
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "files": {
+              "type": "integer"
+            },
+            "problems": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "message"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "root": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "target": {
+              "type": "string"
+            },
+            "tests": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "commit": {
+                    "type": "string"
+                  },
+                  "dirty": {
+                    "type": "boolean"
+                  },
+                  "durationMs": {
+                    "type": "integer"
+                  },
+                  "exitCode": {
+                    "type": "integer"
+                  },
+                  "hint": {
+                    "type": "string"
+                  },
+                  "kinds": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "log": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "startedAt": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "tests": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "failed": {
+                        "type": "integer"
+                      },
+                      "passed": {
+                        "type": "integer"
+                      },
+                      "skipped": {
+                        "type": "integer"
+                      },
+                      "total": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "total",
+                      "passed",
+                      "failed",
+                      "skipped"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ]
+                  },
+                  "timedOut": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kinds",
+                  "provider",
+                  "command",
+                  "status",
+                  "exitCode",
+                  "durationMs",
+                  "startedAt",
+                  "commit",
+                  "dirty"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "title": {
+              "type": "string"
+            },
+            "verdict": {
+              "additionalProperties": false,
+              "properties": {
+                "issueNumber": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                },
+                "suggested": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state",
+                "name"
+              ],
+              "type": "object"
+            },
+            "warnings": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            }
+          },
+          "required": [
+            "root",
+            "branch",
+            "target",
+            "verdict",
+            "title",
+            "body",
+            "source",
+            "attempts",
+            "problems",
+            "commits",
+            "files",
+            "tests",
+            "warnings",
+            "draftPath"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "type": "string"
+        },
+        "updated": {
+          "type": "boolean"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "pr_prepare",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "description": "claude, codex, gemini o none; none genera un borrador determinista; omitido usa el default del CLI.",
+          "type": "string"
+        },
+        "evidenceRefs": {
+          "description": "Referencias estructuradas de Qapture. Tija no comprueba su existencia; de exportPath solo conserva el nombre del archivo.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "cases": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "exportName": {
+                "type": "string"
+              },
+              "exportPath": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "project": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "project"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "noCheck": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts": {
+          "type": "integer"
+        },
+        "body": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "commits": {
+          "type": "integer"
+        },
+        "draftPath": {
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "cases": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "exportName": {
+                "type": "string"
+              },
+              "exportPath": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "project": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "project"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "evidenceValidation": {
+          "additionalProperties": false,
+          "properties": {
+            "externalExistence": {
+              "type": "string"
+            },
+            "structural": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "structural",
+            "externalExistence"
+          ],
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "files": {
+          "type": "integer"
+        },
+        "problems": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "field",
+              "message"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "root": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "tests": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "dirty": {
+                "type": "boolean"
+              },
+              "durationMs": {
+                "type": "integer"
+              },
+              "exitCode": {
+                "type": "integer"
+              },
+              "hint": {
+                "type": "string"
+              },
+              "kinds": {
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "log": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "startedAt": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "tests": {
+                "additionalProperties": false,
+                "properties": {
+                  "failed": {
+                    "type": "integer"
+                  },
+                  "passed": {
+                    "type": "integer"
+                  },
+                  "skipped": {
+                    "type": "integer"
+                  },
+                  "total": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "total",
+                  "passed",
+                  "failed",
+                  "skipped"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "timedOut": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kinds",
+              "provider",
+              "command",
+              "status",
+              "exitCode",
+              "durationMs",
+              "startedAt",
+              "commit",
+              "dirty"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "verdict": {
+          "additionalProperties": false,
+          "properties": {
+            "issueNumber": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "suggested": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "name"
+          ],
+          "type": "object"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "root",
+        "branch",
+        "target",
+        "verdict",
+        "title",
+        "body",
+        "source",
+        "attempts",
+        "problems",
+        "commits",
+        "files",
+        "tests",
+        "warnings",
+        "draftPath"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "quality_check",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "kinds": {
+          "description": "Tipos de comprobación: lint, format o test; omitido ejecuta todos como el CLI check.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "timeoutSec": {
+          "description": "Timeout positivo por proceso, en segundos; por defecto 600.",
+          "type": [
+            "null",
+            "integer"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "quality_fix",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "kinds": {
+          "description": "Tipos a corregir: lint o format; omitido corrige ambos, como tija lint --fix.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "write": {
+          "description": "Debe ser true para modificar archivos del repositorio. Sin write no se ejecuta nada.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "repo_context",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "repo_rules",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "repo_status",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "ahead": {
+          "type": "integer"
+        },
+        "behind": {
+          "type": "integer"
+        },
+        "branch": {
+          "additionalProperties": false,
+          "properties": {
+            "issueNumber": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "suggested": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "name"
+          ],
+          "type": "object"
+        },
+        "hasCommits": {
+          "type": "boolean"
+        },
+        "hasRemote": {
+          "type": "boolean"
+        },
+        "huskyWarning": {
+          "type": "boolean"
+        },
+        "published": {
+          "type": "boolean"
+        },
+        "root": {
+          "type": "string"
+        },
+        "staged": {
+          "type": "integer"
+        },
+        "target": {
+          "type": "string"
+        },
+        "targetFound": {
+          "type": "boolean"
+        },
+        "unstaged": {
+          "type": "integer"
+        },
+        "untracked": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "root",
+        "branch",
+        "target",
+        "targetFound",
+        "ahead",
+        "behind",
+        "staged",
+        "unstaged",
+        "untracked",
+        "hasRemote",
+        "published",
+        "hasCommits",
+        "huskyWarning"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "report_activity",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "description": "claude, codex, gemini o none; none solo recolecta. Omitido usa el default del CLI.",
+          "type": "string"
+        },
+        "agentTimeoutSec": {
+          "description": "Timeout positivo del agente en segundos; por defecto 300.",
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
+        "since": {
+          "description": "Inicio del período, inclusive, YYYY-MM-DD.",
+          "type": "string"
+        },
+        "until": {
+          "description": "Fin del período, inclusive, YYYY-MM-DD; no anterior a since ni posterior a hoy.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "review_run",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "description": "claude, codex, gemini o none; none ejecuta solo comprobaciones deterministas; omitido usa el default del CLI.",
+          "type": "string"
+        },
+        "failOn": {
+          "description": "Umbral: critical, high, medium, low o none.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "review, quality o deep; por defecto review.",
+          "type": "string"
+        },
+        "noCheck": {
+          "type": "boolean"
+        },
+        "noPRComments": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "string"
+        },
+        "chunks": {
+          "additionalProperties": false,
+          "properties": {
+            "failed": {
+              "type": "integer"
+            },
+            "total": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "total",
+            "failed"
+          ],
+          "type": "object"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "discarded": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "pass": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pass",
+              "file",
+              "line",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "exit": {
+          "type": "integer"
+        },
+        "failOn": {
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "confirmedBy": {
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "disputed": {
+                "type": "boolean"
+              },
+              "endLine": {
+                "type": "integer"
+              },
+              "evidence": {
+                "type": "string"
+              },
+              "explanation": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "passes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "prComments": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "author": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "line",
+                    "author",
+                    "body",
+                    "url"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "rule": {
+                "type": "string"
+              },
+              "severities": {
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "severity": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "suggestion": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "passes",
+              "file",
+              "line",
+              "endLine",
+              "severity",
+              "rule",
+              "title",
+              "explanation",
+              "suggestion",
+              "evidence",
+              "confirmedBy",
+              "disputed",
+              "severities",
+              "prComments"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "mode": {
+          "type": "string"
+        },
+        "prComments": {
+          "additionalProperties": false,
+          "properties": {
+            "read": {
+              "type": "boolean"
+            },
+            "uncovered": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "author": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": "integer"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "line",
+                  "author",
+                  "body",
+                  "url"
+                ],
+                "type": "object"
+              },
+              "type": [
+                "null",
+                "array"
+              ]
+            }
+          },
+          "required": [
+            "read",
+            "uncovered"
+          ],
+          "type": "object"
+        },
+        "quality": {
+          "additionalProperties": false,
+          "properties": {
+            "reused": {
+              "type": "boolean"
+            },
+            "status": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "reused",
+            "status"
+          ],
+          "type": "object"
+        },
+        "savedAt": {
+          "type": "string"
+        },
+        "summary": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "mode",
+        "base",
+        "commit",
+        "dirty",
+        "failOn",
+        "exit",
+        "quality",
+        "findings",
+        "discarded",
+        "prComments",
+        "chunks",
+        "summary",
+        "warnings"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "skills_list",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "workflow_run",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Nombre del workflow de .tija/workflows/ (por ejemplo pre-pr).",
+          "type": "string"
+        },
+        "publish": {
+          "description": "Autoriza los pasos pr create, que hacen push y publican en GitHub (requiere write).",
+          "type": "boolean"
+        },
+        "unsafe": {
+          "description": "Autoriza los pasos con --unsafe (requiere write).",
+          "type": "boolean"
+        },
+        "write": {
+          "description": "Autoriza los pasos que modifican archivos del repositorio y los que publican.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
+  }
+]

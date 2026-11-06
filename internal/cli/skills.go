@@ -33,7 +33,7 @@ func newSkillsListCmd(deps Deps) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			o := newOutput(cmd, deps)
-			dir, err := workDir()
+			dir, err := deps.workDir()
 			if err != nil {
 				return err
 			}
@@ -63,7 +63,7 @@ func newSkillsShowCmd(deps Deps) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o := newOutput(cmd, deps)
 			name := args[0]
-			dir, err := workDir()
+			dir, err := deps.workDir()
 			if err != nil {
 				return err
 			}
